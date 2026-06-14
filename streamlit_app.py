@@ -12,15 +12,15 @@ from google.oauth2.service_account import Credentials
 import json
 from datetime import date, timedelta
 
-# -- 페이지 설정 ----
+# ── 페이지 설정 ────────────────────────────────────────────────
 st.set_page_config(
     page_title="라라스윗 광고 대시보드",
-    page_icon="candy",
+    page_icon="🍬",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# -- 커스텀 CSS ----
+# ── 커스텀 CSS ─────────────────────────────────────────────────
 st.markdown("""
 <style>
     .block-container { padding-top: 1.2rem; padding-bottom: 1rem; max-width: 1400px; }
@@ -34,14 +34,14 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# -- 브랜드 컬러 ----
+# ── 브랜드 컬러 ────────────────────────────────────────────────
 BRAND   = "#E8500A"
 META_C  = "#1877F2"
 TIKTOK_C = "#000000"
 PALETTE = [BRAND, "#1877F2", "#1D9E75", "#7F77DD", "#D85A30", "#0F6E56"]
 
-# -- 데이터 로드 ----
-@st.cache_data(ttl=3600, show_spinner="데이터 불러오는 중...")
+# ── 데이터 로드 ────────────────────────────────────────────────
+@st.cache_data(ttl=3600, show_spinner="데이터 불러오는 중…")
 def load_data() -> pd.DataFrame:
     creds = Credentials.from_service_account_info(
         dict(st.secrets["gcp_service_account"]),
@@ -52,6 +52,7 @@ def load_data() -> pd.DataFrame:
     records = ws.get_all_records()
     df = pd.DataFrame(records)
 
+    # 타입 변환
     df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce")
     for col in ["광고비 (KRW)", "노출", "클릭", "전환수", "CTR (%)", "CPA (KRW)",
                 "CPC (KRW)", "영상조회 3초+", "ThruPlay"]:
@@ -65,62 +66,64 @@ def load_data() -> pd.DataFrame:
     return df.sort_values("날짜")
 
 
+# ── 데이터 로드 (에러 처리) ────────────────────────────────────
 try:
     df = load_data()
 except Exception as e:
-    st.error(f"데이터를 불러오지 못했어요: {e}")
-    st.info(".streamlit/secrets.toml 설정을 확인해주세요.")
+    st.error(f"❌ 데이터를 불러오지 못했어요: `{e}`")
+    st.info("👉 `.streamlit/secrets.toml` 설정을 확인해주세요.")
     st.stop()
 
 if df.empty:
     st.warning("시트에 데이터가 없어요.")
     st.stop()
 
-# -- 사이드바 필터 ----
+# ── 사이드바 필터 ──────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("## 라라스윗 광고 대시보드")
+    st.image("https://via.placeholder.com/160x40/E8500A/ffffff?text=LaraSweet", width=160)
     st.markdown("---")
 
+    # 기간
     min_date = df["날짜"].min().date()
     max_date = df["날짜"].max().date()
     default_start = max(min_date, max_date - timedelta(days=89))
 
-    st.markdown("**기간**")
+    st.markdown("**📅 기간**")
     col1, col2 = st.columns(2)
     with col1:
         start_date = st.date_input("시작", value=default_start, min_value=min_date, max_value=max_date, label_visibility="collapsed")
     with col2:
         end_date = st.date_input("종료", value=max_date, min_value=min_date, max_value=max_date, label_visibility="collapsed")
 
-    st.markdown("**브랜드/상품명**")
-    brands = ["전체"] + sorted(df["브랜드/상품명"].dropna().unique().tolist())
-    sel_brand = st.selectbox("브랜드", brands, label_visibility="collapsed")
+    st.markdown("**📦 스킴명**")
+    brands = ["전체"] + sorted(df["스킴명"].dropna().unique().tolist())
+    sel_brand = st.selectbox("스킴명", brands, label_visibility="collapsed")
 
-    st.markdown("**소재유형**")
-    types = ["전체"] + sorted(df["소재유형"].dropna().unique().tolist())
+    st.markdown("**📢 소재유형**")
+    types = ["전체"] + sorted(df["대분류 포맷"].dropna().unique().tolist())
     sel_type = st.selectbox("소재유형", types, label_visibility="collapsed")
 
-    st.markdown("**매체**")
+    st.markdown("**📺 매체**")
     media_opts = ["전체"] + sorted(df["매체"].dropna().unique().tolist())
     sel_media = st.selectbox("매체", media_opts, label_visibility="collapsed")
 
     st.markdown("---")
-    if st.button("데이터 새로고침"):
+    if st.button("🔄 데이터 새로고침"):
         st.cache_data.clear()
         st.rerun()
 
     st.caption(f"최근 업데이트: {max_date}")
 
 
-# -- 필터 적용 ----
+# ── 필터 적용 ──────────────────────────────────────────────────
 mask = (
     (df["날짜"].dt.date >= start_date) &
     (df["날짜"].dt.date <= end_date)
 )
 if sel_brand != "전체":
-    mask &= df["브랜드/상품명"] == sel_brand
+    mask &= df["스킴명"] == sel_brand
 if sel_type != "전체":
-    mask &= df["소재유형"] == sel_type
+    mask &= df["대분류 포맷"] == sel_type
 if sel_media != "전체":
     mask &= df["매체"] == sel_media
 
@@ -131,7 +134,7 @@ if fdf.empty:
     st.stop()
 
 
-# -- KPI 집계 ----
+# ── KPI 집계 ───────────────────────────────────────────────────
 def calc_kpi(d: pd.DataFrame) -> dict:
     spend  = d["광고비 (KRW)"].sum()
     imp    = d["노출"].sum()
@@ -146,10 +149,10 @@ kpi = calc_kpi(fdf)
 
 def fmt_krw(v):
     if v >= 1_000_000:
-        return f"W{v/1_000_000:.1f}M"
+        return f"₩{v/1_000_000:.1f}M"
     elif v >= 1_000:
-        return f"W{v/1_000:.0f}K"
-    return f"W{v:,.0f}"
+        return f"₩{v/1_000:.0f}K"
+    return f"₩{v:,.0f}"
 
 def fmt_num(v):
     if v >= 1_000_000:
@@ -159,21 +162,24 @@ def fmt_num(v):
     return f"{v:,.0f}"
 
 
-tab1, tab2, tab3, tab4 = st.tabs(["전체 요약", "매체별", "소재별", "제품별"])
+# ── 탭 ────────────────────────────────────────────────────────
+tab1, tab2, tab3, tab4 = st.tabs(["📊 전체 요약", "📺 매체별", "🎨 소재별", "📦 제품별"])
 
 
+# ── 공통: KPI 카드 ─────────────────────────────────────────────
 def render_kpi(kpi: dict):
     c1, c2, c3, c4, c5, c6 = st.columns(6)
-    c1.metric("광고비", fmt_krw(kpi["spend"]))
-    c2.metric("노출",   fmt_num(kpi["imp"]))
-    c3.metric("클릭",   fmt_num(kpi["clk"]))
-    c4.metric("전환수", fmt_num(kpi["conv"]))
-    c5.metric("CTR",    f"{kpi['ctr']:.2f}%")
-    c6.metric("CPA",    fmt_krw(kpi["cpa"]))
+    c1.metric("💰 광고비", fmt_krw(kpi["spend"]))
+    c2.metric("👁 노출",   fmt_num(kpi["imp"]))
+    c3.metric("🖱 클릭",   fmt_num(kpi["clk"]))
+    c4.metric("🛒 전환수", fmt_num(kpi["conv"]))
+    c5.metric("📈 CTR",    f"{kpi['ctr']:.2f}%")
+    c6.metric("🎯 CPA",    fmt_krw(kpi["cpa"]))
 
 
-DISPLAY_COLS = ["날짜", "매체", "브랜드/상품명", "광고그룹명", "소재명",
-                "소재유형", "노출", "클릭", "CTR (%)", "광고비 (KRW)",
+# ── 공통: 정렬된 테이블 ───────────────────────────────────────
+DISPLAY_COLS = ["날짜", "매체", "스킴명", "광고그룹명", "소재명",
+                "대분류 포맷", "노출", "클릭", "CTR (%)", "광고비 (KRW)",
                 "전환수", "CPA (KRW)"]
 
 def render_table(d: pd.DataFrame, cols=None):
@@ -183,14 +189,16 @@ def render_table(d: pd.DataFrame, cols=None):
         styled["날짜"] = styled["날짜"].dt.strftime("%Y-%m-%d")
     for c in ["광고비 (KRW)", "CPA (KRW)", "CPC (KRW)"]:
         if c in styled.columns:
-            styled[c] = styled[c].apply(lambda x: f"W{x:,.0f}")
+            styled[c] = styled[c].apply(lambda x: f"₩{x:,.0f}")
     for c in ["CTR (%)"]:
         if c in styled.columns:
             styled[c] = styled[c].apply(lambda x: f"{x:.2f}%")
     st.dataframe(styled, use_container_width=True, hide_index=True)
 
 
-# TAB 1
+# ══════════════════════════════════════════════════════════════
+# TAB 1: 전체 요약
+# ══════════════════════════════════════════════════════════════
 with tab1:
     render_kpi(kpi)
     st.markdown("---")
@@ -228,8 +236,8 @@ with tab1:
 
     col_a, col_b = st.columns(2)
     with col_a:
-        by_type = fdf.groupby("소재유형")["광고비 (KRW)"].sum().reset_index()
-        fig2 = px.pie(by_type, names="소재유형", values="광고비 (KRW)",
+        by_type = fdf.groupby("대분류 포맷")["광고비 (KRW)"].sum().reset_index()
+        fig2 = px.pie(by_type, names="대분류 포맷", values="광고비 (KRW)",
                       title="소재유형별 광고비 비중",
                       color_discrete_sequence=PALETTE)
         fig2.update_layout(height=300, margin=dict(t=50, b=20),
@@ -250,11 +258,13 @@ with tab1:
                            yaxis_title="CPA (KRW)")
         st.plotly_chart(fig3, use_container_width=True)
 
-    st.markdown("**상세 데이터**")
+    st.markdown("**📋 상세 데이터**")
     render_table(fdf.sort_values("날짜", ascending=False).head(200))
 
 
-# TAB 2
+# ══════════════════════════════════════════════════════════════
+# TAB 2: 매체별
+# ══════════════════════════════════════════════════════════════
 with tab2:
     render_kpi(kpi)
     st.markdown("---")
@@ -298,17 +308,18 @@ with tab2:
     tbl["CTR (%)"] = (tbl["클릭"] / tbl["노출"] * 100).round(2)
     tbl["CPA (KRW)"] = (tbl["광고비"] / tbl["전환수"].replace(0, float("nan"))).fillna(0).astype(int)
     tbl = tbl.rename(columns={"광고비": "광고비 (KRW)"})
-
     st.markdown("**매체별 집계**")
     st.dataframe(tbl, use_container_width=True, hide_index=True)
 
 
-# TAB 3
+# ══════════════════════════════════════════════════════════════
+# TAB 3: 소재별
+# ══════════════════════════════════════════════════════════════
 with tab3:
     render_kpi(kpi)
     st.markdown("---")
 
-    group_by = st.radio("그룹 기준", ["광고그룹명", "소재명", "소재유형"], horizontal=True)
+    group_by = st.radio("그룹 기준", ["광고그룹명", "소재명", "대분류 포맷"], horizontal=True)
 
     by_creative = (
         fdf.groupby(group_by)
@@ -348,14 +359,16 @@ with tab3:
     st.dataframe(tbl, use_container_width=True, hide_index=True)
 
 
-# TAB 4
+# ══════════════════════════════════════════════════════════════
+# TAB 4: 제품별
+# ══════════════════════════════════════════════════════════════
 with tab4:
     kpi4 = calc_kpi(fdf[fdf["매체"].isin(["Meta", "TikTok"])])
     render_kpi(kpi4)
     st.markdown("---")
 
     by_brand = (
-        fdf.groupby("브랜드/상품명")
+        fdf.groupby("스킴명")
         .agg(
             광고비=("광고비 (KRW)", "sum"),
             노출=("노출", "sum"),
@@ -372,15 +385,15 @@ with tab4:
 
     col_a, col_b = st.columns(2)
     with col_a:
-        fig = px.pie(by_brand.head(10), names="브랜드/상품명", values="광고비",
-                     title="브랜드별 광고비 비중 (Top 10)",
+        fig = px.pie(by_brand.head(10), names="스킴명", values="광고비",
+                     title="스킴별 광고비 비중 (Top 10)",
                      color_discrete_sequence=PALETTE)
         fig.update_layout(height=320, paper_bgcolor="white", margin=dict(t=50))
         st.plotly_chart(fig, use_container_width=True)
 
     with col_b:
-        fig = px.bar(by_brand.head(10), x="브랜드/상품명", y="CPA (KRW)",
-                     title="브랜드별 CPA (Top 10)",
+        fig = px.bar(by_brand.head(10), x="스킴명", y="CPA (KRW)",
+                     title="스킴별 CPA (Top 10)",
                      color_discrete_sequence=[BRAND],
                      text_auto=".0f")
         fig.update_layout(height=320, plot_bgcolor="white", paper_bgcolor="white",
@@ -388,6 +401,6 @@ with tab4:
                           xaxis=dict(tickangle=-30))
         st.plotly_chart(fig, use_container_width=True)
 
-    st.markdown("**브랜드/상품명별 전체 집계**")
+    st.markdown("**스킴명별 전체 집계**")
     tbl = by_brand.rename(columns={"광고비": "광고비 (KRW)"})
     st.dataframe(tbl, use_container_width=True, hide_index=True)
