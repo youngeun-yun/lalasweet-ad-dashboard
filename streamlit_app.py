@@ -23,7 +23,7 @@ st.set_page_config(
 # ── 커스텀 CSS ─────────────────────────────────────────────────
 st.markdown("""
 <style>
-    .block-container { padding-top: 1.2rem; padding-bottom: 1rem; max-width: 1400px; }
+    .block-container { padding-top: 3rem; padding-bottom: 1rem; max-width: 1400px; }
     [data-testid="stMetricValue"] { font-size: 1.75rem; font-weight: 600; }
     [data-testid="stMetricLabel"] { font-size: 0.8rem; color: #888; }
     [data-testid="stMetricDelta"] { font-size: 0.85rem; }
@@ -95,17 +95,17 @@ with st.sidebar:
     with col2:
         end_date = st.date_input("종료", value=max_date, min_value=min_date, max_value=max_date, label_visibility="collapsed")
 
-    st.markdown("**📦 스킴명**")
-    brands = ["전체"] + sorted(df["스킴명"].dropna().unique().tolist())
-    sel_brand = st.selectbox("스킴명", brands, label_visibility="collapsed")
+    st.markdown("**📺 매체**")
+    media_opts = ["전체"] + sorted(df["매체"].dropna().unique().tolist())
+    sel_media = st.selectbox("매체", media_opts, label_visibility="collapsed")
 
     st.markdown("**📢 소재유형**")
     types = ["전체"] + sorted(df["대분류 포맷"].dropna().unique().tolist())
     sel_type = st.selectbox("소재유형", types, label_visibility="collapsed")
 
-    st.markdown("**📺 매체**")
-    media_opts = ["전체"] + sorted(df["매체"].dropna().unique().tolist())
-    sel_media = st.selectbox("매체", media_opts, label_visibility="collapsed")
+    st.markdown("**📦 스킴명**")
+    brands = ["전체"] + sorted(df["스킴명"].dropna().unique().tolist())
+    sel_brand = st.selectbox("스킴명", brands, label_visibility="collapsed")
 
     st.markdown("---")
     if st.button("🔄 데이터 새로고침"):
@@ -148,18 +148,10 @@ kpi = calc_kpi(fdf)
 
 
 def fmt_krw(v):
-    if v >= 1_000_000:
-        return f"₩{v/1_000_000:.1f}M"
-    elif v >= 1_000:
-        return f"₩{v/1_000:.0f}K"
-    return f"₩{v:,.0f}"
+    return f"₩{int(v):,}"
 
 def fmt_num(v):
-    if v >= 1_000_000:
-        return f"{v/1_000_000:.2f}M"
-    elif v >= 1_000:
-        return f"{v/1_000:.1f}K"
-    return f"{v:,.0f}"
+    return f"{int(v):,}"
 
 
 # ── 탭 ────────────────────────────────────────────────────────
@@ -189,7 +181,7 @@ def render_table(d: pd.DataFrame, cols=None):
         styled["날짜"] = styled["날짜"].dt.strftime("%Y-%m-%d")
     for c in ["광고비 (KRW)", "CPA (KRW)", "CPC (KRW)"]:
         if c in styled.columns:
-            styled[c] = styled[c].apply(lambda x: f"₩{x:,.0f}")
+            styled[c] = styled[c].apply(lambda x: f"₩{int(x):,}")
     for c in ["CTR (%)"]:
         if c in styled.columns:
             styled[c] = styled[c].apply(lambda x: f"{x:.2f}%")
