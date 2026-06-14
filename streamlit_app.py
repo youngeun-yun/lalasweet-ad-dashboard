@@ -29,6 +29,13 @@ st.markdown("""
     [data-testid="stMetricLabel"] { font-size: 0.8rem; color: #888; }
     [data-testid="stMetricDelta"] { font-size: 0.85rem; }
     [data-testid="stSidebar"] { background: #fafafa; }
+    [data-testid="stSidebar"] h2 { font-size: 0.95rem !important; margin-bottom: 0.2rem; }
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] .stMarkdown p { font-size: 0.75rem !important; }
+    [data-testid="stSidebar"] [data-testid="stMultiSelect"] { font-size: 0.75rem; }
+    [data-testid="stSidebar"] button { font-size: 0.75rem !important; }
+    [data-testid="stSidebar"] .stCaption { font-size: 0.68rem !important; }
     div[data-testid="stTabs"] button { font-size: 0.9rem; font-weight: 500; }
     .stDataFrame { border-radius: 8px; overflow: hidden; }
     footer { visibility: hidden; }
@@ -36,10 +43,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── 브랜드 컬러 (파스텔 톤) ────────────────────────────────────
-BRAND   = "#F4845F"   # 소프트 코랄
-META_C  = "#7BAFD4"   # 뮤트 블루
+BRAND   = "#F4845F"
+META_C  = "#7BAFD4"
+# 메인 팔레트 (파이/소재 등 일반용)
 PALETTE = ["#F4845F", "#7BAFD4", "#82C9A7", "#B5A8E0",
            "#F7B97A", "#85C1B2", "#F49AC2", "#A8D5BA"]
+# 바차트 전용: warm/cool 교차 배열 → 인접 막대 색 겹침 방지
+BAR_PALETTE = ["#F4845F", "#7BAFD4", "#F7B97A", "#82C9A7",
+               "#F49AC2", "#B5A8E0", "#E8A87C", "#85C1B2"]
 
 # ── 데이터 로드 ────────────────────────────────────────────────
 @st.cache_data(ttl=3600, show_spinner="데이터 불러오는 중…")
@@ -53,7 +64,6 @@ def load_data() -> pd.DataFrame:
     records = ws.get_all_records()
     df = pd.DataFrame(records)
 
-    # 타입 변환
     df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce")
     for col in ["광고비 (KRW)", "노출", "클릭", "전환수", "CTR (%)", "CPA (KRW)",
                 "CPC (KRW)", "영상조회 3초+", "ThruPlay"]:
@@ -67,7 +77,6 @@ def load_data() -> pd.DataFrame:
     return df.sort_values("날짜")
 
 
-# ── 데이터 로드 (에러 처리) ────────────────────────────────────
 try:
     df = load_data()
 except Exception as e:
@@ -86,60 +95,39 @@ with st.sidebar:
     st.markdown("## 🍬 라라스윗 제과 전환광고")
     st.markdown("---")
 
-    # ── 기간 필터 (연도 → 월 → 일) ──────────────────────────────
-    actual_min = df["날짜"].min().date()
-    actual_max = df["날짜"].max().date()
-
-    st.markdown("**📅 연도**")
-    year_opts = sorted(df["날짜"].dt.year.unique().tolist(), reverse=True)
-    sel_year = st.selectbox("연도", year_opts, label_visibility="collapsed")
-
-    st.markdown("**📅 월**")
-    months_avail = sorted(df[df["날짜"].dt.year == sel_year]["날짜"].dt.month.unique().tolist())
-    month_opts = ["전체"] + [f"{m}월" for m in months_avail]
-    sel_month_str = st.selectbox("월", month_opts, label_visibility="collapsed")
-
-    # 선택된 연/월에 맞춰 일자 범위 계산
-    if sel_month_str == "전체":
-        period_min = date(sel_year, 1, 1)
-        period_max = date(sel_year, 12, 31)
-    else:
-        m = int(sel_month_str.replace("월", ""))
-        period_min = date(sel_year, m, 1)
-        period_max = date(sel_year, m, calendar.monthrange(sel_year, m)[1])
-
-    period_min = max(period_min, actual_min)
-    period_max = min(period_max, actual_max)
-
-    st.markdown("**📅 일자**")
-    col1, col2 = st.columns(2)
-    with col1:
-        start_date = st.date_input("시작", value=period_min, min_value=period_min, max_value=period_max, label_visibility="collapsed")
-    with col2:
-        end_date = st.date_input("종료", value=period_max, min_value=period_min, max_value=period_max, label_visibility="collapsed")
-
-    # 노출 > 0 이고 공백 아닌 값만 추출하는 헬퍼
+    # 노출 > 0 이고 공백 아닌 값만 추출
     def valid_opts(col):
         grp = df.groupby(col)["노출"].sum()
         return sorted([str(v) for v, imp in grp.items()
                        if str(v).strip() != "" and imp > 0])
 
-    st.markdown("**📺 매체** (복수 선택 가능)")
+    st.markdown("**📅 연도**")
+    year_opts = sorted(df["날짜"].dt.year.unique().tolist(), reverse=True)
+    sel_years = st.multiselect("연도", year_opts, placeholder="전체",
+                               label_visibility="collapsed")
+
+    st.markdown("**📅 월**")
+    avail_months = sorted(df["날짜"].dt.month.unique().tolist())
+    month_labels = [f"{m}월" for m in avail_months]
+    sel_months = st.multiselect("월", month_labels, placeholder="전체",
+                                label_visibility="collapsed")
+
+    st.markdown("**📺 매체**")
     media_opts = valid_opts("매체")
     sel_media = st.multiselect("매체", media_opts, placeholder="전체",
                                label_visibility="collapsed")
 
-    st.markdown("**🎬 광고유형** (복수 선택 가능)")
+    st.markdown("**🎬 광고유형**")
     adtype_opts = valid_opts("영상/이미지 구분")
     sel_adtype = st.multiselect("광고유형", adtype_opts, placeholder="전체",
                                 label_visibility="collapsed")
 
-    st.markdown("**📦 제품코드** (복수 선택 가능)")
+    st.markdown("**📦 제품코드**")
     prodcode_opts = valid_opts("제품코드")
     sel_prodcode = st.multiselect("제품코드", prodcode_opts, placeholder="전체",
                                   label_visibility="collapsed")
 
-    st.markdown("**🎪 이벤트명** (복수 선택 가능)")
+    st.markdown("**🎪 이벤트명**")
     event_opts = valid_opts("스킴명")
     sel_event = st.multiselect("이벤트명", event_opts, placeholder="전체",
                                label_visibility="collapsed")
@@ -153,10 +141,12 @@ with st.sidebar:
 
 
 # ── 필터 적용 ──────────────────────────────────────────────────
-mask = (
-    (df["날짜"].dt.date >= start_date) &
-    (df["날짜"].dt.date <= end_date)
-)
+mask = pd.Series([True] * len(df), index=df.index)
+if sel_years:
+    mask &= df["날짜"].dt.year.isin(sel_years)
+if sel_months:
+    sel_month_nums = [int(m.replace("월", "")) for m in sel_months]
+    mask &= df["날짜"].dt.month.isin(sel_month_nums)
 if sel_media:
     mask &= df["매체"].astype(str).isin(sel_media)
 if sel_adtype:
@@ -185,7 +175,6 @@ def calc_kpi(d: pd.DataFrame) -> dict:
 
 kpi = calc_kpi(fdf)
 
-
 def fmt_krw(v):
     return f"₩{int(v):,}"
 
@@ -208,7 +197,7 @@ def render_kpi(kpi: dict):
     c6.metric("🎯 CPA",    fmt_krw(kpi["cpa"]))
 
 
-# ── 공통: 정렬된 테이블 ───────────────────────────────────────
+# ── 공통: 테이블 ─────────────────────────────────────────────
 DISPLAY_COLS = ["날짜", "매체", "스킴명", "광고그룹명", "소재명",
                 "대분류 포맷", "노출", "클릭", "CTR (%)", "광고비 (KRW)",
                 "전환수", "CPA (KRW)"]
@@ -234,7 +223,7 @@ with tab1:
     render_kpi(kpi)
     st.markdown("---")
 
-    # 일별 광고비 (제품코드별 stacked) + CPA 라인
+    # 일별 광고비 (제품코드별 stacked, 지출 내림차순 정렬) + CPA 라인
     daily_prod = (
         fdf.groupby([fdf["날짜"].dt.date, "제품코드"])
         .agg(spend=("광고비 (KRW)", "sum"))
@@ -257,7 +246,12 @@ with tab1:
     daily_cpa["CPC"] = (daily_cpa["spend"] / daily_cpa["clk"].replace(0, float("nan"))).fillna(0)
     daily_cpa["CVR"] = (daily_cpa["conv"] / daily_cpa["clk"].replace(0, float("nan")) * 100).fillna(0)
 
-    PROD_COLORS = PALETTE
+    # 제품코드별 총 지출 내림차순 → 색 배정
+    prod_spend_total = (
+        daily_prod.groupby("제품코드")["spend"].sum()
+        .sort_values(ascending=False)
+    )
+    prod_codes_sorted = prod_spend_total.index.tolist()
 
     # 그래프 / 테이블 토글
     hdr_col, btn_col = st.columns([6, 1])
@@ -269,20 +263,19 @@ with tab1:
 
     if view_mode == "그래프":
         fig = go.Figure()
-        prod_codes = sorted(daily_prod["제품코드"].dropna().unique().tolist())
-        for i, pc in enumerate(prod_codes):
+        for i, pc in enumerate(prod_codes_sorted):
             d = daily_prod[daily_prod["제품코드"] == pc]
             fig.add_bar(
                 x=d["date"], y=d["spend_man"],
                 name=str(pc),
-                marker_color=PROD_COLORS[i % len(PROD_COLORS)],
+                marker_color=BAR_PALETTE[i % len(BAR_PALETTE)],
                 yaxis="y1",
                 hovertemplate=f"<b>{pc}</b><br>날짜: %{{x}}<br>광고비: %{{y:,.0f}}만원<extra></extra>",
             )
         fig.add_scatter(
             x=daily_cpa["date"], y=daily_cpa["CPA"],
             name="CPA", mode="lines+markers",
-            line=dict(color="#82C9A7", width=2.5),
+            line=dict(color="#9B8EC4", width=2.5),
             marker=dict(size=6), yaxis="y2",
             hovertemplate="날짜: %{x}<br>CPA: %{y:,.0f}원<extra></extra>",
         )
@@ -316,7 +309,6 @@ with tab1:
         })
         st.dataframe(daily_display, use_container_width=True, hide_index=True)
 
-    # 광고유형별 파이 + 매체별 광고비 비중 파이
     col_a, col_b = st.columns(2)
     with col_a:
         by_adtype = fdf.groupby("영상/이미지 구분")["광고비 (KRW)"].sum().reset_index()
@@ -338,7 +330,6 @@ with tab1:
 
     st.markdown("---")
 
-    # ── 월별 데이터 추이 ──────────────────────────────────────────
     def build_summary_table(data: pd.DataFrame, group_col: str, label_fn=None) -> pd.DataFrame:
         grp = (
             data.groupby(group_col)
