@@ -35,11 +35,11 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ── 브랜드 컬러 ────────────────────────────────────────────────
-BRAND   = "#E8500A"
-META_C  = "#1877F2"
-TIKTOK_C = "#000000"
-PALETTE = [BRAND, "#1877F2", "#1D9E75", "#7F77DD", "#D85A30", "#0F6E56"]
+# ── 브랜드 컬러 (파스텔 톤) ────────────────────────────────────
+BRAND   = "#F4845F"   # 소프트 코랄
+META_C  = "#7BAFD4"   # 뮤트 블루
+PALETTE = ["#F4845F", "#7BAFD4", "#82C9A7", "#B5A8E0",
+           "#F7B97A", "#85C1B2", "#F49AC2", "#A8D5BA"]
 
 # ── 데이터 로드 ────────────────────────────────────────────────
 @st.cache_data(ttl=3600, show_spinner="데이터 불러오는 중…")
@@ -83,7 +83,7 @@ if df.empty:
 max_date = df["날짜"].max().strftime("%Y-%m-%d")
 
 with st.sidebar:
-    st.image("https://via.placeholder.com/160x40/E8500A/ffffff?text=LaraSweet", width=160)
+    st.markdown("## 🍬 라라스윗 광고")
     st.markdown("---")
 
     # ── 기간 필터 (연도 → 월 → 일) ──────────────────────────────
@@ -118,21 +118,30 @@ with st.sidebar:
     with col2:
         end_date = st.date_input("종료", value=period_max, min_value=period_min, max_value=period_max, label_visibility="collapsed")
 
+    # 노출 > 0 이고 공백 아닌 값만 추출하는 헬퍼
+    def valid_opts(col):
+        grp = df.groupby(col)["노출"].sum()
+        return sorted([str(v) for v, imp in grp.items()
+                       if str(v).strip() != "" and imp > 0])
+
     st.markdown("**📺 매체**")
     media_opts = ["전체"] + sorted(df["매체"].dropna().unique().tolist())
     sel_media = st.selectbox("매체", media_opts, label_visibility="collapsed")
 
-    st.markdown("**🎬 광고유형**")
-    adtype_opts = ["전체"] + sorted(df["영상/이미지 구분"].dropna().unique().tolist())
-    sel_adtype = st.selectbox("광고유형", adtype_opts, label_visibility="collapsed")
+    st.markdown("**🎬 광고유형** (복수 선택 가능)")
+    adtype_opts = valid_opts("영상/이미지 구분")
+    sel_adtype = st.multiselect("광고유형", adtype_opts, placeholder="전체",
+                                label_visibility="collapsed")
 
-    st.markdown("**📦 제품코드**")
-    prodcode_opts = ["전체"] + sorted(df["제품코드"].dropna().unique().tolist())
-    sel_prodcode = st.selectbox("제품코드", prodcode_opts, label_visibility="collapsed")
+    st.markdown("**📦 제품코드** (복수 선택 가능)")
+    prodcode_opts = valid_opts("제품코드")
+    sel_prodcode = st.multiselect("제품코드", prodcode_opts, placeholder="전체",
+                                  label_visibility="collapsed")
 
-    st.markdown("**🎪 이벤트명**")
-    event_opts = ["전체"] + sorted(df["스킴명"].dropna().unique().tolist())
-    sel_event = st.selectbox("이벤트명", event_opts, label_visibility="collapsed")
+    st.markdown("**🎪 이벤트명** (복수 선택 가능)")
+    event_opts = valid_opts("스킴명")
+    sel_event = st.multiselect("이벤트명", event_opts, placeholder="전체",
+                               label_visibility="collapsed")
 
     st.markdown("---")
     if st.button("🔄 데이터 새로고침"):
@@ -149,12 +158,12 @@ mask = (
 )
 if sel_media != "전체":
     mask &= df["매체"] == sel_media
-if sel_adtype != "전체":
-    mask &= df["영상/이미지 구분"] == sel_adtype
-if sel_prodcode != "전체":
-    mask &= df["제품코드"] == sel_prodcode
-if sel_event != "전체":
-    mask &= df["스킴명"] == sel_event
+if sel_adtype:
+    mask &= df["영상/이미지 구분"].astype(str).isin(sel_adtype)
+if sel_prodcode:
+    mask &= df["제품코드"].astype(str).isin(sel_prodcode)
+if sel_event:
+    mask &= df["스킴명"].astype(str).isin(sel_event)
 
 fdf = df[mask].copy()
 
@@ -247,8 +256,7 @@ with tab1:
     daily_cpa["CPC"] = (daily_cpa["spend"] / daily_cpa["clk"].replace(0, float("nan"))).fillna(0)
     daily_cpa["CVR"] = (daily_cpa["conv"] / daily_cpa["clk"].replace(0, float("nan")) * 100).fillna(0)
 
-    PROD_COLORS = ["#E8500A", "#1877F2", "#1D9E75", "#7F77DD",
-                   "#D85A30", "#0F6E56", "#FAC775", "#A0522D"]
+    PROD_COLORS = PALETTE
 
     # 그래프 / 테이블 토글
     hdr_col, btn_col = st.columns([6, 1])
@@ -273,7 +281,7 @@ with tab1:
         fig.add_scatter(
             x=daily_cpa["date"], y=daily_cpa["CPA"],
             name="CPA", mode="lines+markers",
-            line=dict(color="#1D9E75", width=2.5),
+            line=dict(color="#82C9A7", width=2.5),
             marker=dict(size=6), yaxis="y2",
             hovertemplate="날짜: %{x}<br>CPA: %{y:,.0f}원<extra></extra>",
         )
@@ -322,7 +330,7 @@ with tab1:
         by_media_pie = fdf.groupby("매체")["광고비 (KRW)"].sum().reset_index()
         fig3 = px.pie(by_media_pie, names="매체", values="광고비 (KRW)",
                       title="매체별 광고비 비중",
-                      color_discrete_sequence=[META_C, "#69C9D0", BRAND, "#7F77DD"])
+                      color_discrete_sequence=PALETTE)
         fig3.update_layout(height=300, margin=dict(t=50, b=20),
                            paper_bgcolor="white", plot_bgcolor="white")
         st.plotly_chart(fig3, use_container_width=True)
@@ -330,7 +338,7 @@ with tab1:
     st.markdown("---")
 
     # ── 월별 데이터 추이 ──────────────────────────────────────────
-    def build_summary_table(data, group_col, label_fn=None):
+    def build_summary_table(data: pd.DataFrame, group_col: str, label_fn=None) -> pd.DataFrame:
         grp = (
             data.groupby(group_col)
             .agg(
@@ -359,7 +367,7 @@ with tab1:
             grp[group_col] = grp[group_col].apply(lambda x: label_fn(x) if x != "총합계" else x)
         return grp
 
-    def style_summary(df, first_col):
+    def style_summary(df: pd.DataFrame, first_col: str) -> pd.DataFrame:
         styled = df.copy()
         styled["광고비"]  = styled["광고비"].apply(lambda x: f"₩{int(x):,}")
         styled["노출"]    = styled["노출"].apply(lambda x: f"{int(x):,}")
@@ -369,7 +377,7 @@ with tab1:
         styled["CPC"]    = styled["CPC"].apply(lambda x: f"{int(x):,}")
         styled["CVR"]    = styled["CVR"].apply(lambda x: f"{x:.2f}%")
         styled["CPA"]    = styled["CPA"].apply(lambda x: f"{int(x):,}")
-        styled = styled.rename(columns={"링크클릭": "링크 클릭"})
+        styled = styled.rename(columns={first_col: first_col, "링크클릭": "링크 클릭"})
         return styled
 
     fdf_m = fdf.copy()
@@ -415,20 +423,36 @@ with tab1:
 with tab2:
     render_kpi(kpi)
     st.markdown("---")
-    by_media = fdf.groupby("매체").agg(spend=("광고비 (KRW)","sum"),imp=("노출","sum"),clk=("클릭","sum"),conv=("전환수","sum")).reset_index()
-    by_media["CTR"]=(by_media["clk"]/by_media["imp"].replace(0,float("nan"))*100).fillna(0)
-    by_media["CPC"]=(by_media["spend"]/by_media["clk"].replace(0,float("nan"))).fillna(0)
-    by_media["CPA"]=(by_media["spend"]/by_media["conv"].replace(0,float("nan"))).fillna(0)
-    col1,col2=st.columns(2)
+
+    by_media = fdf.groupby("매체").agg(
+        spend=("광고비 (KRW)", "sum"),
+        imp=("노출", "sum"),
+        clk=("클릭", "sum"),
+        conv=("전환수", "sum"),
+    ).reset_index()
+    by_media["CTR"] = (by_media["clk"] / by_media["imp"].replace(0, float("nan")) * 100).fillna(0)
+    by_media["CPC"] = (by_media["spend"] / by_media["clk"].replace(0, float("nan"))).fillna(0)
+    by_media["CPA"] = (by_media["spend"] / by_media["conv"].replace(0, float("nan"))).fillna(0)
+
+    col1, col2 = st.columns(2)
     with col1:
-        fig_m1=px.bar(by_media,x="매체",y="spend",title="매체별 광고비",color="매체",color_discrete_sequence=PALETTE,text_auto=".0f")
-        fig_m1.update_layout(height=320,showlegend=False,plot_bgcolor="white",paper_bgcolor="white",yaxis_title="광고비 (KRW)")
-        st.plotly_chart(fig_m1,use_container_width=True)
+        fig_m1 = px.bar(by_media, x="매체", y="spend", title="매체별 광고비",
+                        color="매체", color_discrete_sequence=PALETTE,
+                        text_auto=".0f")
+        fig_m1.update_layout(height=320, showlegend=False,
+                              plot_bgcolor="white", paper_bgcolor="white",
+                              yaxis_title="광고비 (KRW)")
+        st.plotly_chart(fig_m1, use_container_width=True)
     with col2:
-        fig_m2=px.bar(by_media,x="매체",y="CPA",title="매체별 CPA",color="매체",color_discrete_sequence=PALETTE,text_auto=".0f")
-        fig_m2.update_layout(height=320,showlegend=False,plot_bgcolor="white",paper_bgcolor="white",yaxis_title="CPA (KRW)")
-        st.plotly_chart(fig_m2,use_container_width=True)
-    render_table(fdf.sort_values("날짜",ascending=False).head(300))
+        fig_m2 = px.bar(by_media, x="매체", y="CPA", title="매체별 CPA",
+                        color="매체", color_discrete_sequence=PALETTE,
+                        text_auto=".0f")
+        fig_m2.update_layout(height=320, showlegend=False,
+                              plot_bgcolor="white", paper_bgcolor="white",
+                              yaxis_title="CPA (KRW)")
+        st.plotly_chart(fig_m2, use_container_width=True)
+
+    render_table(fdf.sort_values("날짜", ascending=False).head(300))
 
 
 # ══════════════════════════════════════════════════════════════
@@ -437,13 +461,25 @@ with tab2:
 with tab3:
     render_kpi(kpi)
     st.markdown("---")
-    by_creative=fdf.groupby(["대분류 포맷","영상/이미지 구분"]).agg(spend=("광고비 (KRW)","sum"),imp=("노출","sum"),clk=("클릭","sum"),conv=("전환수","sum")).reset_index()
-    by_creative["CTR"]=(by_creative["clk"]/by_creative["imp"].replace(0,float("nan"))*100).fillna(0)
-    by_creative["CPA"]=(by_creative["spend"]/by_creative["conv"].replace(0,float("nan"))).fillna(0)
-    fig_c=px.bar(by_creative,x="대분류 포맷",y="spend",color="영상/이미지 구분",title="소재유형별 광고비",barmode="group",color_discrete_sequence=PALETTE,text_auto=".0f")
-    fig_c.update_layout(height=350,plot_bgcolor="white",paper_bgcolor="white",yaxis_title="광고비 (KRW)")
-    st.plotly_chart(fig_c,use_container_width=True)
-    render_table(fdf.sort_values("날짜",ascending=False).head(300))
+
+    by_creative = fdf.groupby(["대분류 포맷", "영상/이미지 구분"]).agg(
+        spend=("광고비 (KRW)", "sum"),
+        imp=("노출", "sum"),
+        clk=("클릭", "sum"),
+        conv=("전환수", "sum"),
+    ).reset_index()
+    by_creative["CTR"] = (by_creative["clk"] / by_creative["imp"].replace(0, float("nan")) * 100).fillna(0)
+    by_creative["CPA"] = (by_creative["spend"] / by_creative["conv"].replace(0, float("nan"))).fillna(0)
+
+    fig_c = px.bar(by_creative, x="대분류 포맷", y="spend",
+                   color="영상/이미지 구분", title="소재유형별 광고비",
+                   barmode="group", color_discrete_sequence=PALETTE,
+                   text_auto=".0f")
+    fig_c.update_layout(height=350, plot_bgcolor="white", paper_bgcolor="white",
+                        yaxis_title="광고비 (KRW)")
+    st.plotly_chart(fig_c, use_container_width=True)
+
+    render_table(fdf.sort_values("날짜", ascending=False).head(300))
 
 
 # ══════════════════════════════════════════════════════════════
@@ -452,16 +488,30 @@ with tab3:
 with tab4:
     render_kpi(kpi)
     st.markdown("---")
-    by_prod=fdf.groupby("제품코드").agg(spend=("광고비 (KRW)","sum"),imp=("노출","sum"),clk=("클릭","sum"),conv=("전환수","sum")).reset_index()
-    by_prod["CTR"]=(by_prod["clk"]/by_prod["imp"].replace(0,float("nan"))*100).fillna(0)
-    by_prod["CPA"]=(by_prod["spend"]/by_prod["conv"].replace(0,float("nan"))).fillna(0)
-    col1,col2=st.columns(2)
+
+    by_prod = fdf.groupby("제품코드").agg(
+        spend=("광고비 (KRW)", "sum"),
+        imp=("노출", "sum"),
+        clk=("클릭", "sum"),
+        conv=("전환수", "sum"),
+    ).reset_index()
+    by_prod["CTR"] = (by_prod["clk"] / by_prod["imp"].replace(0, float("nan")) * 100).fillna(0)
+    by_prod["CPA"] = (by_prod["spend"] / by_prod["conv"].replace(0, float("nan"))).fillna(0)
+
+    col1, col2 = st.columns(2)
     with col1:
-        fig_p1=px.pie(by_prod,names="제품코드",values="spend",title="제품별 광고비 비중",color_discrete_sequence=PALETTE)
-        fig_p1.update_layout(height=320,paper_bgcolor="white")
-        st.plotly_chart(fig_p1,use_container_width=True)
+        fig_p1 = px.pie(by_prod, names="제품코드", values="spend",
+                        title="제품별 광고비 비중",
+                        color_discrete_sequence=PALETTE)
+        fig_p1.update_layout(height=320, paper_bgcolor="white")
+        st.plotly_chart(fig_p1, use_container_width=True)
     with col2:
-        fig_p2=px.bar(by_prod,x="제품코드",y="CPA",title="제품별 CPA",color="제품코드",color_discrete_sequence=PALETTE,text_auto=".0f")
-        fig_p2.update_layout(height=320,showlegend=False,plot_bgcolor="white",paper_bgcolor="white",yaxis_title="CPA (KRW)")
-        st.plotly_chart(fig_p2,use_container_width=True)
-    render_table(fdf.sort_values("날짜",ascending=False).head(300))
+        fig_p2 = px.bar(by_prod, x="제품코드", y="CPA",
+                        title="제품별 CPA", color="제품코드",
+                        color_discrete_sequence=PALETTE, text_auto=".0f")
+        fig_p2.update_layout(height=320, showlegend=False,
+                              plot_bgcolor="white", paper_bgcolor="white",
+                              yaxis_title="CPA (KRW)")
+        st.plotly_chart(fig_p2, use_container_width=True)
+
+    render_table(fdf.sort_values("날짜", ascending=False).head(300))
