@@ -4,10 +4,11 @@ Meta 광고 데이터 수집 (GitHub Actions 전용)
 - 매일 실행 (주말 포함, 주말 체크 없음)
 - 자격증명: 환경 변수 (GitHub Secrets)
 - 캠페인 제외: 파인트/스틱바/얼리썸머/패밀리세일/빙과
+- 소재명 정리: ' - 사본' / ' - 사본 N' 패턴 제거
 - 출력: data/meta_raw_{since}_{until}.csv
 - 상태 파일: data/meta_last_success.txt
 """
-import os, sys, time, json, datetime, csv
+import os, sys, time, json, datetime, csv, re
 import requests
 
 ACCESS_TOKEN    = os.environ["META_ACCESS_TOKEN"]
@@ -23,7 +24,6 @@ os.makedirs(DATA_DIR, exist_ok=True)
 LOG_PATH   = os.path.join(DATA_DIR, "meta_run.log")
 STATE_PATH = os.path.join(DATA_DIR, "meta_last_success.txt")
 
-# ── 로그 ──────────────────────────────────────────────────────
 def log(msg):
     stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line  = f"[{stamp}] {msg}"
@@ -56,7 +56,6 @@ def die(msg):
     )
     sys.exit(1)
 
-# ── 재시도 API 호출 ────────────────────────────────────────────
 RETRY_DELAYS = [10, 30, 60, 120, 300, 300, 300]
 
 def api_call(method, url, **kw):
@@ -83,7 +82,12 @@ def api_call(method, url, **kw):
             die(f"영구 API 오류: {err}")
     die(f"재시도 모두 소진: {last}")
 
-# ── 날짜 범위 ──────────────────────────────────────────────────
+def clean_ad_name(name: str) -> str:
+    """소재명 끝의 ' - 사본' 또는 ' - 사본 2' 등 패턴 제거"""
+    if not name:
+        return name
+    return re.sub(r'\s*-\s*사본(\s+\d+)?$', '', name).strip()
+
 today = datetime.date.today()
 until = today - datetime.timedelta(days=1)
 
@@ -106,7 +110,6 @@ if gap_days > 60:
     log(f"경고: 다운로드 범위가 {gap_days}일. 장기 미실행/연속 실패 가능성.")
 log(f"수집 범위: {since} ~ {until} ({gap_days}일)")
 
-# ── 비동기 인사이트 요청 ───────────────────────────────────────
 fields = (
     "campaign_name,adset_id,adset_name,ad_name,impressions,spend,"
     "inline_link_clicks,video_thruplay_watched_actions,actions"
@@ -137,7 +140,6 @@ if not report_id:
     die(f"report_run_id 없음: {run}")
 log(f"리포트 작업 생성: {report_id}")
 
-# ── 완료 폴링 ──────────────────────────────────────────────────
 while True:
     s  = api_call("GET", f"{BASE}/{report_id}", params={"access_token": ACCESS_TOKEN})
     st = s.get("async_status")
@@ -148,7 +150,6 @@ while True:
         die(f"리포트 작업 실패: {s}")
     time.sleep(5)
 
-# ── 결과 페이지네이션 ──────────────────────────────────────────
 rows = []
 url  = f"{BASE}/{report_id}/insights"
 qp   = {"limit": 500, "access_token": ACCESS_TOKEN}
@@ -163,7 +164,6 @@ while url:
     qp  = {}
     log(f"  페이지 {page}: +{len(batch)}행 (누적 {len(rows)}행)")
 
-# ── 광고세트 목표 조회 ─────────────────────────────────────────
 adset_ids = sorted({r.get("adset_id") for r in rows if r.get("adset_id")})
 opt_map   = {}
 for i in range(0, len(adset_ids), 50):
@@ -177,7 +177,6 @@ for i in range(0, len(adset_ids), 50):
             opt_map[aid] = obj.get("optimization_goal", "")
 log(f"광고세트 목표 조회: {len(opt_map)}/{len(adset_ids)}개")
 
-# ── 컬럼 변환 ──────────────────────────────────────────────────
 def action_val(actions, atype):
     for a in actions or []:
         if a.get("action_type") == atype:
@@ -207,6 +206,7 @@ GOAL = {
 }
 
 out = []
+sbon_count = 0
 for r in rows:
     goal = opt_map.get(r.get("adset_id"), "")
     res_type_key, res_type_kr = GOAL.get(goal, (None, goal))
@@ -230,16 +230,25 @@ for r in rows:
     except (TypeError, ValueError):
         res_type_kr, result = "", 0
 
+    raw_name = r.get("ad_name", "") or ""
+    ad_name  = clean_ad_name(raw_name)
+    if ad_name != raw_name:
+        sbon_count += 1
+        log(f"  소재명 정리: '{raw_name}' -> '{ad_name}'")
+
     out.append({
         "date":          r.get("date_start"),
         "campaign_name": r.get("campaign_name"),
         "adset_name":    r.get("adset_name"),
-        "ad_name":       r.get("ad_name"),
+        "ad_name":       ad_name,
         "impressions":   r.get("impressions", 0),
         "clicks":        r.get("inline_link_clicks", 0),
         "spend":         r.get("spend", 0),
         "conversions":   result,
     })
+
+if sbon_count > 0:
+    log(f"소재명 ' - 사본' 정리 완료: {sbon_count}건")
 
 if len(out) == 0:
     die("수집된 행이 0개 -> 파일 생성 안 함")
