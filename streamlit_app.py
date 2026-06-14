@@ -83,7 +83,7 @@ if df.empty:
 max_date = df["날짜"].max().strftime("%Y-%m-%d")
 
 with st.sidebar:
-    st.markdown("## 🍬 라라스윗 광고")
+    st.markdown("## 🍬 라라스윗 제과 전환광고")
     st.markdown("---")
 
     # ── 기간 필터 (연도 → 월 → 일) ──────────────────────────────
@@ -124,9 +124,10 @@ with st.sidebar:
         return sorted([str(v) for v, imp in grp.items()
                        if str(v).strip() != "" and imp > 0])
 
-    st.markdown("**📺 매체**")
-    media_opts = ["전체"] + sorted(df["매체"].dropna().unique().tolist())
-    sel_media = st.selectbox("매체", media_opts, label_visibility="collapsed")
+    st.markdown("**📺 매체** (복수 선택 가능)")
+    media_opts = valid_opts("매체")
+    sel_media = st.multiselect("매체", media_opts, placeholder="전체",
+                               label_visibility="collapsed")
 
     st.markdown("**🎬 광고유형** (복수 선택 가능)")
     adtype_opts = valid_opts("영상/이미지 구분")
@@ -156,8 +157,8 @@ mask = (
     (df["날짜"].dt.date >= start_date) &
     (df["날짜"].dt.date <= end_date)
 )
-if sel_media != "전체":
-    mask &= df["매체"] == sel_media
+if sel_media:
+    mask &= df["매체"].astype(str).isin(sel_media)
 if sel_adtype:
     mask &= df["영상/이미지 구분"].astype(str).isin(sel_adtype)
 if sel_prodcode:
