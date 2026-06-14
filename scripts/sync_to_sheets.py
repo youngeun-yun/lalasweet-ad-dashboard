@@ -7,7 +7,7 @@ Google Sheets 동기화 스크립트
 import os, sys, csv, json, datetime, requests
 
 WEBAPP_URL = os.environ["SHEETS_WEBAPP_URL"]
-SECRET_KEY = os.environ.get("SHEETS_SECRET_KEY", "lalasweet2026")
+SECRET_KEY = os.environ["SHEETS_SECRET_KEY"]
 DATA_DIR   = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 CSV_PATH   = os.path.join(DATA_DIR, "통합RD_마스터.csv")
 
