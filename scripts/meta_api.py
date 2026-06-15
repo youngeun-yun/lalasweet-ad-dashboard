@@ -251,7 +251,10 @@ if sbon_count > 0:
     log(f"소재명 ' - 사본' 정리 완료: {sbon_count}건")
 
 if len(out) == 0:
-    die("수집된 행이 0개 -> 파일 생성 안 함")
+        log(f"수집된 행이 0개 (광고 지출 없는 날로 판단) -> 상태 업데이트 후 스킵")
+        with open(STATE_PATH, "w", encoding="utf-8") as f:
+                    f.write(str(until))
+                sys.exit(0)
 
 out_path = os.path.join(DATA_DIR, f"meta_raw_{since}_{until}.csv")
 with open(out_path, "w", encoding="utf-8-sig", newline="") as f:
