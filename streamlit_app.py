@@ -45,12 +45,27 @@ st.markdown("""
 # ── 브랜드 컬러 (파스텔 톤) ────────────────────────────────────
 BRAND   = "#F4845F"
 META_C  = "#7BAFD4"
-# 메인 팔레트 (파이/소재 등 일반용)
 PALETTE = ["#F4845F", "#7BAFD4", "#82C9A7", "#B5A8E0",
            "#F7B97A", "#85C1B2", "#F49AC2", "#A8D5BA"]
-# 바차트 전용: warm/cool 교차 배열 → 인접 막대 색 겹침 방지
 BAR_PALETTE = ["#F4845F", "#7BAFD4", "#F7B97A", "#82C9A7",
                "#F49AC2", "#B5A8E0", "#E8A87C", "#85C1B2"]
+
+# 총합계 행 하이라이트 스타일
+TOTAL_BG   = "#FFF0E6"
+TOTAL_FG   = "#B84A00"
+TOTAL_FONT = "bold"
+
+def style_with_total(df: pd.DataFrame) -> "pd.io.formats.style.Styler":
+    """첫 번째 컬럼 값이 '총합계'인 행에 배경색/굵기 적용"""
+    first_col = df.columns[0]
+    def row_style(row):
+        if row[first_col] == "총합계":
+            return [
+                f"background-color: {TOTAL_BG}; font-weight: {TOTAL_FONT}; color: {TOTAL_FG}"
+            ] * len(row)
+        return [""] * len(row)
+    return df.style.apply(row_style, axis=1)
+
 
 # ── 데이터 로드 ────────────────────────────────────────────────
 @st.cache_data(ttl=3600, show_spinner="데이터 불러오는 중…")
@@ -95,7 +110,6 @@ with st.sidebar:
     st.markdown("## 🍬 라라스윗 제과 전환광고")
     st.markdown("---")
 
-    # 노출 > 0 이고 공백 아닌 값만 추출
     def valid_opts(col):
         grp = df.groupby(col)["노출"].sum()
         return sorted([str(v) for v, imp in grp.items()
@@ -113,10 +127,9 @@ with st.sidebar:
                                 label_visibility="collapsed")
 
     st.markdown("**📅 일**")
-    avail_days = sorted(df["날짜"].dt.day.unique().tolist())
-    day_labels = [f"{d}일" for d in avail_days]
-    sel_days = st.multiselect("일", day_labels, placeholder="전체",
-                              label_visibility="collapsed")
+    avail_dates = sorted(df["날짜"].dt.strftime("%Y-%m-%d").unique().tolist())
+    sel_dates = st.multiselect("일", avail_dates, placeholder="전체",
+                               label_visibility="collapsed")
 
     st.markdown("**📺 매체**")
     media_opts = valid_opts("매체")
@@ -153,9 +166,8 @@ if sel_years:
 if sel_months:
     sel_month_nums = [int(m.replace("월", "")) for m in sel_months]
     mask &= df["날짜"].dt.month.isin(sel_month_nums)
-if sel_days:
-    sel_day_nums = [int(d.replace("일", "")) for d in sel_days]
-    mask &= df["날짜"].dt.day.isin(sel_day_nums)
+if sel_dates:
+    mask &= df["날짜"].dt.strftime("%Y-%m-%d").isin(sel_dates)
 if sel_media:
     mask &= df["매체"].astype(str).isin(sel_media)
 if sel_adtype:
@@ -206,7 +218,7 @@ def render_kpi(kpi: dict):
     c6.metric("🎯 CPA",    fmt_krw(kpi["cpa"]))
 
 
-# ── 공통: 테이블 ─────────────────────────────────────────────
+# ── 공통: 원본 테이블 ──────────────────────────────────────────
 DISPLAY_COLS = ["날짜", "매체", "스킴명", "광고그룹명", "소재명",
                 "대분류 포맷", "노출", "클릭", "CTR (%)", "광고비 (KRW)",
                 "전환수", "CPA (KRW)"]
@@ -232,7 +244,6 @@ with tab1:
     render_kpi(kpi)
     st.markdown("---")
 
-    # 일별 광고비 (제품코드별 stacked, 지출 내림차순 정렬) + CPA 라인
     daily_prod = (
         fdf.groupby([fdf["날짜"].dt.date, "제품코드"])
         .agg(spend=("광고비 (KRW)", "sum"))
@@ -255,14 +266,12 @@ with tab1:
     daily_cpa["CPC"] = (daily_cpa["spend"] / daily_cpa["clk"].replace(0, float("nan"))).fillna(0)
     daily_cpa["CVR"] = (daily_cpa["conv"] / daily_cpa["clk"].replace(0, float("nan")) * 100).fillna(0)
 
-    # 제품코드별 총 지출 내림차순 → 색 배정
     prod_spend_total = (
         daily_prod.groupby("제품코드")["spend"].sum()
         .sort_values(ascending=False)
     )
     prod_codes_sorted = prod_spend_total.index.tolist()
 
-    # 그래프 / 테이블 토글
     hdr_col, btn_col = st.columns([6, 1])
     with hdr_col:
         st.markdown("**📊 일별 광고비 & CPA**")
@@ -306,17 +315,17 @@ with tab1:
         daily_tbl["일"] = daily_tbl["date"].astype(str)
         daily_tbl = daily_tbl.sort_values("date", ascending=True)
         daily_display = pd.DataFrame({
-            "일":      daily_tbl["일"],
-            "광고비":  daily_tbl["spend"].apply(lambda x: f"₩{int(x):,}"),
-            "노출":    daily_tbl["imp"].apply(lambda x: f"{int(x):,}"),
+            "일":        daily_tbl["일"],
+            "광고비":    daily_tbl["spend"].apply(lambda x: f"₩{int(x):,}"),
+            "노출":      daily_tbl["imp"].apply(lambda x: f"{int(x):,}"),
             "링크 클릭": daily_tbl["clk"].apply(lambda x: f"{int(x):,}"),
-            "구매":    daily_tbl["conv"].apply(lambda x: f"{int(x):,}"),
-            "CTR":    daily_tbl["CTR"].apply(lambda x: f"{x:.2f}%"),
-            "CPC":    daily_tbl["CPC"].apply(lambda x: f"{int(x):,}"),
-            "CVR":    daily_tbl["CVR"].apply(lambda x: f"{x:.2f}%"),
-            "CPA":    daily_tbl["CPA"].apply(lambda x: f"{int(x):,}"),
+            "구매":      daily_tbl["conv"].apply(lambda x: f"{int(x):,}"),
+            "CTR":      daily_tbl["CTR"].apply(lambda x: f"{x:.2f}%"),
+            "CPC":      daily_tbl["CPC"].apply(lambda x: f"{int(x):,}"),
+            "CVR":      daily_tbl["CVR"].apply(lambda x: f"{x:.2f}%"),
+            "CPA":      daily_tbl["CPA"].apply(lambda x: f"{int(x):,}"),
         })
-        # 총합계 행 추가
+        # 총합계 행
         tot_spend = daily_tbl["spend"].sum()
         tot_imp   = daily_tbl["imp"].sum()
         tot_clk   = daily_tbl["clk"].sum()
@@ -326,18 +335,19 @@ with tab1:
         tot_cvr   = tot_conv / tot_clk * 100 if tot_clk > 0 else 0
         tot_cpa   = tot_spend / tot_conv if tot_conv > 0 else 0
         total_row = pd.DataFrame([{
-            "일":       "총합계",
-            "광고비":   f"₩{int(tot_spend):,}",
-            "노출":     f"{int(tot_imp):,}",
+            "일":        "총합계",
+            "광고비":    f"₩{int(tot_spend):,}",
+            "노출":      f"{int(tot_imp):,}",
             "링크 클릭": f"{int(tot_clk):,}",
-            "구매":     f"{int(tot_conv):,}",
-            "CTR":     f"{tot_ctr:.2f}%",
-            "CPC":     f"{int(tot_cpc):,}",
-            "CVR":     f"{tot_cvr:.2f}%",
-            "CPA":     f"{int(tot_cpa):,}",
+            "구매":      f"{int(tot_conv):,}",
+            "CTR":      f"{tot_ctr:.2f}%",
+            "CPC":      f"{int(tot_cpc):,}",
+            "CVR":      f"{tot_cvr:.2f}%",
+            "CPA":      f"{int(tot_cpa):,}",
         }])
         daily_display = pd.concat([daily_display, total_row], ignore_index=True)
-        st.dataframe(daily_display, use_container_width=True, hide_index=True)
+        st.dataframe(style_with_total(daily_display),
+                     use_container_width=True, hide_index=True)
 
     col_a, col_b = st.columns(2)
     with col_a:
@@ -391,25 +401,25 @@ with tab1:
 
     def style_summary(df: pd.DataFrame, first_col: str) -> pd.DataFrame:
         styled = df.copy()
-        styled["광고비"]  = styled["광고비"].apply(lambda x: f"₩{int(x):,}")
-        styled["노출"]    = styled["노출"].apply(lambda x: f"{int(x):,}")
+        styled["광고비"]   = styled["광고비"].apply(lambda x: f"₩{int(x):,}")
+        styled["노출"]     = styled["노출"].apply(lambda x: f"{int(x):,}")
         styled["링크클릭"] = styled["링크클릭"].apply(lambda x: f"{int(x):,}")
-        styled["구매"]    = styled["구매"].apply(lambda x: f"{int(x):,}")
-        styled["CTR"]    = styled["CTR"].apply(lambda x: f"{x:.2f}%")
-        styled["CPC"]    = styled["CPC"].apply(lambda x: f"{int(x):,}")
-        styled["CVR"]    = styled["CVR"].apply(lambda x: f"{x:.2f}%")
-        styled["CPA"]    = styled["CPA"].apply(lambda x: f"{int(x):,}")
-        styled = styled.rename(columns={first_col: first_col, "링크클릭": "링크 클릭"})
+        styled["구매"]     = styled["구매"].apply(lambda x: f"{int(x):,}")
+        styled["CTR"]     = styled["CTR"].apply(lambda x: f"{x:.2f}%")
+        styled["CPC"]     = styled["CPC"].apply(lambda x: f"{int(x):,}")
+        styled["CVR"]     = styled["CVR"].apply(lambda x: f"{x:.2f}%")
+        styled["CPA"]     = styled["CPA"].apply(lambda x: f"{int(x):,}")
+        styled = styled.rename(columns={"링크클릭": "링크 클릭"})
         return styled
 
     fdf_m = fdf.copy()
     fdf_m["월"] = fdf_m["날짜"].dt.month
-    monthly_tbl = build_summary_table(fdf_m, "월", label_fn=lambda x: f"{int(x):02d}")
+    monthly_tbl    = build_summary_table(fdf_m, "월", label_fn=lambda x: f"{int(x):02d}")
     monthly_styled = style_summary(monthly_tbl, "월")
 
     st.markdown("**📅 월별 데이터 추이**")
     st.dataframe(
-        monthly_styled,
+        style_with_total(monthly_styled),
         use_container_width=True,
         hide_index=True,
         column_config={"월": st.column_config.TextColumn("월", width="small")},
@@ -426,13 +436,13 @@ with tab1:
         we = ws + timedelta(days=6)
         return f"{ws.strftime('%m/%d')}~{we.strftime('%m/%d')}"
 
-    weekly_tbl = build_summary_table(fdf_w4, "week_start", label_fn=week_label)
-    weekly_tbl = weekly_tbl.rename(columns={"week_start": "주차"})
+    weekly_tbl    = build_summary_table(fdf_w4, "week_start", label_fn=week_label)
+    weekly_tbl    = weekly_tbl.rename(columns={"week_start": "주차"})
     weekly_styled = style_summary(weekly_tbl, "주차")
 
     st.markdown("**📆 주차별 성과 (최근 4주)**")
     st.dataframe(
-        weekly_styled,
+        style_with_total(weekly_styled),
         use_container_width=True,
         hide_index=True,
         column_config={"주차": st.column_config.TextColumn("주차", width="medium")},
