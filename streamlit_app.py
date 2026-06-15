@@ -112,6 +112,12 @@ with st.sidebar:
     sel_months = st.multiselect("월", month_labels, placeholder="전체",
                                 label_visibility="collapsed")
 
+    st.markdown("**📅 일**")
+    avail_days = sorted(df["날짜"].dt.day.unique().tolist())
+    day_labels = [f"{d}일" for d in avail_days]
+    sel_days = st.multiselect("일", day_labels, placeholder="전체",
+                              label_visibility="collapsed")
+
     st.markdown("**📺 매체**")
     media_opts = valid_opts("매체")
     sel_media = st.multiselect("매체", media_opts, placeholder="전체",
@@ -147,6 +153,9 @@ if sel_years:
 if sel_months:
     sel_month_nums = [int(m.replace("월", "")) for m in sel_months]
     mask &= df["날짜"].dt.month.isin(sel_month_nums)
+if sel_days:
+    sel_day_nums = [int(d.replace("일", "")) for d in sel_days]
+    mask &= df["날짜"].dt.day.isin(sel_day_nums)
 if sel_media:
     mask &= df["매체"].astype(str).isin(sel_media)
 if sel_adtype:
@@ -307,6 +316,27 @@ with tab1:
             "CVR":    daily_tbl["CVR"].apply(lambda x: f"{x:.2f}%"),
             "CPA":    daily_tbl["CPA"].apply(lambda x: f"{int(x):,}"),
         })
+        # 총합계 행 추가
+        tot_spend = daily_tbl["spend"].sum()
+        tot_imp   = daily_tbl["imp"].sum()
+        tot_clk   = daily_tbl["clk"].sum()
+        tot_conv  = daily_tbl["conv"].sum()
+        tot_ctr   = tot_clk / tot_imp * 100 if tot_imp > 0 else 0
+        tot_cpc   = tot_spend / tot_clk if tot_clk > 0 else 0
+        tot_cvr   = tot_conv / tot_clk * 100 if tot_clk > 0 else 0
+        tot_cpa   = tot_spend / tot_conv if tot_conv > 0 else 0
+        total_row = pd.DataFrame([{
+            "일":       "총합계",
+            "광고비":   f"₩{int(tot_spend):,}",
+            "노출":     f"{int(tot_imp):,}",
+            "링크 클릭": f"{int(tot_clk):,}",
+            "구매":     f"{int(tot_conv):,}",
+            "CTR":     f"{tot_ctr:.2f}%",
+            "CPC":     f"{int(tot_cpc):,}",
+            "CVR":     f"{tot_cvr:.2f}%",
+            "CPA":     f"{int(tot_cpa):,}",
+        }])
+        daily_display = pd.concat([daily_display, total_row], ignore_index=True)
         st.dataframe(daily_display, use_container_width=True, hide_index=True)
 
     col_a, col_b = st.columns(2)
