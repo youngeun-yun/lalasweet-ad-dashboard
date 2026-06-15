@@ -1,28 +1,20 @@
 # -*- coding: utf-8 -*-
-"""
-Google Sheets 동기화 (gspread 직접 쓰기)
-통합RD_마스터.csv -> 통합RD_원본 시트 전체 교체
-"""
 import os, sys, csv, json
 import gspread
 from google.oauth2.service_account import Credentials
 
 SPREADSHEET_ID = os.environ["SPREADSHEET_ID"]
-GCP_SA_JSON    = os.environ["GCP_SERVICE_ACCOUNT_JSON"]
-DATA_DIR       = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
-CSV_PATH       = os.path.join(DATA_DIR, "통합RD_마스터.csv")
-SHEET_NAME     = "통합RD_원본"
+GCP_SA_JSON = os.environ["GCP_SERVICE_ACCOUNT_JSON"]
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+CSV_PATH = os.path.join(DATA_DIR, "통합RD_마스터.csv")
+SHEET_NAME = "통합RD_원본"
 
 if not os.path.exists(CSV_PATH):
-    print(f"CSV 없음: {CSV_PATH} -> 스킵")
+    print("CSV 없음 -> 스킵")
     sys.exit(0)
 
 creds_info = json.loads(GCP_SA_JSON)
-scopes = [
-    "https://spreadsheets.google.com/feeds",
-    "https://www.googleapis.com/auth/drive",
-]
-creds = Credentials.from_service_account_info(creds_info, scopes=scopes)
+creds = Credentials.from_service_account_info(creds_info, scopes=["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"])
 client = gspread.authorize(creds)
 
 spreadsheet = client.open_by_key(SPREADSHEET_ID)
