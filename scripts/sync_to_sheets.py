@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Google Sheets 동기화 (gspread 직접 쓰기)
-통합RD_마스터.csv → 통합RD_원본 시트 전체 교체
+통합RD_마스터.csv -> 통합RD_원본 시트 전체 교체
 """
 import os, sys, csv, json
 import gspread
@@ -17,23 +17,20 @@ if not os.path.exists(CSV_PATH):
     print(f"CSV 없음: {CSV_PATH} -> 스킵")
     sys.exit(0)
 
-# 인증
 creds_info = json.loads(GCP_SA_JSON)
 scopes = [
     "https://spreadsheets.google.com/feeds",
     "https://www.googleapis.com/auth/drive",
 ]
-creds  = Credentials.from_service_account_info(creds_info, scopes=scopes)
+creds = Credentials.from_service_account_info(creds_info, scopes=scopes)
 client = gspread.authorize(creds)
 
-# 시트 열기
 spreadsheet = client.open_by_key(SPREADSHEET_ID)
 try:
     sheet = spreadsheet.worksheet(SHEET_NAME)
 except gspread.WorksheetNotFound:
     sheet = spreadsheet.add_worksheet(title=SHEET_NAME, rows=10000, cols=30)
 
-# CSV 전체 읽기
 with open(CSV_PATH, encoding="utf-8-sig") as f:
     rows = list(csv.reader(f))
 
@@ -41,7 +38,6 @@ if not rows:
     print("데이터 없음 -> 스킵")
     sys.exit(0)
 
-# 시트 전체 교체 (clear → update)
 sheet.clear()
 sheet.update(rows, value_input_option="USER_ENTERED")
 print(f"동기화 완료: {len(rows)-1}행 -> {SHEET_NAME}")
