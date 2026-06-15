@@ -14,14 +14,14 @@ CSV_PATH       = os.path.join(DATA_DIR, "통합RD_마스터.csv")
 SHEET_NAME     = "통합RD_원본"
 
 if not os.path.exists(CSV_PATH):
-        print(f"CSV 없음: {CSV_PATH} -> 스킵")
-        sys.exit(0)
+    print(f"CSV 없음: {CSV_PATH} -> 스킵")
+    sys.exit(0)
 
 # 인증
 creds_info = json.loads(GCP_SA_JSON)
 scopes = [
-        "https://spreadsheets.google.com/feeds",
-        "https://www.googleapis.com/auth/drive",
+    "https://spreadsheets.google.com/feeds",
+    "https://www.googleapis.com/auth/drive",
 ]
 creds  = Credentials.from_service_account_info(creds_info, scopes=scopes)
 client = gspread.authorize(creds)
@@ -29,21 +29,19 @@ client = gspread.authorize(creds)
 # 시트 열기
 spreadsheet = client.open_by_key(SPREADSHEET_ID)
 try:
-        sheet = spreadsheet.worksheet(SHEET_NAME)
+    sheet = spreadsheet.worksheet(SHEET_NAME)
 except gspread.WorksheetNotFound:
-        sheet = spreadsheet.add_worksheet(title=SHEET_NAME, rows=10000, cols=30)
+    sheet = spreadsheet.add_worksheet(title=SHEET_NAME, rows=10000, cols=30)
 
 # CSV 전체 읽기
-rows = []
 with open(CSV_PATH, encoding="utf-8-sig") as f:
-        reader = csv.reader(f)
-        for row in reader:
-                rows.append(row)
-        if not rows:
-                print("데이터 없음 -> 스킵")
-                sys.exit(0)
+    rows = list(csv.reader(f))
 
-# 시트 전체 교체 (clear -> update)
+if not rows:
+    print("데이터 없음 -> 스킵")
+    sys.exit(0)
+
+# 시트 전체 교체 (clear → update)
 sheet.clear()
 sheet.update(rows, value_input_option="USER_ENTERED")
 print(f"동기화 완료: {len(rows)-1}행 -> {SHEET_NAME}")
