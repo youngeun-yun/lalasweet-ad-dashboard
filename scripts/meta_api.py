@@ -133,6 +133,17 @@ filtering = [
     {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "얼리썸머"},
     {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "패밀리세일"},
     {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "빙과"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "제로바"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "듬뿍바"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "멜론바"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "모나카"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "미니생초코"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "복요파"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "블요바"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "젤라또"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "쫀득바"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "요거트바"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "초코페스티벌"},
 ]
 
 params = {
@@ -261,6 +272,7 @@ for r in rows:
 if sbon_count > 0:
     log(f"소재명 ' - 사본' 정리 완료: {sbon_count}건")
 
+# 0행: 지출 없는 날 → 오류 아님, 상태 파일만 업데이트하고 정상 종료
 if len(out) == 0:
     log(f"수집된 행이 0개 (광고 지출 없는 날로 판단) -> 상태 업데이트 후 스킵")
     with open(STATE_PATH, "w", encoding="utf-8") as f:
