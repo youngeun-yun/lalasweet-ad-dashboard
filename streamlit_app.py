@@ -465,7 +465,7 @@ with tab1:
 
     def week_label(ws):
         if ws == "총합계": return ws
-        return f"{ws.strftime('%m/%d')}~{(ws + timedelta(days=6)).strftime('%m/%d')}"
+        return f"{ws.strftime('%m/%d')}}{(ws + timedelta(days=6)).strftime('%m/%d')}"
 
     weekly_tbl = build_summary_table(fdf_w4, "week_start", label_fn=week_label)
     weekly_tbl = weekly_tbl.rename(columns={"week_start": "주차"})
