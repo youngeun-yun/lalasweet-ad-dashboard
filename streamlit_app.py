@@ -64,6 +64,32 @@ def style_with_total(df: pd.DataFrame):
         return [""] * len(row)
     return df.style.apply(row_style, axis=1)
 
+def render_pinned_total_table(df: pd.DataFrame):
+    """총합계 행을 항상 맨 아래 고정하여 HTML 테이블로 렌더링"""
+    first_col = df.columns[0]
+    data = df[df[first_col] != "총합계"]
+    total = df[df[first_col] == "총합계"]
+
+    th_style = "padding:7px 10px; text-align:left; background:#f0f2f6; border-bottom:2px solid #ddd; font-size:0.82rem; white-space:nowrap;"
+    td_style = "padding:6px 10px; border-bottom:1px solid #eee; font-size:0.82rem; white-space:nowrap;"
+    td_total = f"padding:6px 10px; border-bottom:1px solid #eee; font-size:0.82rem; white-space:nowrap; background:{TOTAL_BG}; color:{TOTAL_FG}; font-weight:{TOTAL_FONT};"
+
+    headers = "".join(f"<th style='{th_style}'>{col}</th>" for col in df.columns)
+    data_rows = "".join(
+        "<tr>" + "".join(f"<td style='{td_style}'>{v}</td>" for v in row) + "</tr>"
+        for _, row in data.iterrows()
+    )
+    total_rows = "".join(
+        "<tr>" + "".join(f"<td style='{td_total}'>{v}</td>" for v in row) + "</tr>"
+        for _, row in total.iterrows()
+    )
+    html = f"""<div style="overflow-x:auto; border-radius:8px; overflow:hidden; border:1px solid #e0e0e0;">
+<table style="width:100%; border-collapse:collapse;">
+<thead><tr>{headers}</tr></thead>
+<tbody>{data_rows}{total_rows}</tbody>
+</table></div>"""
+    st.markdown(html, unsafe_allow_html=True)
+
 
 # ── 공통 집계 함수 ─────────────────────────────────────────────
 def build_summary_table(data: pd.DataFrame, group_col: str, label_fn=None) -> pd.DataFrame:
@@ -305,29 +331,8 @@ def render_kpi(k: dict):
     c6.metric("🎯 CPA",    fmt_krw(k["cpa"]))
 
 
-# ── 공통: 원본 테이블 ──────────────────────────────────────────
-DISPLAY_COLS = ["날짜", "매체", "스킴명", "광고그룹명", "소재명",
-                "대분류 포맷", "노출", "클릭", "CTR (%)", "광고비 (KRW)",
-                "전환수", "CPA (KRW)"]
-
-def render_table(d: pd.DataFrame, cols=None):
-    show = [c for c in (cols or DISPLAY_COLS) if c in d.columns]
-    styled = d[show].copy()
-    if "날짜" in styled.columns:
-        styled["날짜"] = styled["날짜"].dt.strftime("%Y-%m-%d")
-    for c in ["광고비 (KRW)", "CPA (KRW)", "CPC (KRW)"]:
-        if c in styled.columns:
-            styled[c] = styled[c].apply(lambda x: f"₩{x:,.0f}")
-    for c in ["CTR (%)"]:
-        if c in styled.columns:
-            styled[c] = styled[c].apply(lambda x: f"{x:.2f}%")
-    st.dataframe(styled, use_container_width=True, hide_index=True)
-
-
 # ── 탭 ────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["📊 전체 요약", "🍿 팝콘 요약", "📺 매체별", "🎨 소재별", "📦 제품별"]
-)
+tab1, tab2 = st.tabs(["📊 전체 요약", "🍿 팝콘 요약"])
 
 
 # ══════════════════════════════════════════════════════════════
@@ -391,8 +396,7 @@ with tab1:
         )
         st.plotly_chart(fig, use_container_width=True)
     else:
-        st.dataframe(style_with_total(daily_table(fdf)),
-                     use_container_width=True, hide_index=True)
+        render_pinned_total_table(daily_table(fdf))
 
     col_a, col_b = st.columns(2)
     with col_a:
@@ -416,9 +420,7 @@ with tab1:
     fdf_m["월"] = fdf_m["날짜"].dt.month
     monthly_tbl = build_summary_table(fdf_m, "월", label_fn=lambda x: f"{int(x):02d}")
     st.markdown("**📅 월별 데이터 추이**")
-    st.dataframe(style_with_total(style_summary(monthly_tbl, "월")),
-                 use_container_width=True, hide_index=True,
-                 column_config={"월": st.column_config.TextColumn("월", width="small")})
+    render_pinned_total_table(style_summary(monthly_tbl, "월"))
 
     fdf_w = fdf.copy()
     fdf_w["week_start"] = fdf_w["날짜"].dt.to_period("W").apply(lambda p: p.start_time.date())
@@ -432,9 +434,7 @@ with tab1:
     weekly_tbl = build_summary_table(fdf_w4, "week_start", label_fn=week_label)
     weekly_tbl = weekly_tbl.rename(columns={"week_start": "주차"})
     st.markdown("**📆 주차별 성과 (최근 4주)**")
-    st.dataframe(style_with_total(style_summary(weekly_tbl, "주차")),
-                 use_container_width=True, hide_index=True,
-                 column_config={"주차": st.column_config.TextColumn("주차", width="medium")})
+    render_pinned_total_table(style_summary(weekly_tbl, "주차"))
 
 
 # ══════════════════════════════════════════════════════════════
@@ -452,8 +452,7 @@ with tab2:
 
         # ── 1. 일별 광고비 테이블 ─────────────────────────────
         st.markdown("**📊 일별 광고비 & CPA**")
-        st.dataframe(style_with_total(daily_table(fdf_pc)),
-                     use_container_width=True, hide_index=True)
+        render_pinned_total_table(daily_table(fdf_pc))
 
         st.markdown("---")
 
@@ -473,8 +472,7 @@ with tab2:
             perf_row("5p구성 적용(6/17~6/30)",  after),
             perf_row("총합계",                   fdf_pc),
         ])
-        st.dataframe(style_with_total(period_df),
-                     use_container_width=True, hide_index=True)
+        render_pinned_total_table(period_df)
 
         st.markdown("---")
 
@@ -483,92 +481,9 @@ with tab2:
 
         event_tbl = build_summary_table(fdf_pc, "스킴명")
         event_tbl = event_tbl.rename(columns={"스킴명": "이벤트명"})
-        st.dataframe(style_with_total(style_summary(event_tbl, "이벤트명")),
-                     use_container_width=True, hide_index=True)
+        _ev_total = event_tbl[event_tbl["이벤트명"] == "총합계"]
+        _ev_data  = event_tbl[event_tbl["이벤트명"] != "총합계"].sort_values("광고비", ascending=False)
+        event_tbl = pd.concat([_ev_data, _ev_total], ignore_index=True)
+        render_pinned_total_table(style_summary(event_tbl, "이벤트명"))
 
-
-# ══════════════════════════════════════════════════════════════
-# TAB 3: 매체별
-# ══════════════════════════════════════════════════════════════
-with tab3:
-    render_kpi(kpi)
-    st.markdown("---")
-
-    by_media = fdf.groupby("매체").agg(
-        spend=("광고비 (KRW)", "sum"), imp=("노출", "sum"),
-        clk=("클릭", "sum"), conv=("전환수", "sum"),
-    ).reset_index()
-    by_media["CTR"] = (by_media["clk"] / by_media["imp"].replace(0, float("nan")) * 100).fillna(0)
-    by_media["CPC"] = (by_media["spend"] / by_media["clk"].replace(0, float("nan"))).fillna(0)
-    by_media["CPA"] = (by_media["spend"] / by_media["conv"].replace(0, float("nan"))).fillna(0)
-
-    col1, col2 = st.columns(2)
-    with col1:
-        fig_m1 = px.bar(by_media, x="매체", y="spend", title="매체별 광고비",
-                        color="매체", color_discrete_sequence=PALETTE, text_auto=".0f")
-        fig_m1.update_layout(height=320, showlegend=False,
-                              plot_bgcolor="white", paper_bgcolor="white", yaxis_title="광고비 (KRW)")
-        st.plotly_chart(fig_m1, use_container_width=True)
-    with col2:
-        fig_m2 = px.bar(by_media, x="매체", y="CPA", title="매체별 CPA",
-                        color="매체", color_discrete_sequence=PALETTE, text_auto=".0f")
-        fig_m2.update_layout(height=320, showlegend=False,
-                              plot_bgcolor="white", paper_bgcolor="white", yaxis_title="CPA (KRW)")
-        st.plotly_chart(fig_m2, use_container_width=True)
-
-    render_table(fdf.sort_values("날짜", ascending=False).head(300))
-
-
-# ══════════════════════════════════════════════════════════════
-# TAB 4: 소재별
-# ══════════════════════════════════════════════════════════════
-with tab4:
-    render_kpi(kpi)
-    st.markdown("---")
-
-    by_creative = fdf.groupby(["대분류 포맷", "영상/이미지 구분"]).agg(
-        spend=("광고비 (KRW)", "sum"), imp=("노출", "sum"),
-        clk=("클릭", "sum"), conv=("전환수", "sum"),
-    ).reset_index()
-    by_creative["CTR"] = (by_creative["clk"] / by_creative["imp"].replace(0, float("nan")) * 100).fillna(0)
-    by_creative["CPA"] = (by_creative["spend"] / by_creative["conv"].replace(0, float("nan"))).fillna(0)
-
-    fig_c = px.bar(by_creative, x="대분류 포맷", y="spend",
-                   color="영상/이미지 구분", title="소재유형별 광고비",
-                   barmode="group", color_discrete_sequence=PALETTE, text_auto=".0f")
-    fig_c.update_layout(height=350, plot_bgcolor="white", paper_bgcolor="white",
-                        yaxis_title="광고비 (KRW)")
-    st.plotly_chart(fig_c, use_container_width=True)
-
-    render_table(fdf.sort_values("날짜", ascending=False).head(300))
-
-
-# ══════════════════════════════════════════════════════════════
-# TAB 5: 제품별
-# ══════════════════════════════════════════════════════════════
-with tab5:
-    render_kpi(kpi)
-    st.markdown("---")
-
-    by_prod = fdf.groupby("제품코드").agg(
-        spend=("광고비 (KRW)", "sum"), imp=("노출", "sum"),
-        clk=("클릭", "sum"), conv=("전환수", "sum"),
-    ).reset_index()
-    by_prod["CTR"] = (by_prod["clk"] / by_prod["imp"].replace(0, float("nan")) * 100).fillna(0)
-    by_prod["CPA"] = (by_prod["spend"] / by_prod["conv"].replace(0, float("nan"))).fillna(0)
-
-    col1, col2 = st.columns(2)
-    with col1:
-        fig_p1 = px.pie(by_prod, names="제품코드", values="spend",
-                        title="제품별 광고비 비중", color_discrete_sequence=PALETTE)
-        fig_p1.update_layout(height=320, paper_bgcolor="white")
-        st.plotly_chart(fig_p1, use_container_width=True)
-    with col2:
-        fig_p2 = px.bar(by_prod, x="제품코드", y="CPA",
-                        title="제품별 CPA", color="제품코드",
-                        color_discrete_sequence=PALETTE, text_auto=".0f")
-        fig_p2.update_layout(height=320, showlegend=False,
-                              plot_bgcolor="white", paper_bgcolor="white", yaxis_title="CPA (KRW)")
-        st.plotly_chart(fig_p2, use_container_width=True)
-
-    render_table(fdf.sort_values("날짜", ascending=False).head(300))
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
