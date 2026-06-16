@@ -82,7 +82,7 @@ def render_pinned_total_table(df: pd.DataFrame):
               f" border-left:1px solid #e0e0e0; border-right:1px solid #e0e0e0;"
               f" border-bottom:1px solid #e0e0e0;")
         cells = "".join(f"<td style='{td}'>{v}</td>" for v in total.iloc[0])
-        html = (f'<div style="overflow-x:auto; margin-top:-1rem;">'
+        html = (f'<div style="overflow-x:auto; margin-top:-1.5rem;">'
                 f'<table style="width:100%; border-collapse:collapse; table-layout:fixed;">'
                 f'<tbody><tr>{cells}</tr></tbody></table></div>')
         st.markdown(html, unsafe_allow_html=True)
@@ -480,4 +480,4 @@ with tab2:
         event_tbl = event_tbl.rename(columns={"스킴명": "이벤트명"})
         _ev_total = event_tbl[event_tbl["이벤트명"] == "총합계"]
         _ev_data  = event_tbl[event_tbl["이벤트명"] != "총합계"].sort_values("광고비", ascending=False)
-        event_tbl = pd.c
+        event_tbl = pd
