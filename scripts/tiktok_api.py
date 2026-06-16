@@ -23,7 +23,6 @@ os.makedirs(DATA_DIR, exist_ok=True)
 LOG_PATH   = os.path.join(DATA_DIR, "tiktok_run.log")
 STATE_PATH = os.path.join(DATA_DIR, "tiktok_last_success.txt")
 
-# ── 로그 ──────────────────────────────────────────────────────
 def log(msg):
     stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line  = f"[{stamp}] {msg}"
@@ -56,7 +55,6 @@ def die(msg):
     )
     sys.exit(1)
 
-# ── TikTok API GET (재시도) ────────────────────────────────────
 def tt_get(endpoint, params):
     url = f"{BASE}{endpoint}"
     for attempt in range(8):
@@ -75,7 +73,6 @@ def tt_get(endpoint, params):
         code = data.get("code", 0)
         if code == 0:
             return data
-        # 토큰 만료/권한 오류 → 즉시 중단
         if code in (40100, 40101, 40102, 40105):
             die(
                 f"TikTok 인증 오류 (토큰 재발급 필요)\n"
@@ -86,31 +83,39 @@ def tt_get(endpoint, params):
         time.sleep(min(10 * (2 ** attempt), 300))
     die("TikTok API 재시도 모두 소진")
 
-# ── 날짜 범위 ──────────────────────────────────────────────────
 today = datetime.date.today()
-until = today - datetime.timedelta(days=1)
 
-last_success = None
-if os.path.exists(STATE_PATH):
-    try:
-        with open(STATE_PATH, encoding="utf-8") as f:
-            last_success = datetime.date.fromisoformat(f.read().strip())
-    except Exception:
-        pass
+# 백필 모드: 환경변수 BACKFILL_SINCE / BACKFILL_UNTIL 우선
+_backfill_since = os.environ.get("BACKFILL_SINCE", "").strip()
+_backfill_until = os.environ.get("BACKFILL_UNTIL", "").strip()
+IS_BACKFILL = bool(_backfill_since and _backfill_until)
 
-since = (last_success + datetime.timedelta(days=1)) if last_success else until
+if IS_BACKFILL:
+    since = datetime.date.fromisoformat(_backfill_since)
+    until = datetime.date.fromisoformat(_backfill_until)
+    log(f"[백필 모드] 수집 범위: {since} ~ {until}")
+else:
+    until = today - datetime.timedelta(days=1)
 
-if since > until:
-    log(f"받을 새 데이터 없음 (이미 {last_success}까지 수집 완료) -> 종료")
-    sys.exit(0)
+    last_success = None
+    if os.path.exists(STATE_PATH):
+        try:
+            with open(STATE_PATH, encoding="utf-8") as f:
+                last_success = datetime.date.fromisoformat(f.read().strip())
+        except Exception:
+            pass
+
+    since = (last_success + datetime.timedelta(days=1)) if last_success else until
+
+    if since > until:
+        log(f"받을 새 데이터 없음 (이미 {last_success}까지 수집 완료) -> 종료")
+        sys.exit(0)
 
 gap_days = (until - since).days + 1
 if gap_days > 60:
     log(f"경고: 수집 범위 {gap_days}일. 장기 누락 가능성.")
 log(f"수집 범위: {since} ~ {until} ({gap_days}일)")
 
-# ── 날짜별 수집 ────────────────────────────────────────────────
-# TikTok API 최대 조회 범위: 30일. 안전하게 날짜 단위로 순회.
 all_rows = []
 current  = since
 
@@ -143,7 +148,6 @@ while current <= until:
             break
         page += 1
 
-    # 인지 캠페인 제외
     filtered = [
         r for r in daily_rows
         if "인지" not in r.get("metrics", {}).get("campaign_name", "")
@@ -152,7 +156,6 @@ while current <= until:
     all_rows.extend(filtered)
     current += datetime.timedelta(days=1)
 
-# ── spend = 0 행 제외 후 CSV 저장 ─────────────────────────────
 out = []
 for r in all_rows:
     m     = r.get("metrics", {})
@@ -180,11 +183,13 @@ with open(out_path, "w", encoding="utf-8-sig", newline="") as f:
         writer.writeheader()
         writer.writerows(out)
     else:
-        # 지출이 없는 날에도 파일 생성 (빈 헤더)
         f.write("date,campaign_name,adset_name,ad_name,impressions,clicks,spend,conversions\n")
 
-with open(STATE_PATH, "w", encoding="utf-8") as f:
-    f.write(str(until))
+if not IS_BACKFILL:
+    with open(STATE_PATH, "w", encoding="utf-8") as f:
+        f.write(str(until))
+    log(f"마지막 성공 날짜 갱신: {until}")
+else:
+    log("[백필 모드] state 파일 갱신 생략")
 
 log(f"완료: {len(out)}행 -> {out_path}")
-log(f"마지막 성공 날짜 갱신: {until}")
