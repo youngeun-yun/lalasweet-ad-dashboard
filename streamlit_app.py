@@ -65,30 +65,26 @@ def style_with_total(df: pd.DataFrame):
     return df.style.apply(row_style, axis=1)
 
 def render_pinned_total_table(df: pd.DataFrame):
-    """총합계 행을 항상 맨 아래 고정하여 HTML 테이블로 렌더링"""
+    """데이터 행은 st.dataframe으로 정렬 가능, 총합계는 HTML로 항상 하단 고정"""
     first_col = df.columns[0]
-    data = df[df[first_col] != "총합계"]
+    data  = df[df[first_col] != "총합계"].reset_index(drop=True)
     total = df[df[first_col] == "총합계"]
 
-    th_style = "padding:7px 10px; text-align:left; background:#f0f2f6; border-bottom:2px solid #ddd; font-size:0.82rem; white-space:nowrap;"
-    td_style = "padding:6px 10px; border-bottom:1px solid #eee; font-size:0.82rem; white-space:nowrap;"
-    td_total = f"padding:6px 10px; border-bottom:1px solid #eee; font-size:0.82rem; white-space:nowrap; background:{TOTAL_BG}; color:{TOTAL_FG}; font-weight:{TOTAL_FONT};"
+    # 정렬 가능한 데이터 테이블
+    st.dataframe(data, use_container_width=True, hide_index=True)
 
-    headers = "".join(f"<th style='{th_style}'>{col}</th>" for col in df.columns)
-    data_rows = "".join(
-        "<tr>" + "".join(f"<td style='{td_style}'>{v}</td>" for v in row) + "</tr>"
-        for _, row in data.iterrows()
-    )
-    total_rows = "".join(
-        "<tr>" + "".join(f"<td style='{td_total}'>{v}</td>" for v in row) + "</tr>"
-        for _, row in total.iterrows()
-    )
-    html = f"""<div style="overflow-x:auto; border-radius:8px; overflow:hidden; border:1px solid #e0e0e0;">
-<table style="width:100%; border-collapse:collapse;">
-<thead><tr>{headers}</tr></thead>
-<tbody>{data_rows}{total_rows}</tbody>
-</table></div>"""
-    st.markdown(html, unsafe_allow_html=True)
+    # 총합계 고정 행
+    if not total.empty:
+        n = len(df.columns)
+        pct = 100 / n
+        td = (f"padding:5px 8px; font-size:0.82rem; white-space:nowrap; width:{pct:.1f}%;"
+              f" background:{TOTAL_BG}; color:{TOTAL_FG}; font-weight:{TOTAL_FONT};"
+              f" border:1px solid #e0e0e0;")
+        cells = "".join(f"<td style='{td}'>{v}</td>" for v in total.iloc[0])
+        html = (f'<div style="overflow-x:auto; margin-top:2px;">'
+                f'<table style="width:100%; border-collapse:collapse; table-layout:fixed;">'
+                f'<tbody><tr>{cells}</tr></tbody></table></div>')
+        st.markdown(html, unsafe_allow_html=True)
 
 
 # ── 공통 집계 함수 ─────────────────────────────────────────────
@@ -486,3 +482,4 @@ with tab2:
         event_tbl = pd.concat([_ev_data, _ev_total], ignore_index=True)
         render_pinned_total_table(style_summary(event_tbl, "이벤트명"))
 
+                                                                                                                                                                                                                                                                                          
