@@ -4,6 +4,7 @@ Meta 광고 데이터 수집 (GitHub Actions 전용)
 - 매일 실행 (주말 포함, 주말 체크 없음)
 - 자격증명: 환경 변수 (GitHub Secrets)
 - 캠페인 제외: 파인트/스틱바/얼리썸머/패밀리세일/빙과
+- 소재명 제품코드 제외: BA망/CO바/P혼/ZB귤/ZB파
 - 소재명 정리: ' - 사본' / ' - 사본 N' 패턴 제거
 - 출력: data/meta_raw_{since}_{until}.csv
 - 상태 파일: data/meta_last_success.txt
@@ -83,38 +84,26 @@ def api_call(method, url, **kw):
     die(f"재시도 모두 소진: {last}")
 
 def clean_ad_name(name: str) -> str:
-    """소재명 끝의 ' - 사본' 또는 ' - 사본 2' 등 패턴 제거"""
     if not name:
         return name
     return re.sub(r'\s*-\s*사본(\s+\d+)?$', '', name).strip()
 
 today = datetime.date.today()
+until = today - datetime.timedelta(days=1)
 
-# 백필 모드: 환경변수 BACKFILL_SINCE / BACKFILL_UNTIL 우선
-_backfill_since = os.environ.get("BACKFILL_SINCE", "").strip()
-_backfill_until = os.environ.get("BACKFILL_UNTIL", "").strip()
-IS_BACKFILL = bool(_backfill_since and _backfill_until)
+last_success = None
+if os.path.exists(STATE_PATH):
+    try:
+        with open(STATE_PATH, encoding="utf-8") as f:
+            last_success = datetime.date.fromisoformat(f.read().strip())
+    except Exception:
+        pass
 
-if IS_BACKFILL:
-    since = datetime.date.fromisoformat(_backfill_since)
-    until = datetime.date.fromisoformat(_backfill_until)
-    log(f"[백필 모드] 수집 범위: {since} ~ {until}")
-else:
-    until = today - datetime.timedelta(days=1)
+since = (last_success + datetime.timedelta(days=1)) if last_success else until
 
-    last_success = None
-    if os.path.exists(STATE_PATH):
-        try:
-            with open(STATE_PATH, encoding="utf-8") as f:
-                last_success = datetime.date.fromisoformat(f.read().strip())
-        except Exception:
-            pass
-
-    since = (last_success + datetime.timedelta(days=1)) if last_success else until
-
-    if since > until:
-        log(f"받을 새 데이터 없음 (이미 {last_success}까지 수집 완료) -> 종료")
-        sys.exit(0)
+if since > until:
+    log(f"받을 새 데이터 없음 (이미 {last_success}까지 수집 완료) -> 종료")
+    sys.exit(0)
 
 gap_days = (until - since).days + 1
 if gap_days > 60:
@@ -128,22 +117,18 @@ fields = (
 
 filtering = [
     {"field": "impressions",   "operator": "GREATER_THAN", "value": 0},
+    # 캠페인명 기준 제외
     {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "파인트"},
     {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "스틱바"},
     {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "얼리썸머"},
     {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "패밀리세일"},
     {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "빙과"},
-    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "제로바"},
-    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "듬뿍바"},
-    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "멜론바"},
-    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "모나카"},
-    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "미니생초코"},
-    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "복요파"},
-    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "블요바"},
-    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "젤라또"},
-    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "쫀득바"},
-    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "요거트바"},
-    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "초코페스티벌"},
+    # 소재명 제품코드 기준 제외
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "BA망"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "CO바"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "P혼"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "ZB귤"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "ZB파"},
 ]
 
 params = {
@@ -272,12 +257,8 @@ for r in rows:
 if sbon_count > 0:
     log(f"소재명 ' - 사본' 정리 완료: {sbon_count}건")
 
-# 0행: 지출 없는 날 → 오류 아님, 상태 파일만 업데이트하고 정상 종료
 if len(out) == 0:
-    log(f"수집된 행이 0개 (광고 지출 없는 날로 판단) -> 상태 업데이트 후 스킵")
-    with open(STATE_PATH, "w", encoding="utf-8") as f:
-        f.write(str(until))
-    sys.exit(0)
+    die("수집된 행이 0개 -> 파일 생성 안 함")
 
 out_path = os.path.join(DATA_DIR, f"meta_raw_{since}_{until}.csv")
 with open(out_path, "w", encoding="utf-8-sig", newline="") as f:
@@ -285,11 +266,8 @@ with open(out_path, "w", encoding="utf-8-sig", newline="") as f:
     writer.writeheader()
     writer.writerows(out)
 
-if not IS_BACKFILL:
-    with open(STATE_PATH, "w", encoding="utf-8") as f:
-        f.write(str(until))
-    log(f"마지막 성공 날짜 갱신: {until}")
-else:
-    log("[백필 모드] state 파일 갱신 생략")
+with open(STATE_PATH, "w", encoding="utf-8") as f:
+    f.write(str(until))
 
 log(f"완료: {len(out)}행 -> {out_path}")
+log(f"마지막 성공 날짜 갱신: {until}")
