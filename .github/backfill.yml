@@ -14,14 +14,13 @@ jobs:
   backfill:
     runs-on: ubuntu-latest
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
-      BACKFILL_SINCE: ${{ github.event.inputs.since }}
-      BACKFILL_UNTIL: ${{ github.event.inputs.until }}
+      BACKFILL_SINCE: "${{ github.event.inputs.since }}"
+      BACKFILL_UNTIL: "${{ github.event.inputs.until }}"
     steps:
       - name: 저장소 체크아웃
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: "${{ secrets.GITHUB_TOKEN }}"
 
       - name: Python 설정
         uses: actions/setup-python@v5
@@ -33,18 +32,18 @@ jobs:
 
       - name: 메타 데이터 수집 (백필)
         env:
-          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
-          META_AD_ACCOUNT_ID: ${{ secrets.META_AD_ACCOUNT_ID }}
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          SLACK_USER_ID: ${{ secrets.SLACK_USER_ID }}
+          META_ACCESS_TOKEN: "${{ secrets.META_ACCESS_TOKEN }}"
+          META_AD_ACCOUNT_ID: "${{ secrets.META_AD_ACCOUNT_ID }}"
+          SLACK_BOT_TOKEN: "${{ secrets.SLACK_BOT_TOKEN }}"
+          SLACK_USER_ID: "${{ secrets.SLACK_USER_ID }}"
         run: python scripts/meta_api.py
 
       - name: 틱톡 데이터 수집 (백필)
         env:
-          TIKTOK_ACCESS_TOKEN: ${{ secrets.TIKTOK_ACCESS_TOKEN }}
-          TIKTOK_ADVERTISER_ID: ${{ secrets.TIKTOK_ADVERTISER_ID }}
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          SLACK_USER_ID: ${{ secrets.SLACK_USER_ID }}
+          TIKTOK_ACCESS_TOKEN: "${{ secrets.TIKTOK_ACCESS_TOKEN }}"
+          TIKTOK_ADVERTISER_ID: "${{ secrets.TIKTOK_ADVERTISER_ID }}"
+          SLACK_BOT_TOKEN: "${{ secrets.SLACK_BOT_TOKEN }}"
+          SLACK_USER_ID: "${{ secrets.SLACK_USER_ID }}"
         run: python scripts/tiktok_api.py
 
       - name: 통합 RD 빌드
@@ -52,8 +51,8 @@ jobs:
 
       - name: Google Sheets 동기화
         env:
-          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
-          GCP_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
+          SPREADSHEET_ID: "${{ secrets.SPREADSHEET_ID }}"
+          GCP_SERVICE_ACCOUNT_JSON: "${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}"
         run: python scripts/sync_to_sheets.py
 
       - name: 데이터 커밋 & 푸시
