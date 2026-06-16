@@ -303,6 +303,7 @@ with st.sidebar:
     st.caption(f"최근 업데이트: {max_date}")
 
 
+# ── 필터 적용 ──────────────────────────────────────────────────
 mask = pd.Series([True] * len(df), index=df.index)
 if sel_years:
     mask &= df["날짜"].dt.year.isin(sel_years)
@@ -322,11 +323,18 @@ if sel_event:
 
 fdf = df[mask].copy()
 
+# 월별 데이터 추이: 연도 필터만 적용
+mask_monthly = pd.Series([True] * len(df), index=df.index)
+if sel_years:
+    mask_monthly &= df["날짜"].dt.year.isin(sel_years)
+fdf_monthly = df[mask_monthly].copy()
+
 if fdf.empty:
     st.warning("필터 조건에 맞는 데이터가 없어요. 필터를 조정해주세요.")
     st.stop()
 
 
+# ── KPI 집계 ───────────────────────────────────────────────────
 def calc_kpi(d: pd.DataFrame) -> dict:
     spend = d["광고비 (KRW)"].sum()
     imp   = d["노출"].sum()
@@ -341,6 +349,8 @@ kpi = calc_kpi(fdf)
 def fmt_krw(v): return f"₩{int(v):,}"
 def fmt_num(v): return f"{int(v):,}"
 
+
+# ── 공통: KPI 카드 ─────────────────────────────────────────────
 def render_kpi(k: dict):
     c1, c2, c3, c4, c5, c6 = st.columns(6)
     c1.metric("💰 광고비", fmt_krw(k["spend"]))
@@ -351,9 +361,18 @@ def render_kpi(k: dict):
     c6.metric("🎯 CPA",    fmt_krw(k["cpa"]))
 
 
-tab1, tab2 = st.tabs(["📊 전체 요약", "🍿 팝콘 요약"])
+# ── 공통: 원본 테이블 ──────────────────────────────────────────
 
 
+# ── 탭 ────────────────────────────────────────────────────────
+tab1, tab2 = st.tabs(
+    ["📊 전체 요약", "🍿 팝콘 요약"]
+)
+
+
+# ══════════════════════════════════════════════════════════════
+# TAB 1: 전체 요약
+# ══════════════════════════════════════════════════════════════
 with tab1:
     render_kpi(kpi)
     st.markdown("---")
@@ -432,7 +451,7 @@ with tab1:
 
     st.markdown("---")
 
-    fdf_m = fdf.copy()
+    fdf_m = fdf_monthly.copy()
     fdf_m["월"] = fdf_m["날짜"].dt.month
     monthly_tbl = build_summary_table(fdf_m, "월", label_fn=lambda x: f"{int(x):02d}")
     st.markdown("**📅 월별 데이터 추이**")
@@ -453,7 +472,11 @@ with tab1:
     render_pinned_total_table(style_summary(weekly_tbl, "주차"))
 
 
+# ══════════════════════════════════════════════════════════════
+# TAB 2: 팝콘 요약
+# ══════════════════════════════════════════════════════════════
 with tab2:
+    # 팝콘 필터: 제품코드에 "PC" 포함
     fdf_pc = fdf[fdf["제품코드"].astype(str).str.contains("PC", na=False)].copy()
 
     if fdf_pc.empty:
@@ -462,30 +485,33 @@ with tab2:
         render_kpi(calc_kpi(fdf_pc))
         st.markdown("---")
 
+        # ── 1. 일별 광고비 테이블 ─────────────────────────────
         st.markdown("**📊 일별 광고비 & CPA**")
         render_pinned_total_table(daily_table(fdf_pc))
 
         st.markdown("---")
 
+        # ── 2. 5P구성 성과 ────────────────────────────────────
         st.markdown("**📋 5P구성 성과**")
 
-        T_BEFORE_END   = pd.Timestamp("2026-06-16")
-        T_AFTER_START  = pd.Timestamp("2026-06-17")
-        T_AFTER_END    = pd.Timestamp("2026-06-30")
+        T_BEFORE_END  = pd.Timestamp("2026-06-16")
+        T_AFTER_START = pd.Timestamp("2026-06-17")
+        T_AFTER_END   = pd.Timestamp("2026-06-30")
         T_BEFORE_START = pd.Timestamp("2026-06-01")
 
         before = fdf_pc[(fdf_pc["날짜"] >= T_BEFORE_START) & (fdf_pc["날짜"] <= T_BEFORE_END)]
         after  = fdf_pc[(fdf_pc["날짜"] >= T_AFTER_START)  & (fdf_pc["날짜"] <= T_AFTER_END)]
 
         period_df = pd.DataFrame([
-            perf_row("5p구성 이전(6/1~6/16)",  before),
-            perf_row("5p구성 적용(6/17~6/30)", after),
-            perf_row("총합계",                  fdf_pc),
+            perf_row("5p구성 이전(6/1~6/16)",   before),
+            perf_row("5p구성 적용(6/17~6/30)",  after),
+            perf_row("총합계",                   fdf_pc),
         ])
         render_pinned_total_table(period_df)
 
         st.markdown("---")
 
+        # ── 3. 이벤트별 성과 ──────────────────────────────────
         st.markdown("**🎪 이벤트별 성과**")
 
         event_tbl = build_summary_table(fdf_pc, "스킴명")
