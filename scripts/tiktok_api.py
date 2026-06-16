@@ -23,6 +23,7 @@ os.makedirs(DATA_DIR, exist_ok=True)
 LOG_PATH   = os.path.join(DATA_DIR, "tiktok_run.log")
 STATE_PATH = os.path.join(DATA_DIR, "tiktok_last_success.txt")
 
+# ── 로그 ──────────────────────────────────────────────────────
 def log(msg):
     stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line  = f"[{stamp}] {msg}"
@@ -55,6 +56,7 @@ def die(msg):
     )
     sys.exit(1)
 
+# ── TikTok API GET (재시도) ────────────────────────────────────
 def tt_get(endpoint, params):
     url = f"{BASE}{endpoint}"
     for attempt in range(8):
@@ -73,6 +75,7 @@ def tt_get(endpoint, params):
         code = data.get("code", 0)
         if code == 0:
             return data
+        # 토큰 만료/권한 오류 → 즉시 중단
         if code in (40100, 40101, 40102, 40105):
             die(
                 f"TikTok 인증 오류 (토큰 재발급 필요)\n"
@@ -83,6 +86,7 @@ def tt_get(endpoint, params):
         time.sleep(min(10 * (2 ** attempt), 300))
     die("TikTok API 재시도 모두 소진")
 
+# ── 날짜 범위 ──────────────────────────────────────────────────
 today = datetime.date.today()
 
 # 백필 모드: 환경변수 BACKFILL_SINCE / BACKFILL_UNTIL 우선
@@ -116,6 +120,8 @@ if gap_days > 60:
     log(f"경고: 수집 범위 {gap_days}일. 장기 누락 가능성.")
 log(f"수집 범위: {since} ~ {until} ({gap_days}일)")
 
+# ── 날짜별 수집 ────────────────────────────────────────────────
+# TikTok API 최대 조회 범위: 30일. 안전하게 날짜 단위로 순회.
 all_rows = []
 current  = since
 
@@ -148,14 +154,21 @@ while current <= until:
             break
         page += 1
 
+    # 캠페인명 제외 키워드 필터
+    _EXCLUDE_KW = [
+        "인지", "파인트", "스틱바", "얼리썸머", "패밀리세일", "빙과",
+        "제로바", "듬뿍바", "멜론바", "모나카", "미니생초코",
+        "복요파", "블요바", "젤라또", "쫀득바", "요거트바", "초코페스티벌",
+    ]
     filtered = [
         r for r in daily_rows
-        if "인지" not in r.get("metrics", {}).get("campaign_name", "")
+        if not any(kw in r.get("metrics", {}).get("campaign_name", "") for kw in _EXCLUDE_KW)
     ]
-    log(f"  {date_str}: 전체 {len(daily_rows)}행 -> 인지 제외 후 {len(filtered)}행")
+    log(f"  {date_str}: 전체 {len(daily_rows)}행 -> 제외 후 {len(filtered)}행")
     all_rows.extend(filtered)
     current += datetime.timedelta(days=1)
 
+# ── spend = 0 행 제외 후 CSV 저장 ─────────────────────────────
 out = []
 for r in all_rows:
     m     = r.get("metrics", {})
@@ -183,6 +196,7 @@ with open(out_path, "w", encoding="utf-8-sig", newline="") as f:
         writer.writeheader()
         writer.writerows(out)
     else:
+        # 지출이 없는 날에도 파일 생성 (빈 헤더)
         f.write("date,campaign_name,adset_name,ad_name,impressions,clicks,spend,conversions\n")
 
 if not IS_BACKFILL:
