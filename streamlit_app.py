@@ -65,27 +65,64 @@ def style_with_total(df: pd.DataFrame):
     return df.style.apply(row_style, axis=1)
 
 def render_pinned_total_table(df: pd.DataFrame):
-    """데이터 행은 st.dataframe으로 정렬 가능, 총합계는 HTML로 항상 하단 고정"""
+    """컬럼 클릭 정렬 + 총합계 항상 하단 고정 (단일 HTML 테이블)"""
+    import uuid
+    tid = f"tbl_{uuid.uuid4().hex[:8]}"
+
     first_col = df.columns[0]
     data  = df[df[first_col] != "총합계"].reset_index(drop=True)
     total = df[df[first_col] == "총합계"]
 
-    # 정렬 가능한 데이터 테이블
-    st.dataframe(data, use_container_width=True, hide_index=True)
+    th = ("padding:7px 10px; text-align:left; background:#f0f2f6;"
+          " border-bottom:2px solid #ddd; font-size:0.82rem; white-space:nowrap;"
+          " cursor:pointer; user-select:none;")
+    td = "padding:6px 10px; border-bottom:1px solid #eee; font-size:0.82rem; white-space:nowrap;"
+    tf = (f"padding:6px 10px; font-size:0.82rem; white-space:nowrap;"
+          f" background:{TOTAL_BG}; color:{TOTAL_FG}; font-weight:{TOTAL_FONT};"
+          f" border-top:2px solid #ddd;")
 
-    # 총합계 고정 행 — 위 dataframe에 바짝 붙임
-    if not total.empty:
-        n = len(df.columns)
-        pct = 100 / n
-        td = (f"padding:5px 8px; font-size:0.82rem; white-space:nowrap; width:{pct:.1f}%;"
-              f" background:{TOTAL_BG}; color:{TOTAL_FG}; font-weight:{TOTAL_FONT};"
-              f" border-left:1px solid #e0e0e0; border-right:1px solid #e0e0e0;"
-              f" border-bottom:1px solid #e0e0e0;")
-        cells = "".join(f"<td style='{td}'>{v}</td>" for v in total.iloc[0])
-        html = (f'<div style="overflow-x:auto; margin-top:-1.5rem;">'
-                f'<table style="width:100%; border-collapse:collapse; table-layout:fixed;">'
-                f'<tbody><tr>{cells}</tr></tbody></table></div>')
-        st.markdown(html, unsafe_allow_html=True)
+    headers = "".join(
+        f'<th style="{th}" onclick="sortTbl(\'{tid}\',{i})" data-order="">'
+        f'{col} <span style="color:#bbb;font-size:0.7rem">↕</span></th>'
+        for i, col in enumerate(df.columns)
+    )
+    body = "".join(
+        "<tr>" + "".join(f'<td style="{td}">{v}</td>' for v in row) + "</tr>"
+        for _, row in data.iterrows()
+    )
+    foot = ("".join(
+        "<tr>" + "".join(f'<td style="{tf}">{v}</td>' for v in row) + "</tr>"
+        for _, row in total.iterrows()
+    ) if not total.empty else "")
+
+    html = f"""
+<div style="overflow-x:auto; border-radius:8px; border:1px solid #e0e0e0;">
+<table id="{tid}" style="width:100%; border-collapse:collapse;">
+<thead><tr>{headers}</tr></thead>
+<tbody>{body}</tbody>
+<tfoot>{foot}</tfoot>
+</table></div>
+<script>
+function sortTbl(tid, col) {{
+  var tbl = document.getElementById(tid);
+  var tbody = tbl.querySelector('tbody');
+  var ths = tbl.querySelectorAll('thead th');
+  var asc = ths[col].dataset.order !== 'asc';
+  ths.forEach(function(h) {{ h.dataset.order=''; h.querySelector('span').textContent='↕'; }});
+  ths[col].dataset.order = asc ? 'asc' : 'desc';
+  ths[col].querySelector('span').textContent = asc ? '↑' : '↓';
+  var rows = Array.from(tbody.querySelectorAll('tr'));
+  rows.sort(function(a,b) {{
+    var va = a.cells[col].textContent.replace(/[₩%,\\s]/g,'');
+    var vb = b.cells[col].textContent.replace(/[₩%,\\s]/g,'');
+    var na = parseFloat(va), nb = parseFloat(vb);
+    if (!isNaN(na) && !isNaN(nb)) return asc ? na-nb : nb-na;
+    return asc ? va.localeCompare(vb,'ko') : vb.localeCompare(va,'ko');
+  }});
+  rows.forEach(function(r) {{ tbody.appendChild(r); }});
+}}
+</script>"""
+    st.markdown(html, unsafe_allow_html=True)
 
 
 # ── 공통 집계 함수 ─────────────────────────────────────────────
@@ -453,31 +490,4 @@ with tab2:
 
         st.markdown("---")
 
-        # ── 2. 5P구성 성과 ────────────────────────────────────
-        st.markdown("**📋 5P구성 성과**")
-
-        T_BEFORE_END  = pd.Timestamp("2026-06-16")
-        T_AFTER_START = pd.Timestamp("2026-06-17")
-        T_AFTER_END   = pd.Timestamp("2026-06-30")
-        T_BEFORE_START = pd.Timestamp("2026-06-01")
-
-        before = fdf_pc[(fdf_pc["날짜"] >= T_BEFORE_START) & (fdf_pc["날짜"] <= T_BEFORE_END)]
-        after  = fdf_pc[(fdf_pc["날짜"] >= T_AFTER_START)  & (fdf_pc["날짜"] <= T_AFTER_END)]
-
-        period_df = pd.DataFrame([
-            perf_row("5p구성 이전(6/1~6/16)",   before),
-            perf_row("5p구성 적용(6/17~6/30)",  after),
-            perf_row("총합계",                   fdf_pc),
-        ])
-        render_pinned_total_table(period_df)
-
-        st.markdown("---")
-
-        # ── 3. 이벤트별 성과 ──────────────────────────────────
-        st.markdown("**🎪 이벤트별 성과**")
-
-        event_tbl = build_summary_table(fdf_pc, "스킴명")
-        event_tbl = event_tbl.rename(columns={"스킴명": "이벤트명"})
-        _ev_total = event_tbl[event_tbl["이벤트명"] == "총합계"]
-        _ev_data  = event_tbl[event_tbl["이벤트명"] != "총합계"].sort_values("광고비", ascending=False)
-        event_tbl = pd
+        # ── 2. 5P구성 성과 ──────────────�
