@@ -51,7 +51,6 @@ PALETTE = ["#F4845F", "#7BAFD4", "#82C9A7", "#B5A8E0",
 BAR_PALETTE = ["#F4845F", "#7BAFD4", "#F7B97A", "#82C9A7",
                "#F49AC2", "#B5A8E0", "#E8A87C", "#85C1B2"]
 
-# 총합계 행 하이라이트
 TOTAL_BG   = "#FFF0E6"
 TOTAL_FG   = "#B84A00"
 TOTAL_FONT = "bold"
@@ -255,16 +254,21 @@ with st.sidebar:
         return sorted([str(v) for v, imp in grp.items()
                        if str(v).strip() != "" and imp > 0])
 
+    _cur_year  = date.today().year
+    _cur_month = f"{date.today().month}월"
+
     st.markdown("**📅 연도**")
     year_opts = sorted(df["날짜"].dt.year.unique().tolist(), reverse=True)
-    sel_years = st.multiselect("연도", year_opts, placeholder="전체",
-                               label_visibility="collapsed")
+    sel_years = st.multiselect("연도", year_opts,
+                               default=[_cur_year] if _cur_year in year_opts else [],
+                               placeholder="전체", label_visibility="collapsed")
 
     st.markdown("**📅 월**")
     avail_months = sorted(df["날짜"].dt.month.unique().tolist())
     month_labels = [f"{m}월" for m in avail_months]
-    sel_months = st.multiselect("월", month_labels, placeholder="전체",
-                                label_visibility="collapsed")
+    sel_months = st.multiselect("월", month_labels,
+                                default=[_cur_month] if _cur_month in month_labels else [],
+                                placeholder="전체", label_visibility="collapsed")
 
     st.markdown("**📅 일**")
     avail_dates = sorted(df["날짜"].dt.strftime("%Y-%m-%d").unique().tolist())
@@ -474,9 +478,9 @@ with tab2:
         after  = fdf_pc[(fdf_pc["날짜"] >= T_AFTER_START)  & (fdf_pc["날짜"] <= T_AFTER_END)]
 
         period_df = pd.DataFrame([
-            perf_row("5p구성 이전(6/1~6/16)",   before),
-            perf_row("5p구성 적용(6/17~6/30)",  after),
-            perf_row("총합계",                   fdf_pc),
+            perf_row("5p구성 이전(6/1~6/16)",  before),
+            perf_row("5p구성 적용(6/17~6/30)", after),
+            perf_row("총합계",                  fdf_pc),
         ])
         render_pinned_total_table(period_df)
 
