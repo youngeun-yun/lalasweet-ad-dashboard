@@ -4,6 +4,7 @@
 Streamlit + Plotly | 데이터 소스: Google Sheets (통합RD_원본)
 """
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -116,7 +117,8 @@ def render_pinned_total_table(df):
         '</table></div>'
         '<script>' + js + '</script>'
     )
-    st.markdown(html, unsafe_allow_html=True)
+    height = max(150, 52 + len(data) * 34 + (38 if not total.empty else 0))
+    components.html(html, height=height, scrolling=False)
 
 
 
@@ -364,8 +366,8 @@ def render_kpi(k: dict):
 
 
 # ── 탭 ────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["📊 전체 요약", "🍿 팝콘 요약", "📺 매체별", "🎨 소재별", "📦 제품별"]
+tab1, tab2 = st.tabs(
+    ["📊 전체 요약", "🍿 팝콘 요약"]
 )
 
 
