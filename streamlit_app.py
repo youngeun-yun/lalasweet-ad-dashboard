@@ -1,1 +1,521 @@
-‣⨭‭潣楤杮›瑵ⵦ‸⨭ਭ∢ਢ鷫벝諬鞜醴돪₠賫鲋돫鲓匊牴慥汭瑩⬠倠潬汴⁹⁼跫뒝蓭₰蛬ꒊ›潇杯敬匠敨瑥⁳떆闭助彄鯬뢳਩∢ਢ浩潰瑲猠牴慥汭瑩愠⁳瑳椊灭牯⁴慰摮獡愠⁳摰椊灭牯⁴汰瑯祬攮灸敲獳愠⁳硰椊灭牯⁴汰瑯祬朮慲桰潟橢捥獴愠⁳潧椊灭牯⁴獧牰慥੤牦浯朠潯汧⹥慯瑵㉨献牥楶散慟捣畯瑮椠灭牯⁴牃摥湥楴污ੳ浩潰瑲樠潳੮牦浯搠瑡瑥浩⁥浩潰瑲搠瑡ⱥ琠浩摥汥慴椊灭牯⁴慣敬摮牡ਊ‣铢肔颎鷬肧ꒄꃬₕ铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔猊⹴敳彴慰敧损湯楦⡧ †瀠条彥楴汴㵥벝鷫ꒊ鳬ₗ듪ꂳ肌诬뒳鏫⊜ਬ††慰敧楟潣㵮趟⊬ਬ††慬潹瑵∽楷敤Ⱒ †椠楮楴污獟摩扥牡獟慴整∽硥慰摮摥Ⱒ⤊ਊ‣铢肔꒻諬肅䌠卓肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔猊⹴慭歲潤湷∨∢㰊瑳汹㹥 †⸠汢捯⵫潣瑮楡敮⁲⁻慰摤湩ⵧ潴㩰㌠敲㭭瀠摡楤杮戭瑯潴㩭ㄠ敲㭭洠硡眭摩桴›㐱〰硰※੽††摛瑡ⵡ整瑳摩∽瑳敍牴捩慖畬≥⁝⁻潦瑮猭穩㩥ㄠ㜮爵浥※潦瑮眭楥桧㩴㘠〰※੽††摛瑡ⵡ整瑳摩∽瑳敍牴捩慌敢≬⁝⁻潦瑮猭穩㩥〠㠮敲㭭挠汯牯›㠣㠸※੽††摛瑡ⵡ整瑳摩∽瑳敍牴捩敄瑬≡⁝⁻潦瑮猭穩㩥〠㠮爵浥※੽††摛瑡ⵡ整瑳摩∽瑳楓敤慢≲⁝⁻慢正牧畯摮›昣晡晡㭡素 †嬠慤慴琭獥楴㵤猢却摩扥牡崢栠′⁻潦瑮猭穩㩥〠㤮爵浥℠浩潰瑲湡㭴洠牡楧⵮潢瑴浯›⸰爲浥※੽††摛瑡ⵡ整瑳摩∽瑳楓敤慢≲⁝Ɒ †嬠慤慴琭獥楴㵤猢却摩扥牡崢氠扡汥ਬ††摛瑡ⵡ整瑳摩∽瑳楓敤慢≲⁝献䵴牡摫睯⁮⁰⁻潦瑮猭穩㩥〠㜮爵浥℠浩潰瑲湡㭴素 †嬠慤慴琭獥楴㵤猢却摩扥牡崢嬠慤慴琭獥楴㵤猢䵴汵楴敓敬瑣崢笠映湯⵴楳敺›⸰㔷敲㭭素 †嬠慤慴琭獥楴㵤猢却摩扥牡崢戠瑵潴⁮⁻潦瑮猭穩㩥〠㜮爵浥℠浩潰瑲湡㭴素 †嬠慤慴琭獥楴㵤猢却摩扥牡崢⸠瑳慃瑰潩⁮⁻潦瑮猭穩㩥〠㘮爸浥℠浩潰瑲湡㭴素 †搠癩摛瑡ⵡ整瑳摩∽瑳慔獢崢戠瑵潴⁮⁻潦瑮猭穩㩥〠㤮敲㭭映湯⵴敷杩瑨›〵㬰素 †⸠瑳慄慴牆浡⁥⁻潢摲牥爭摡畩㩳㠠硰※癯牥汦睯›楨摤湥※੽††潦瑯牥笠瘠獩扩汩瑩㩹栠摩敤㭮素㰊猯祴敬ਾ∢Ⱒ甠獮晡彥污潬彷瑨汭吽畲⥥ਊ‣铢肔貸黫鲓겻鿫€铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔䈊䅒䑎†㴠∠䘣㠴㔴≆䴊呅彁⁃㴠∠㜣䅂䑆∴倊䱁呅䕔㴠嬠⌢㑆㐸䘵Ⱒ∠㜣䅂䑆∴‬⌢㈸㥃㝁Ⱒ∠䈣䄵䔸∰ਬ†††††∠䘣䈷㜹≁‬⌢㔸ㅃ㉂Ⱒ∠䘣㤴䍁∲‬⌢㡁㕄䅂崢䈊剁偟䱁呅䕔㴠嬠⌢㑆㐸䘵Ⱒ∠㜣䅂䑆∴‬⌢㝆㥂䄷Ⱒ∠㠣䌲䄹∷ਬ†††††††∠䘣㤴䍁∲‬⌢㕂㡁ぅⰢ∠䔣䄸㜸≃‬⌢㔸ㅃ㉂崢ਊ‣듬ꦕ돪₄雭₉闭뒝鷫뒝諭સ佔䅔彌䝂†㴠∠䘣䙆䔰∶吊呏䱁䙟⁇†‽⌢㡂䄴〰ਢ佔䅔彌但呎㴠∠潢摬ਢ搊晥猠祴敬睟瑩彨潴慴⡬晤›摰䐮瑡䙡慲敭㨩 †∠∢달₫닫뢧겻鿫₼냪뒝✠듬ꦕ돪➄鷬₸雭邗낰닪覃떵룪₰ꃬꦚ∢ਢ††楦獲彴潣⁬‽晤挮汯浵獮せ੝††敤⁦潲彷瑳汹⡥潲⥷਺††††晩爠睯晛物瑳损汯⁝㴽∠듬ꦕ돪⊄਺††††††敲畴湲嬠≦慢正牧畯摮挭汯牯›呻呏䱁䉟絇※潦瑮眭楥桧㩴笠佔䅔彌但呎㭽挠汯牯›呻呏䱁䙟絇崢⨠氠湥爨睯਩††††敲畴湲嬠∢⁝‪敬⡮潲⥷ †爠瑥牵⁮晤献祴敬愮灰祬爨睯獟祴敬‬硡獩ㄽ਩搊晥爠湥敤彲楰湮摥瑟瑯污瑟扡敬搨㩦瀠⹤慄慴牆浡⥥਺††∢겻鿫₼臭궦閠ꃫ€‫듬ꦕ돪₄闭膃颕诫₨돪閠⠠诫벝䠠䵔⁌藭뒝룫⦔∢ਢ††浩潰瑲甠極੤††楴⁤‽≦扴彬畻極⹤畵摩⠴⸩敨學㠺絝ਢ †映物瑳损汯㴠搠⹦潣畬湭孳崰 †搠瑡⁡㴠搠学晤晛物瑳损汯⁝㴡∠듬ꦕ돪⊄⹝敲敳彴湩敤⡸牤灯吽畲⥥ †琠瑯污㴠搠学晤晛物瑳损汯⁝㴽∠듬ꦕ돪⊄੝ †琠⁨‽∨慰摤湩㩧瀷⁸〱硰※整瑸愭楬湧氺晥㭴戠捡杫潲湵㩤昣昰昲㬶ਢ†††††•潢摲牥戭瑯潴㩭瀲⁸潳楬⁤搣摤※潦瑮猭穩㩥⸰㈸敲㭭眠楨整猭慰散渺睯慲㭰ਢ†††††•畣獲牯瀺楯瑮牥※獵牥猭汥捥㩴潮敮∻਩††摴㴠∠慰摤湩㩧瀶⁸〱硰※潢摲牥戭瑯潴㩭瀱⁸潳楬⁤攣敥※潦瑮猭穩㩥⸰㈸敲㭭眠楨整猭慰散渺睯慲㭰ਢ††晴㴠⠠≦慰摤湩㩧瀶⁸〱硰※潦瑮猭穩㩥⸰㈸敲㭭眠楨整猭慰散渺睯慲㭰ਢ†††††≦戠捡杫潲湵㩤呻呏䱁䉟絇※潣潬㩲呻呏䱁䙟絇※潦瑮眭楥桧㩴呻呏䱁䙟乏絔∻ ††††映•潢摲牥琭灯㈺硰猠汯摩⌠摤㭤⤢ਊ††敨摡牥⁳‽∢樮楯⡮ †††映㰧桴猠祴敬∽瑻絨•湯汣捩㵫猢牯呴汢尨笧楴絤❜第絩∩搠瑡ⵡ牯敤㵲∢✾ †††映笧潣絬㰠灳湡猠祴敬∽潣潬㩲戣扢昻湯⵴楳敺〺㜮敲≭閆⼼灳湡㰾琯㹨ਧ††††潦⁲Ⱪ挠汯椠⁮湥浵牥瑡⡥晤挮汯浵獮਩††਩††潢祤㴠∠⸢潪湩ਨ††††㰢牴∾⬠∠⸢潪湩昨㰧摴猠祴敬∽瑻絤㸢登㱽琯㹤‧潦⁲⁶湩爠睯 ‫㰢琯㹲ਢ††††潦⁲ⱟ爠睯椠⁮慤慴椮整牲睯⡳਩††਩††潦瑯㴠⠠∢樮楯⡮ †††∠琼㹲•‫∢樮楯⡮❦琼⁤瑳汹㵥笢晴≽笾絶⼼摴✾映牯瘠椠⁮潲⥷⬠∠⼼牴∾ †††映牯张‬潲⁷湩琠瑯污椮整牲睯⡳਩†† 晩渠瑯琠瑯污攮灭祴攠獬⁥∢਩ †栠浴⁬‽≦∢㰊楤⁶瑳汹㵥漢敶晲潬⵷㩸畡潴※潢摲牥爭摡畩㩳瀸㭸戠牯敤㩲瀱⁸潳楬⁤攣攰攰㬰㸢㰊慴汢⁥摩∽瑻摩≽猠祴敬∽楷瑤㩨〱┰※潢摲牥挭汯慬獰㩥潣汬灡敳∻ਾ琼敨摡㰾牴笾敨摡牥絳⼼牴㰾琯敨摡ਾ琼潢祤笾潢祤㱽琯潢祤ਾ琼潦瑯笾潦瑯㱽琯潦瑯ਾ⼼慴汢㹥⼼楤㹶㰊捳楲瑰ਾ畦据楴湯猠牯呴汢琨摩‬潣⥬笠੻†慶⁲扴⁬‽潤畣敭瑮朮瑥汅浥湥䉴䥹⡤楴⥤਻†慶⁲扴摯⁹‽扴⹬畱牥卹汥捥潴⡲琧潢祤⤧਻†慶⁲桴⁳‽扴⹬畱牥卹汥捥潴䅲汬✨桴慥⁤桴⤧਻†慶⁲獡⁣‽桴孳潣嵬搮瑡獡瑥漮摲牥℠㴽✠獡❣਻†桴⹳潦䕲捡⡨畦据楴湯栨 筻栠搮瑡獡瑥漮摲牥✽㬧栠焮敵祲敓敬瑣牯✨灳湡⤧琮硥䍴湯整瑮✽蛢➕※絽㬩 琠獨捛汯⹝慤慴敳⹴牯敤⁲‽獡⁣‿愧捳‧›搧獥❣਻†桴孳潣嵬焮敵祲敓敬瑣牯✨灳湡⤧琮硥䍴湯整瑮㴠愠捳㼠✠蛢➑㨠✠蛢➓਻†慶⁲潲獷㴠䄠牲祡昮潲⡭扴摯⹹畱牥卹汥捥潴䅲汬✨牴⤧㬩 爠睯⹳潳瑲昨湵瑣潩⡮ⱡ⥢笠੻††慶⁲慶㴠愠挮汥獬捛汯⹝整瑸潃瑮湥⹴敲汰捡⡥嬯苢▩尬獜⽝Ⱨ✧㬩 †瘠牡瘠⁢‽⹢散汬孳潣嵬琮硥䍴湯整瑮爮灥慬散⼨ꦂⰥ屜嵳术✬⤧਻††慶⁲慮㴠瀠牡敳汆慯⡴慶Ⱙ渠⁢‽慰獲䙥潬瑡瘨⥢਻††晩⠠椡乳乡渨⥡☠…椡乳乡渨⥢ 敲畴湲愠捳㼠渠ⵡ扮㨠渠ⵢ慮਻††敲畴湲愠捳㼠瘠⹡潬慣敬潃灭牡⡥扶✬潫⤧㨠瘠⹢潬慣敬潃灭牡⡥慶✬潫⤧਻†絽㬩 爠睯⹳潦䕲捡⡨畦据楴湯爨 筻琠潢祤愮灰湥䍤楨摬爨㬩素⥽਻絽㰊猯牣灩㹴∢ਢ††瑳洮牡摫睯⡮瑨汭‬湵慳敦慟汬睯桟浴㵬牔敵਩ਊ‣铢肔떳蛭₵꟬蒳ꢕ裬ₘ铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢઀敤⁦畢汩彤畳浭牡役慴汢⡥慤慴›摰䐮瑡䙡慲敭‬牧畯彰潣㩬猠牴‬慬敢彬湦丽湯⥥ⴠ‾摰䐮瑡䙡慲敭਺††牧⁰‽ਨ††††慤慴朮潲灵祢木潲灵损汯਩††††愮杧醴돪蒹⠽醴돪蒹⠠剋⥗Ⱒ∠畳≭Ⱙ뢅뛬㶜∨藫鲶Ⱒ∠畳≭Ⱙ ††††††꟫겁臭궦⠽뒁ꛫ⊭‬猢浵⤢‬뗪꒧⠽蒠駭颈Ⱒ∠畳≭⤩ †††⸠敲敳彴湩敤⡸਩††਩††牧孰䌢剔崢㴠⠠牧孰膧臭뒁ꛫ⊭⁝ 牧孰뢅뛬⊜⹝敲汰捡⡥ⰰ映潬瑡∨慮≮⤩⨠ㄠ〰⸩楦汬慮〨਩††牧孰䌢䍐崢㴠⠠牧孰醴돪蒹崢⼠朠灲≛꟫겁臭궦崢爮灥慬散〨‬汦慯⡴渢湡⤢⤩昮汩湬⡡⤰ †朠灲≛噃≒⁝‽木灲≛뗪꒧崢⼠朠灲≛꟫겁臭궦崢爮灥慬散〨‬汦慯⡴渢湡⤢ ‪〱⤰昮汩湬⡡⤰ †朠灲≛偃≁⁝‽木灲≛듪ꂳ맫⊄⁝ 牧孰겵꟫⊤⹝敲汰捡⡥ⰰ映潬瑡∨慮≮⤩⸩楦汬慮〨਩††潴⁴‽牧孰≛듪ꂳ맫⊄∬藫鲶Ⱒ膧臭뒁ꛫ⊭∬뗪꒧崢⹝畳⡭਩††牧⁰‽摰挮湯慣⡴杛灲‬摰䐮瑡䙡慲敭嬨੻††††牧畯彰潣㩬∠듬ꦕ돪⊄ਬ††††醴돪蒹㨢琠瑯≛듪ꂳ맫⊄ⱝ∠藫鲶㨢琠瑯≛藫鲶崢ਬ††††膧臭뒁ꛫ⊭›潴孴膧臭뒁ꛫ⊭ⱝ∠뗪꒧㨢琠瑯≛뗪꒧崢ਬ††††䌢剔㨢琠瑯≛꟫겁臭궦崢⼠琠瑯≛藫鲶崢⨠ㄠ〰椠⁦潴孴뢅뛬⊜⁝‾‰汥敳〠ਬ††††䌢䍐㨢琠瑯≛듪ꂳ맫⊄⁝ 潴孴膧臭뒁ꛫ⊭⁝晩琠瑯≛꟫겁臭궦崢㸠〠攠獬⁥ⰰ †††∠噃≒›潴孴겵꟫⊤⁝ 潴孴膧臭뒁ꛫ⊭⁝‪〱‰晩琠瑯≛꟫겁臭궦崢㸠〠攠獬⁥ⰰ †††∠偃≁›潴孴醴돪蒹崢⼠琠瑯≛뗪꒧崢椠⁦潴孴겵꟫⊤⁝‾‰汥敳〠ਬ††嵽崩‬杩潮敲楟摮硥吽畲⥥ †椠⁦慬敢彬湦਺††††牧孰牧畯彰潣嵬㴠朠灲杛潲灵损汯⹝灡汰⡹慬扭慤砠›慬敢彬湦砨 晩砠℠‽鶴闭蒳•汥敳砠਩††敲畴湲朠灲ਊ敤⁦瑳汹彥畳浭牡⡹晤›摰䐮瑡䙡慲敭‬楦獲彴潣㩬猠牴 㸭瀠⹤慄慴牆浡㩥 †猠㴠搠⹦潣祰⤨ †猠≛듪ꂳ맫⊄⁝†‽孳醴돪蒹崢愮灰祬氨浡摢⁡㩸映ꦂ楻瑮砨㨩紬⤢ †猠≛藫鲶崢††㴠猠≛藫鲶崢愮灰祬氨浡摢⁡㩸映笢湩⡴⥸ⰺ≽਩††孳膧臭뒁ꛫ⊭⁝‽孳膧臭뒁ꛫ⊭⹝灡汰⡹慬扭慤砠›≦楻瑮砨㨩紬⤢ †猠≛뗪꒧崢††㴠猠≛뗪꒧崢愮灰祬氨浡摢⁡㩸映笢湩⡴⥸ⰺ≽਩††孳䌢剔崢††㴠猠≛呃≒⹝灡汰⡹慬扭慤砠›≦硻⸺昲╽⤢ †猠≛偃≃⁝††‽孳䌢䍐崢愮灰祬氨浡摢⁡㩸映笢湩⡴⥸ⰺ≽਩††孳䌢剖崢††㴠猠≛噃≒⹝灡汰⡹慬扭慤砠›≦硻⸺昲╽⤢ †猠≛偃≁⁝††‽孳䌢䅐崢愮灰祬氨浡摢⁡㩸映笢湩⡴⥸ⰺ≽਩††敲畴湲猠爮湥浡⡥潣畬湭㵳≻꟫겁臭궦㨢∠꟫겁뒁ꛫ⊭⥽ਊ敤⁦数晲牟睯氨扡汥›瑳Ⱳ搠›摰䐮瑡䙡慲敭‬敫役潣㩬猠牴㴠∠뗪蒶⤢ⴠ‾楤瑣਺††∢ꢋ鷬₼꟬蒳雭₉铫钅蓫겦鶃蓬₱겏꟫₷駬貣∩∢ †猠㴠搠≛듪ꂳ맫₄䬨坒∩⹝畳⡭਩††⁩‽孤뢅뛬⊜⹝畳⡭਩††⁣‽孤뒁ꛫ⊭⹝畳⡭਩††⁶‽孤蒠駭颈崢献浵⤨ †爠瑥牵⁮੻††††敫役潣㩬††氠扡汥ਬ††††醴돪蒹㨢††≦苢箩湩⡴⥳ⰺ≽ਬ††††뢅뛬⊜›††映笢湩⡴⥩ⰺ≽ਬ††††膧臭€臭궦㨢映笢湩⡴⥣ⰺ≽ਬ††††겵꟫⊤›††映笢湩⡴⥶ⰺ≽ਬ††††䌢剔㨢†††≦捻椯ㄪ〰⸺昲╽•晩椠㸠〠攠獬⁥〢〮┰Ⱒ †††∠偃≃›††映笢湩⡴⽳⥣ⰺ≽椠⁦⁣‾‰汥敳∠∰ਬ††††䌢剖㨢†††≦登振ㄪ〰⸺昲╽•晩挠㸠〠攠獬⁥〢〮┰Ⱒ †††∠偃≁›††映笢湩⡴⽳⥶ⰺ≽椠⁦⁶‾‰汥敳∠∰ਬ††੽搊晥搠楡祬瑟扡敬搨›摰䐮瑡䙡慲敭 㸭瀠⹤慄慴牆浡㩥 †∠∢鷬蒳醧돪₄‫듬ꦕ돪₄雭₉냫颙⠠迭랧蒙ꏫ⦌∢ਢ††牧⁰‽ਨ††††⹤牧畯扰⡹孤ꂂ꟬⊜⹝瑤搮瑡⥥ †††⸠条⡧灳湥㵤∨듪ꂳ맫₄䬨坒∩‬猢浵⤢‬浩㵰∨藫鲶Ⱒ∠畳≭Ⱙ ††††††汣㵫∨臭궦Ⱒ∠畳≭Ⱙ挠湯㵶∨ꃬ颙裬⊘‬猢浵⤢਩††††爮獥瑥楟摮硥⤨爮湥浡⡥潣畬湭㵳≻苫鲧㨢∠慤整索਩††††献牯彴慶畬獥∨慤整⤢ †⤠ †朠灲≛呃≒⁝‽木灲≛汣≫⁝ 牧孰椢灭崢爮灥慬散〨‬汦慯⡴渢湡⤢ ‪〱⤰昮汩湬⡡⤰ †朠灲≛偃≃⁝‽木灲≛灳湥≤⁝ 牧孰挢歬崢爮灥慬散〨‬汦慯⡴渢湡⤢⤩昮汩湬⡡⤰ †朠灲≛噃≒⁝‽木灲≛潣癮崢⼠朠灲≛汣≫⹝敲汰捡⡥ⰰ映潬瑡∨慮≮⤩⨠ㄠ〰⸩楦汬慮〨਩††牧孰䌢䅐崢㴠⠠牧孰猢数摮崢⼠朠灲≛潣癮崢爮灥慬散〨‬汦慯⡴渢湡⤢⤩昮汩湬⡡⤰ਊ††扴⁬‽摰䐮瑡䙡慲敭笨 †††∠鷬⊼›†††朠灲≛慤整崢愮瑳灹⡥瑳⥲ਬ††††醴돪蒹㨢††牧孰猢数摮崢愮灰祬氨浡摢⁡㩸映ꦂ楻瑮砨㨩紬⤢ਬ††††뢅뛬⊜›††朠灲≛浩≰⹝灡汰⡹慬扭慤砠›≦楻瑮砨㨩紬⤢ਬ††††膧臭€臭궦㨢朠灲≛汣≫⹝灡汰⡹慬扭慤砠›≦楻瑮砨㨩紬⤢ਬ††††겵꟫⊤›††朠灲≛潣癮崢愮灰祬氨浡摢⁡㩸映笢湩⡴⥸ⰺ≽Ⱙ †††∠呃≒›††朠灲≛呃≒⹝灡汰⡹慬扭慤砠›≦硻⸺昲╽⤢ਬ††††䌢䍐㨢†††牧孰䌢䍐崢愮灰祬氨浡摢⁡㩸映笢湩⡴⥸ⰺ≽Ⱙ †††∠噃≒›††朠灲≛噃≒⹝灡汰⡹慬扭慤砠›≦硻⸺昲╽⤢ਬ††††䌢䅐㨢†††牧孰䌢䅐崢愮灰祬氨浡摢⁡㩸映笢湩⡴⥸ⰺ≽Ⱙ †素਩††獴‬楴‬捴‬癴㴠朠灲≛灳湥≤⹝畳⡭Ⱙ朠灲≛浩≰⹝畳⡭Ⱙ朠灲≛汣≫⹝畳⡭Ⱙ朠灲≛潣癮崢献浵⤨ †琠瑯污㴠瀠⹤慄慴牆浡⡥筛 †††∠鷬⊼›†††∠듬ꦕ돪⊄ਬ††††醴돪蒹㨢††≦苢箩湩⡴獴㨩紬Ⱒ †††∠藫鲶㨢†††≦楻瑮琨⥩ⰺ≽ਬ††††膧臭€臭궦㨢映笢湩⡴捴㨩紬Ⱒ †††∠뗪꒧㨢†††≦楻瑮琨⥶ⰺ≽ਬ††††䌢剔㨢†††≦瑻⽣楴ㄪ〰⸺昲╽•晩琠⁩‾‰汥敳∠⸰〰∥ਬ††††䌢䍐㨢†††≦楻瑮琨⽳捴㨩紬•晩琠⁣‾‰汥敳∠∰ਬ††††䌢剖㨢†††≦瑻⽶捴ㄪ〰⸺昲╽•晩琠⁣‾‰汥敳∠⸰〰∥ਬ††††䌢䅐㨢†††≦楻瑮琨⽳癴㨩紬•晩琠⁶‾‰汥敳∠∰ਬ††嵽਩††敲畴湲瀠⹤潣据瑡嬨扴ⱬ琠瑯污ⱝ椠湧牯彥湩敤㵸牔敵਩ਊ‣铢肔낍鷬낄鲡鏫ₜ铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔䀊瑳挮捡敨摟瑡⡡瑴㵬㘳〰‬桳睯獟楰湮牥∽跫뒝蓭₰뛫겟飬钊醤胢⊦਩敤⁦潬摡摟瑡⡡ 㸭瀠⹤慄慴牆浡㩥 †挠敲獤㴠䌠敲敤瑮慩獬昮潲彭敳癲捩彥捡潣湵彴湩潦ਨ††††楤瑣猨⹴敳牣瑥孳朢灣獟牥楶散慟捣畯瑮崢Ⱙ †††猠潣数㵳≛瑨灴㩳⼯睷⹷潧杯敬灡獩挮浯愯瑵⽨灳敲摡桳敥獴爮慥潤汮≹ⱝ †⤠ †朠⁣‽獧牰慥⹤畡桴牯穩⡥牣摥⥳ †眠⁳‽捧漮数彮祢歟祥猨⹴敳牣瑥孳猢牰慥獤敨瑥楟≤⥝眮牯獫敨瑥∨蛭ꦕ䑒邛돫⊸਩††敲潣摲⁳‽獷朮瑥慟汬牟捥牯獤⤨ †搠⁦‽摰䐮瑡䙡慲敭爨捥牯獤਩ †搠学ꂂ꟬⊜⁝‽摰琮彯慤整楴敭搨学ꂂ꟬⊜ⱝ攠牲牯㵳挢敯捲≥਩††潦⁲潣⁬湩嬠醴돪蒹⠠剋⥗Ⱒ∠藫鲶Ⱒ∠臭궦Ⱒ∠ꃬ颙裬⊘‬䌢剔⠠⤥Ⱒ∠偃⁁䬨坒∩ਬ††††††††䌢䍐⠠剋⥗Ⱒ∠飬膃ꇬ貚㌠듬⮈Ⱒ∠桔畲汐祡崢਺††††晩挠汯椠⁮晤挮汯浵獮਺††††††晤捛汯⁝‽摰琮彯畮敭楲⡣晤捛汯ⱝ攠牲牯㵳挢敯捲≥⸩楦汬慮〨਩ †搠⁦‽晤搮潲湰⡡畳獢瑥嬽ꂂ꟬⊜⥝ †搠学낗崢㴠搠学ꂂ꟬⊜⹝瑤礮慥⹲獡祴数猨牴਩††晤≛鯬⊔⁝‽晤≛苫鲧崢搮⹴潭瑮⹨獡祴数猨牴⸩瑳⹲智汩⡬⤲ †搠学벝崢㴠搠学ꂂ꟬⊜⹝瑤搮祡愮瑳灹⡥瑳⥲献牴種楦汬㈨਩††敲畴湲搠⹦潳瑲癟污敵⡳ꂂ꟬⊜਩ਊ牴㩹 †搠⁦‽潬摡摟瑡⡡਩硥散瑰䔠捸灥楴湯愠⁳㩥 †猠⹴牥潲⡲≦鷢₌跫뒝蓭벥袶鿫꒘꟬₀ꫫ袖雬钚›筠絥≠਩††瑳椮普⡯醟₉⹠瑳敲浡楬⽴敳牣瑥⹳潴汭⁠蓬閠鷬₄駭뢝闭벣蓬钚∮਩††瑳献潴⡰਩椊⁦晤攮灭祴਺††瑳眮牡楮杮∨诬뢊韬ₐ跫뒝蓭肰蚗雬钚∮਩††瑳献潴⡰਩⌊肔铢₀苬뒝鏫钰蒕蓭₰铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔洊硡摟瑡⁥‽晤≛苫鲧崢洮硡⤨献牴瑦浩⡥┢ⵙ津┭≤਩眊瑩⁨瑳献摩扥牡਺††瑳洮牡摫睯⡮⌢‣鿰겍벝鷫ꒊ鳬ₗꃬ벳蒠駭醴돪⊠਩††瑳洮牡摫睯⡮ⴢⴭ⤢ਊ††敤⁦慶楬彤灯獴挨汯㨩 †††朠灲㴠搠⹦牧畯扰⡹潣⥬≛藫鲶崢献浵⤨ †††爠瑥牵⁮潳瑲摥嬨瑳⡲⥶映牯瘠‬浩⁰湩朠灲椮整獭⤨ †††††††††††晩猠牴瘨⸩瑳楲⡰ 㴡∠•湡⁤浩⁰‾崰਩ †猠⹴慭歲潤湷∨⨪鿰薓낗迫⪄∪਩††敹牡潟瑰⁳‽潳瑲摥搨学ꂂ꟬⊜⹝瑤礮慥⹲湵煩敵⤨琮汯獩⡴Ⱙ爠癥牥敳吽畲⥥ †猠汥祟慥獲㴠猠⹴畭瑬獩汥捥⡴낗迫⊄‬敹牡潟瑰ⱳ瀠慬散潨摬牥∽ꃬ뒲Ⱒ †††††††††††††††慬敢彬楶楳楢楬祴∽潣汬灡敳≤਩ †猠⹴慭歲潤湷∨⨪鿰薓钛⨪⤢ †愠慶汩浟湯桴⁳‽潳瑲摥搨学ꂂ꟬⊜⹝瑤洮湯桴甮楮畱⡥⸩潴楬瑳⤨਩††潭瑮彨慬敢獬㴠嬠≦浻钛•潦⁲⁭湩愠慶汩浟湯桴嵳 †猠汥浟湯桴⁳‽瑳洮汵楴敳敬瑣∨鯬⊔‬潭瑮彨慬敢獬‬汰捡桥汯敤㵲蒠달⊴ਬ††††††††††††††††慬敢彬楶楳楢楬祴∽潣汬灡敳≤਩ †猠⹴慭歲潤湷∨⨪鿰薓벝⨪⤢ †愠慶汩摟瑡獥㴠猠牯整⡤晤≛苫鲧崢搮⹴瑳晲楴敭∨夥┭⵭搥⤢甮楮畱⡥⸩潴楬瑳⤨਩††敳彬慤整⁳‽瑳洮汵楴敳敬瑣∨鷬⊼‬癡楡彬慤整ⱳ瀠慬散潨摬牥∽ꃬ뒲Ⱒ †††††††††††††††慬敢彬楶楳楢楬祴∽潣汬灡敳≤਩ †猠⹴慭歲潤湷∨⨪鿰몓꒧달⪴∪਩††敭楤彡灯獴㴠瘠污摩潟瑰⡳꒧달⊴਩††敳彬敭楤⁡‽瑳洮汵楴敳敬瑣∨꟫뒲Ⱒ洠摥慩潟瑰ⱳ瀠慬散潨摬牥∽ꃬ뒲Ⱒ †††††††††††††††慬敢彬楶楳楢楬祴∽潣汬灡敳≤਩ †猠⹴慭歲潤湷∨⨪鿰겎醴돪ꂜ飭⪕∪਩††摡祴数潟瑰⁳‽慶楬彤灯獴∨飬膃뒝꿫肧겵뛫⊄਩††敳彬摡祴数㴠猠⹴畭瑬獩汥捥⡴醴돪ꂜ飭⊕‬摡祴数潟瑰ⱳ瀠慬散潨摬牥∽ꃬ뒲Ⱒ †††††††††††††††氠扡汥癟獩扩汩瑩㵹挢汯慬獰摥⤢ਊ††瑳洮牡摫睯⡮⨢鎟₦ꃬ袒뷬鲓⨪⤢ †瀠潲捤摯彥灯獴㴠瘠污摩潟瑰⡳鲠鋭钽鏫⊜਩††敳彬牰摯潣敤㴠猠⹴畭瑬獩汥捥⡴鲠鋭钽鏫⊜‬牰摯潣敤潟瑰ⱳ瀠慬散潨摬牥∽ꃬ뒲Ⱒ ††††††††††††††††氠扡汥癟獩扩汩瑩㵹挢汯慬獰摥⤢ਊ††瑳洮牡摫睯⡮⨢躟₪鷬꒲諭薪⨪⤢ †攠敶瑮潟瑰⁳‽慶楬彤灯獴∨諬뒂ꫫ⊅਩††敳彬癥湥⁴‽瑳洮汵楴敳敬瑣∨鷬꒲諭薪Ⱒ攠敶瑮潟瑰ⱳ瀠慬散潨摬牥∽ꃬ뒲Ⱒ †††††††††††††††慬敢彬楶楳楢楬祴∽潣汬灡敳≤਩ †猠⹴慭歲潤湷∨ⴭ∭਩††晩猠⹴畢瑴湯∨鿰蒔낍鷬낄袃ꇫꂳ맬⊨㨩 †††猠⹴慣档彥慤慴挮敬牡⤨ †††猠⹴敲畲⡮਩ †猠⹴慣瑰潩⡮≦뗬벷薗跫뒝諭㪸笠慭彸慤整≽਩ਊ‣铢肔蒕蓭₰ꃬꦚ肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢઀慭歳㴠瀠⹤敓楲獥嬨牔敵⁝‪敬⡮晤Ⱙ椠摮硥搽⹦湩敤⥸椊⁦敳彬敹牡㩳 †洠獡⁫㴦搠学ꂂ꟬⊜⹝瑤礮慥⹲獩湩猨汥祟慥獲਩晩猠汥浟湯桴㩳 †猠汥浟湯桴湟浵⁳‽楛瑮洨爮灥慬散∨鯬⊔‬∢⤩映牯洠椠⁮敳彬潭瑮獨੝††慭歳☠‽晤≛苫鲧崢搮⹴潭瑮⹨獩湩猨汥浟湯桴湟浵⥳椊⁦敳彬慤整㩳 †洠獡⁫㴦搠学ꂂ꟬⊜⹝瑤献牴瑦浩⡥┢ⵙ津┭≤⸩獩湩猨汥摟瑡獥਩晩猠汥浟摥慩਺††慭歳☠‽晤≛꟫뒲崢愮瑳灹⡥瑳⥲椮楳⡮敳彬敭楤⥡椊⁦敳彬摡祴数਺††慭歳☠‽晤≛飬膃뒝꿫肧겵뛫⊄⹝獡祴数猨牴⸩獩湩猨汥慟瑤灹⥥椊⁦敳彬牰摯潣敤਺††慭歳☠‽晤≛ꃬ袒뷬鲓崢愮瑳灹⡥瑳⥲椮楳⡮敳彬牰摯潣敤਩晩猠汥敟敶瑮਺††慭歳☠‽晤≛諬뒂ꫫ⊅⹝獡祴数猨牴⸩獩湩猨汥敟敶瑮਩昊晤㴠搠学慭歳⹝潣祰⤨ਊ晩映晤攮灭祴਺††瑳眮牡楮杮∨闭낄낡뇪邗麧諫ₔ跫뒝蓭肰蚗雬钚‮闭낄ꗫ₼ꇬ閠闭벣蓬钚∮਩††瑳献潴⡰਩ਊ‣铢肔䬠䥐醧돪₄铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢઀敤⁦慣捬歟楰搨›摰䐮瑡䙡慲敭 㸭搠捩㩴 †猠数摮㴠搠≛듪ꂳ맫₄䬨坒∩⹝畳⡭਩††浩⁰†‽孤뢅뛬⊜⹝畳⡭਩††汣⁫†‽孤뒁ꛫ⊭⹝畳⡭਩††潣癮†‽孤蒠駭颈崢献浵⤨ †爠瑥牵⁮楤瑣猨数摮猽数摮‬浩㵰浩Ɒ挠歬挽歬‬潣癮挽湯ⱶ †††††††挠牴挽歬椯灭ㄪ〰椠⁦浩⁰‾‰汥敳〠ਬ††††††††灣㵡灳湥⽤潣癮椠⁦潣癮㸠〠攠獬⁥⤰ਊ火⁩‽慣捬歟楰昨晤਩搊晥映瑭歟睲瘨㨩爠瑥牵⁮≦苢箩湩⡴⥶ⰺ≽搊晥映瑭湟浵瘨㨩爠瑥牵⁮≦楻瑮瘨㨩紬ਢਊ‣铢肔떳蛭㪵䬠䥐뒹鏫ₜ铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢઀敤⁦敲摮牥歟楰欨›楤瑣㨩 †挠ⰱ挠ⰲ挠ⰳ挠ⰴ挠ⰵ挠‶‽瑳挮汯浵獮㘨਩††ㅣ洮瑥楲⡣銟₰듪ꂳ맫⊄‬浦彴牫⡷孫猢数摮崢⤩ †挠⸲敭牴捩∨鿰膑뢅뛬⊜‬†浦彴畮⡭孫椢灭崢⤩ †挠⸳敭牴捩∨鿰놖뒁ꛫ⊭‬†浦彴畮⡭孫挢歬崢⤩ †挠⸴敭牴捩∨鿰銛蒠駭颈Ⱒ映瑭湟浵欨≛潣癮崢⤩ †挠⸵敭牴捩∨鿰袓䌠剔Ⱒ††≦死❛瑣❲㩝㈮給∥਩††㙣洮瑥楲⡣躟₯偃≁‬†映瑭歟睲欨≛灣≡⥝਩ਊ‣铢肔궃肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢઀慴ㅢ‬慴㉢㴠猠⹴慴獢嬨鎟₊ꃬ뒲钚闬⊽‬趟₿賭颽钚闬⊽⥝ਊ⌊邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢ઐ‣䅔⁂㨱蒠달₴髬붕⌊邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢ઐ楷桴琠扡㨱 †爠湥敤彲火⡩火⥩ †猠⹴慭歲潤湷∨ⴭ∭਩ †搠楡祬灟潲⁤‽ਨ††††摦⹦牧畯扰⡹晛晤≛苫鲧崢搮⹴慤整‬鲠鋭钽鏫⊜⥝ †††⸠条⡧灳湥㵤∨듪ꂳ맫₄䬨坒∩‬猢浵⤢਩††††爮獥瑥楟摮硥⤨爮湥浡⡥潣畬湭㵳≻苫鲧㨢∠慤整索਩††਩††慤汩役牰摯≛灳湥彤慭≮⁝‽慤汩役牰摯≛灳湥≤⁝ 〱〰ਰ †搠楡祬损慰㴠⠠ †††映晤朮潲灵祢昨晤≛苫鲧崢搮⹴慤整਩††††愮杧猨数摮⠽醴돪蒹⠠剋⥗Ⱒ∠畳≭Ⱙ椠灭⠽뢅뛬⊜‬猢浵⤢ਬ††††††挠歬⠽뒁ꛫ⊭‬猢浵⤢‬潣癮⠽蒠駭颈Ⱒ∠畳≭⤩ †††⸠敲敳彴湩敤⡸⸩敲慮敭挨汯浵獮笽ꂂ꟬⊜›搢瑡≥⥽ †⤠ †搠楡祬损慰≛偃≁⁝‽搨楡祬损慰≛灳湥≤⁝ 慤汩役灣孡挢湯≶⹝敲汰捡⡥ⰰ映潬瑡∨慮≮⤩⸩楦汬慮〨਩††慤汩役灣孡䌢剔崢㴠⠠慤汩役灣孡挢歬崢⼠搠楡祬损慰≛浩≰⹝敲汰捡⡥ⰰ映潬瑡∨慮≮⤩⨠ㄠ〰⸩楦汬慮〨਩††慤汩役灣孡䌢䍐崢㴠⠠慤汩役灣孡猢数摮崢⼠搠楡祬损慰≛汣≫⹝敲汰捡⡥ⰰ映潬瑡∨慮≮⤩⸩楦汬慮〨਩††慤汩役灣孡䌢剖崢㴠⠠慤汩役灣孡挢湯≶⁝ 慤汩役灣孡挢歬崢爮灥慬散〨‬汦慯⡴渢湡⤢ ‪〱⤰昮汩湬⡡⤰ਊ††牰摯损摯獥獟牯整⁤‽ਨ††††慤汩役牰摯朮潲灵祢∨ꃬ袒뷬鲓⤢≛灳湥≤⹝畳⡭਩††††献牯彴慶畬獥愨捳湥楤杮䘽污敳⸩湩敤⹸潴楬瑳⤨ †⤠ਊ††摨彲潣ⱬ戠湴损汯㴠猠⹴潣畬湭⡳㙛‬崱਩††楷桴栠牤损汯਺††††瑳洮牡摫睯⡮⨢鎟₊鷬蒳醴돪蒹☠䌠䅐⨪⤢ †眠瑩⁨瑢彮潣㩬 †††瘠敩彷潭敤㴠猠⹴慲楤⡯뒳룪⊰‬≛럪颞铭⊄‬貅鷬钸崢‬潨楲潺瑮污吽畲ⱥ ††††††††††††††慬敢彬楶楳楢楬祴∽潣汬灡敳≤‬敫㵹搢楡祬癟敩彷潭敤⤢ਊ††晩瘠敩彷潭敤㴠‽뢷黫蒔㨢 †††映杩㴠朠⹯楆畧敲⤨ †††映牯椠‬捰椠⁮湥浵牥瑡⡥牰摯损摯獥獟牯整⥤਺††††††⁤‽慤汩役牰摯摛楡祬灟潲孤鲠鋭钽鏫⊜⁝㴽瀠嵣 †††††映杩愮摤扟牡砨搽≛慤整崢‬㵹孤猢数摮浟湡崢‬慮敭猽牴瀨⥣ਬ††††††††††††慭歲牥损汯牯䈽剁偟䱁呅䕔楛┠氠湥䈨剁偟䱁呅䕔崩‬慹楸㵳礢∱ਬ††††††††††††潨敶瑲浥汰瑡㵥≦戼笾捰㱽戯㰾牢ꂂ꟬㪜┠筻絸㱽牢醴돪蒹›笥祻ⰺ〮給貧鯬㲐硥牴㹡⼼硥牴㹡⤢ †††映杩愮摤獟慣瑴牥砨搽楡祬损慰≛慤整崢‬㵹慤汩役灣孡䌢䅐崢ਬ††††††††††††慮敭∽偃≁‬潭敤∽楬敮⭳慭歲牥≳ਬ††††††††††††楬敮搽捩⡴潣潬㵲⌢䈹䔸㑃Ⱒ眠摩桴㈽㔮Ⱙ洠牡敫㵲楤瑣猨穩㵥⤶‬慹楸㵳礢∲ਬ††††††††††††潨敶瑲浥汰瑡㵥ꂂ꟬㪜┠硻㱽牢䌾䅐›笥㩹⸬昰邛攼瑸慲㰾支瑸慲∾਩††††楦⹧灵慤整江祡畯⡴ †††††戠牡潭敤∽瑳捡≫ਬ††††††慸楸㵳楤瑣琨瑩敬∽⤢ਬ††††††慹楸㵳楤瑣琨瑩敬∽듪ꂳ맫⊄‬楴正畳晦硩∽꟫邛Ⱒ琠捩晫牯慭㵴ⰢⰢ †††††††††††桳睯牧摩吽畲ⱥ朠楲捤汯牯∽昣昰昰∰Ⱙ †††††礠硡獩㴲楤瑣琨瑩敬∽偃⁁邛∩‬癯牥慬楹杮∽≹‬楳敤∽楲桧≴ਬ††††††††††††桳睯牧摩䘽污敳‬楴正潦浲瑡∽∬‬楴正畳晦硩∽鯬⊐Ⱙ †††††氠来湥㵤楤瑣漨楲湥慴楴湯∽≨‬㵹⸱〱‬潦瑮搽捩⡴楳敺ㄽ⤱Ⱙ †††††瀠潬彴杢潣潬㵲眢楨整Ⱒ瀠灡牥扟捧汯牯∽桷瑩≥ਬ††††††慭杲湩搽捩⡴㵴〵‬㵢〴Ⱙ栠楥桧㵴〴ⰰ †††⤠ †††猠⹴汰瑯祬损慨瑲昨杩‬獵彥潣瑮楡敮彲楷瑤㵨牔敵਩††汥敳਺††††敲摮牥灟湩敮彤潴慴彬慴汢⡥慤汩役慴汢⡥摦⥦਩ †挠汯慟‬潣彬⁢‽瑳挮汯浵獮㈨਩††楷桴挠汯慟਺††††祢慟瑤灹⁥‽摦⹦牧畯扰⡹膘菬⾁鷬뢯꟬₀뗪蒶⤢≛듪ꂳ맫₄䬨坒∩⹝畳⡭⸩敲敳彴湩敤⡸਩††††楦㉧㴠瀠⹸楰⡥祢慟瑤灹ⱥ渠浡獥∽飬膃뒝꿫肧겵뛫⊄‬慶畬獥∽듪ꂳ맫₄䬨坒∩ਬ†††††††††††楴汴㵥貆黬ꂜ飭蒳醴돪蒹蒹ꓬₑ嘨䤯∩‬潣潬彲楤捳敲整獟煥敵据㵥䅐䕌呔⥅ †††映杩⸲灵慤整江祡畯⡴敨杩瑨㌽〰‬慭杲湩搽捩⡴㵴〵‬㵢〲Ⱙ †††††††††††††慰数彲杢潣潬㵲眢楨整Ⱒ瀠潬彴杢潣潬㵲眢楨整⤢ †††猠⹴汰瑯祬损慨瑲昨杩ⰲ甠敳损湯慴湩牥睟摩桴吽畲⥥ †眠瑩⁨潣彬㩢 †††戠役敭楤彡楰⁥‽摦⹦牧畯扰⡹꒧달⊴嬩醴돪蒹⠠剋⥗崢献浵⤨爮獥瑥楟摮硥⤨ †††映杩″‽硰瀮敩戨役敭楤彡楰ⱥ渠浡獥∽꟫뒲Ⱒ瘠污敵㵳醴돪蒹⠠剋⥗Ⱒ ††††††††††琠瑩敬∽꟫뒲돫₄듪ꂳ맫₄맫醤Ⱒ挠汯牯摟獩牣瑥彥敳畱湥散倽䱁呅䕔਩††††楦㍧甮摰瑡彥慬潹瑵栨楥桧㵴〳ⰰ洠牡楧㵮楤瑣琨㔽ⰰ戠㈽⤰ਬ†††††††††††††瀠灡牥扟捧汯牯∽桷瑩≥‬汰瑯扟捧汯牯∽桷瑩≥਩††††瑳瀮潬汴役档牡⡴楦㍧‬獵彥潣瑮楡敮彲楷瑤㵨牔敵਩ †猠⹴慭歲潤湷∨ⴭ∭਩ †映晤浟㴠映晤挮灯⡹਩††摦彦孭钛崢㴠映晤浟≛苫鲧崢搮⹴潭瑮੨††潭瑮汨役扴⁬‽畢汩彤畳浭牡役慴汢⡥摦彦Ɑ∠鯬⊔‬慬敢彬湦氽浡摢⁡㩸映笢湩⡴⥸〺搲≽਩††瑳洮牡摫睯⡮⨢鎟₅鯬蒳낍鷬낄钶鷬⪴∪਩††敲摮牥灟湩敮彤潴慴彬慴汢⡥瑳汹彥畳浭牡⡹潭瑮汨役扴ⱬ∠鯬⊔⤩ਊ††摦彦⁷‽摦⹦潣祰⤨ †映晤睟≛敷步獟慴瑲崢㴠映晤睟≛苫鲧崢搮⹴潴灟牥潩⡤圢⤢愮灰祬氨浡摢⁡㩰瀠献慴瑲瑟浩⹥慤整⤨਩††敲散瑮睟敥獫㴠猠牯整⡤摦彦孷眢敥彫瑳牡≴⹝湵煩敵⤨嬩㐭崺 †映晤睟‴‽摦彦孷摦彦孷眢敥彫瑳牡≴⹝獩湩爨捥湥彴敷步⥳੝ †搠晥眠敥彫慬敢⡬獷㨩 †††椠⁦獷㴠‽鶴闭蒳㨢爠瑥牵⁮獷 †††爠瑥牵⁮≦睻⹳瑳晲楴敭✨津┯❤紩签眨⁳‫楴敭敤瑬⡡慤獹㘽⤩献牴瑦浩⡥┧⽭搥⤧≽ਊ††敷步祬瑟汢㴠戠極摬獟浵慭祲瑟扡敬昨晤睟ⰴ∠敷步獟慴瑲Ⱒ氠扡汥晟㵮敷步江扡汥਩††敷步祬瑟汢㴠眠敥汫役扴⹬敲慮敭挨汯浵獮笽眢敥彫瑳牡≴›벣냬⊨⥽ †猠⹴慭歲潤湷∨⨪鿰蚓벣냬蒳놄돪₼鲵럪₼벣⨩∪਩††敲摮牥灟湩敮彤潴慴彬慴汢⡥瑳汹彥畳浭牡⡹敷步祬瑟汢‬벣냬⊨⤩ਊ⌊邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢ઐ‣䅔⁂㨲鶌뷬ₘ髬붕⌊邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢邕闢ઐ楷桴琠扡㨲 †⌠鶌뷬ₘ闭낄›ꃬ袒뷬鲓韬ₐ倢≃겏闭ન††摦彦捰㴠映晤晛晤≛ꃬ袒뷬鲓崢愮瑳灹⡥瑳⥲献牴挮湯慴湩⡳倢≃‬慮䘽污敳崩挮灯⡹਩ †椠⁦摦彦捰攮灭祴਺††††瑳眮牡楮杮∨賭颽倨⥃낍鷬낄냪₀韬뒖髬⺔겂鷬鲓냫ₔ闭낄ꗫ₼駭뢝闭벣蓬钚∮਩††汥敳਺††††敲摮牥歟楰挨污彣火⡩摦彦捰⤩ †††猠⹴慭歲潤湷∨ⴭ∭਩ †††⌠肔铢₀⸱벝돫₄듪ꂳ맫₄藭뒝룫ₔ铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢肔铢઀††††瑳洮牡摫睯⡮⨢鎟₊鷬蒳醴돪蒹☠䌠䅐⨪⤢ †††爠湥敤彲楰湮摥瑟瑯污瑟扡敬搨楡祬瑟扡敬昨晤灟⥣਩ †††猠⹴慭歲潤湷∨ⴭ∭਩ †††⌠肔铢₀⸲㔠겵蓬₱蓬벳肔铢肔铢肔铢肔铢肔铢肔铢肔铢
+# -*- coding: utf-8 -*-
+"""
+라라스윗 광고 대시보드
+Streamlit + Plotly | 데이터 소스: Google Sheets (통합RD_원본)
+"""
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+import gspread
+from google.oauth2.service_account import Credentials
+import json
+from datetime import date, timedelta
+import calendar
+
+# ── 페이지 설정 ────────────────────────────────────────────────
+st.set_page_config(
+    page_title="라라스윗 광고 대시보드",
+    page_icon="🍬",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# ── 커스텀 CSS ─────────────────────────────────────────────────
+st.markdown("""
+<style>
+    .block-container { padding-top: 3rem; padding-bottom: 1rem; max-width: 1400px; }
+    [data-testid="stMetricValue"] { font-size: 1.75rem; font-weight: 600; }
+    [data-testid="stMetricLabel"] { font-size: 0.8rem; color: #888; }
+    [data-testid="stMetricDelta"] { font-size: 0.85rem; }
+    [data-testid="stSidebar"] { background: #fafafa; }
+    [data-testid="stSidebar"] h2 { font-size: 0.95rem !important; margin-bottom: 0.2rem; }
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] .stMarkdown p { font-size: 0.75rem !important; }
+    [data-testid="stSidebar"] [data-testid="stMultiSelect"] { font-size: 0.75rem; }
+    [data-testid="stSidebar"] button { font-size: 0.75rem !important; }
+    [data-testid="stSidebar"] .stCaption { font-size: 0.68rem !important; }
+    div[data-testid="stTabs"] button { font-size: 0.9rem; font-weight: 500; }
+    .stDataFrame { border-radius: 8px; overflow: hidden; }
+    footer { visibility: hidden; }
+</style>
+""", unsafe_allow_html=True)
+
+# ── 브랜드 컬러 ────────────────────────────────────────────────
+BRAND   = "#F4845F"
+META_C  = "#7BAFD4"
+PALETTE = ["#F4845F", "#7BAFD4", "#82C9A7", "#B5A8E0",
+           "#F7B97A", "#85C1B2", "#F49AC2", "#A8D5BA"]
+BAR_PALETTE = ["#F4845F", "#7BAFD4", "#F7B97A", "#82C9A7",
+               "#F49AC2", "#B5A8E0", "#E8A87C", "#85C1B2"]
+
+# 총합계 행 하이라이트
+TOTAL_BG   = "#FFF0E6"
+TOTAL_FG   = "#B84A00"
+TOTAL_FONT = "bold"
+
+def style_with_total(df: pd.DataFrame):
+    """첫 번째 컬럼 값이 '총합계'인 행에 배경색/굵기 적용"""
+    first_col = df.columns[0]
+    def row_style(row):
+        if row[first_col] == "총합계":
+            return [f"background-color: {TOTAL_BG}; font-weight: {TOTAL_FONT}; color: {TOTAL_FG}"] * len(row)
+        return [""] * len(row)
+    return df.style.apply(row_style, axis=1)
+
+def render_pinned_total_table(df):
+    """컬럼 클릭 정렬 + 총합계 항상 하단 고정 (단일 HTML 테이블)"""
+    import uuid
+    tid = "tbl_" + uuid.uuid4().hex[:8]
+    first_col = df.columns[0]
+    data  = df[df[first_col] != "총합계"].reset_index(drop=True)
+    total = df[df[first_col] == "총합계"]
+    th = "padding:7px 10px; text-align:left; background:#f0f2f6; border-bottom:2px solid #ddd; font-size:0.82rem; white-space:nowrap; cursor:pointer; user-select:none;"
+    td = "padding:6px 10px; border-bottom:1px solid #eee; font-size:0.82rem; white-space:nowrap;"
+    tf = "padding:6px 10px; font-size:0.82rem; white-space:nowrap; background:" + TOTAL_BG + "; color:" + TOTAL_FG + "; font-weight:" + TOTAL_FONT + "; border-top:2px solid #ddd;"
+    hdr = ''.join(
+        '<th style="' + th + '" onclick="sortTbl(\'' + tid + '\',' + str(i) + ')" data-order="">'
+        + col + ' <span style="color:#bbb;font-size:0.7rem">&#x21C5;</span></th>'
+        for i, col in enumerate(df.columns)
+    )
+    bdy = ''.join(
+        '<tr>' + ''.join('<td style="' + td + '">' + str(v) + '</td>' for v in row) + '</tr>'
+        for _, row in data.iterrows()
+    )
+    ftr = (''.join(
+        '<tr>' + ''.join('<td style="' + tf + '">' + str(v) + '</td>' for v in row) + '</tr>'
+        for _, row in total.iterrows()
+    ) if not total.empty else '')
+    js = (
+        'function sortTbl(tid,col){'
+        'var tbl=document.getElementById(tid);'
+        'var tbody=tbl.querySelector("tbody");'
+        'var ths=tbl.querySelectorAll("thead th");'
+        'var asc=ths[col].dataset.order!=="asc";'
+        'ths.forEach(function(h){h.dataset.order="";h.querySelector("span").innerHTML="&#x21C5;";});'
+        'ths[col].dataset.order=asc?"asc":"desc";'
+        'ths[col].querySelector("span").innerHTML=asc?"&#x2191;":"&#x2193;";'
+        'var rows=Array.from(tbody.querySelectorAll("tr"));'
+        'rows.sort(function(a,b){'
+        'var va=a.cells[col].textContent.replace(/[\u20a9%,\s]/g,"");'
+        'var vb=b.cells[col].textContent.replace(/[\u20a9%,\s]/g,"");'
+        'var na=parseFloat(va),nb=parseFloat(vb);'
+        'if(!isNaN(na)&&!isNaN(nb))return asc?na-nb:nb-na;'
+        'return asc?va.localeCompare(vb,"ko"):vb.localeCompare(va,"ko");'
+        '});'
+        'rows.forEach(function(r){tbody.appendChild(r);});'
+        '}'
+    )
+    html = (
+        '<div style="overflow-x:auto; border-radius:8px; border:1px solid #e0e0e0;">'
+        '<table id="' + tid + '" style="width:100%; border-collapse:collapse;">'
+        '<thead><tr>' + hdr + '</tr></thead>'
+        '<tbody>' + bdy + '</tbody>'
+        '<tfoot>' + ftr + '</tfoot>'
+        '</table></div>'
+        '<script>' + js + '</script>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+
+# ── 공통 집계 함수 ─────────────────────────────────────────────
+def build_summary_table(data: pd.DataFrame, group_col: str, label_fn=None) -> pd.DataFrame:
+    grp = (
+        data.groupby(group_col)
+        .agg(광고비=("광고비 (KRW)", "sum"), 노출=("노출", "sum"),
+             링크클릭=("클릭", "sum"), 구매=("전환수", "sum"))
+        .reset_index()
+    )
+    grp["CTR"] = (grp["링크클릭"] / grp["노출"].replace(0, float("nan")) * 100).fillna(0)
+    grp["CPC"] = (grp["광고비"] / grp["링크클릭"].replace(0, float("nan"))).fillna(0)
+    grp["CVR"] = (grp["구매"] / grp["링크클릭"].replace(0, float("nan")) * 100).fillna(0)
+    grp["CPA"] = (grp["광고비"] / grp["구매"].replace(0, float("nan"))).fillna(0)
+    tot = grp[["광고비","노출","링크클릭","구매"]].sum()
+    grp = pd.concat([grp, pd.DataFrame([{
+        group_col: "총합계",
+        "광고비": tot["광고비"], "노출": tot["노출"],
+        "링크클릭": tot["링크클릭"], "구매": tot["구매"],
+        "CTR": tot["링크클릭"] / tot["노출"] * 100 if tot["노출"] > 0 else 0,
+        "CPC": tot["광고비"] / tot["링크클릭"] if tot["링크클릭"] > 0 else 0,
+        "CVR": tot["구매"] / tot["링크클릭"] * 100 if tot["링크클릭"] > 0 else 0,
+        "CPA": tot["광고비"] / tot["구매"] if tot["구매"] > 0 else 0,
+    }])], ignore_index=True)
+    if label_fn:
+        grp[group_col] = grp[group_col].apply(lambda x: label_fn(x) if x != "총합계" else x)
+    return grp
+
+def style_summary(df: pd.DataFrame, first_col: str) -> pd.DataFrame:
+    s = df.copy()
+    s["광고비"]   = s["광고비"].apply(lambda x: f"₩{int(x):,}")
+    s["노출"]     = s["노출"].apply(lambda x: f"{int(x):,}")
+    s["링크클릭"] = s["링크클릭"].apply(lambda x: f"{int(x):,}")
+    s["구매"]     = s["구매"].apply(lambda x: f"{int(x):,}")
+    s["CTR"]     = s["CTR"].apply(lambda x: f"{x:.2f}%")
+    s["CPC"]     = s["CPC"].apply(lambda x: f"{int(x):,}")
+    s["CVR"]     = s["CVR"].apply(lambda x: f"{x:.2f}%")
+    s["CPA"]     = s["CPA"].apply(lambda x: f"{int(x):,}")
+    return s.rename(columns={"링크클릭": "링크 클릭"})
+
+def perf_row(label: str, d: pd.DataFrame, key_col: str = "구분") -> dict:
+    """단일 집계행 딕셔너리 생성 (포맷 완료)"""
+    s = d["광고비 (KRW)"].sum()
+    i = d["노출"].sum()
+    c = d["클릭"].sum()
+    v = d["전환수"].sum()
+    return {
+        key_col:     label,
+        "광고비":    f"₩{int(s):,}",
+        "노출":      f"{int(i):,}",
+        "링크 클릭": f"{int(c):,}",
+        "구매":      f"{int(v):,}",
+        "CTR":      f"{c/i*100:.2f}%" if i > 0 else "0.00%",
+        "CPC":      f"{int(s/c):,}" if c > 0 else "0",
+        "CVR":      f"{v/c*100:.2f}%" if c > 0 else "0.00%",
+        "CPA":      f"{int(s/v):,}" if v > 0 else "0",
+    }
+
+def daily_table(d: pd.DataFrame) -> pd.DataFrame:
+    """일별 집계 + 총합계 행 반환 (포맷 완료)"""
+    grp = (
+        d.groupby(d["날짜"].dt.date)
+        .agg(spend=("광고비 (KRW)", "sum"), imp=("노출", "sum"),
+             clk=("클릭", "sum"), conv=("전환수", "sum"))
+        .reset_index().rename(columns={"날짜": "date"})
+        .sort_values("date")
+    )
+    grp["CTR"] = (grp["clk"] / grp["imp"].replace(0, float("nan")) * 100).fillna(0)
+    grp["CPC"] = (grp["spend"] / grp["clk"].replace(0, float("nan"))).fillna(0)
+    grp["CVR"] = (grp["conv"] / grp["clk"].replace(0, float("nan")) * 100).fillna(0)
+    grp["CPA"] = (grp["spend"] / grp["conv"].replace(0, float("nan"))).fillna(0)
+
+    tbl = pd.DataFrame({
+        "일":        grp["date"].astype(str),
+        "광고비":    grp["spend"].apply(lambda x: f"₩{int(x):,}"),
+        "노출":      grp["imp"].apply(lambda x: f"{int(x):,}"),
+        "링크 클릭": grp["clk"].apply(lambda x: f"{int(x):,}"),
+        "구매":      grp["conv"].apply(lambda x: f"{int(x):,}"),
+        "CTR":      grp["CTR"].apply(lambda x: f"{x:.2f}%"),
+        "CPC":      grp["CPC"].apply(lambda x: f"{int(x):,}"),
+        "CVR":      grp["CVR"].apply(lambda x: f"{x:.2f}%"),
+        "CPA":      grp["CPA"].apply(lambda x: f"{int(x):,}"),
+    })
+    ts, ti, tc, tv = grp["spend"].sum(), grp["imp"].sum(), grp["clk"].sum(), grp["conv"].sum()
+    total = pd.DataFrame([{
+        "일":        "총합계",
+        "광고비":    f"₩{int(ts):,}",
+        "노출":      f"{int(ti):,}",
+        "링크 클릭": f"{int(tc):,}",
+        "구매":      f"{int(tv):,}",
+        "CTR":      f"{tc/ti*100:.2f}%" if ti > 0 else "0.00%",
+        "CPC":      f"{int(ts/tc):,}" if tc > 0 else "0",
+        "CVR":      f"{tv/tc*100:.2f}%" if tc > 0 else "0.00%",
+        "CPA":      f"{int(ts/tv):,}" if tv > 0 else "0",
+    }])
+    return pd.concat([tbl, total], ignore_index=True)
+
+
+# ── 데이터 로드 ────────────────────────────────────────────────
+@st.cache_data(ttl=3600, show_spinner="데이터 불러오는 중…")
+def load_data() -> pd.DataFrame:
+    creds = Credentials.from_service_account_info(
+        dict(st.secrets["gcp_service_account"]),
+        scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"],
+    )
+    gc = gspread.authorize(creds)
+    ws = gc.open_by_key(st.secrets["spreadsheet_id"]).worksheet("통합RD_원본")
+    records = ws.get_all_records()
+    df = pd.DataFrame(records)
+
+    df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce")
+    for col in ["광고비 (KRW)", "노출", "클릭", "전환수", "CTR (%)", "CPA (KRW)",
+                "CPC (KRW)", "영상조회 3초+", "ThruPlay"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+
+    df = df.dropna(subset=["날짜"])
+    df["연"] = df["날짜"].dt.year.astype(str)
+    df["월"] = df["날짜"].dt.month.astype(str).str.zfill(2)
+    df["일"] = df["날짜"].dt.day.astype(str).str.zfill(2)
+    return df.sort_values("날짜")
+
+
+try:
+    df = load_data()
+except Exception as e:
+    st.error(f"❌ 데이터를 불러오지 못했어요: `{e}`")
+    st.info("👉 `.streamlit/secrets.toml` 설정을 확인해주세요.")
+    st.stop()
+
+if df.empty:
+    st.warning("시트에 데이터가 없어요.")
+    st.stop()
+
+# ── 사이드바 필터 ──────────────────────────────────────────────
+max_date = df["날짜"].max().strftime("%Y-%m-%d")
+
+with st.sidebar:
+    st.markdown("## 🍬 라라스윗 제과 전환광고")
+    st.markdown("---")
+
+    def valid_opts(col):
+        grp = df.groupby(col)["노출"].sum()
+        return sorted([str(v) for v, imp in grp.items()
+                       if str(v).strip() != "" and imp > 0])
+
+    st.markdown("**📅 연도**")
+    year_opts = sorted(df["날짜"].dt.year.unique().tolist(), reverse=True)
+    sel_years = st.multiselect("연도", year_opts, placeholder="전체",
+                               label_visibility="collapsed")
+
+    st.markdown("**📅 월**")
+    avail_months = sorted(df["날짜"].dt.month.unique().tolist())
+    month_labels = [f"{m}월" for m in avail_months]
+    sel_months = st.multiselect("월", month_labels, placeholder="전체",
+                                label_visibility="collapsed")
+
+    st.markdown("**📅 일**")
+    avail_dates = sorted(df["날짜"].dt.strftime("%Y-%m-%d").unique().tolist())
+    sel_dates = st.multiselect("일", avail_dates, placeholder="전체",
+                               label_visibility="collapsed")
+
+    st.markdown("**📺 매체**")
+    media_opts = valid_opts("매체")
+    sel_media = st.multiselect("매체", media_opts, placeholder="전체",
+                               label_visibility="collapsed")
+
+    st.markdown("**🎬 광고유형**")
+    adtype_opts = valid_opts("영상/이미지 구분")
+    sel_adtype = st.multiselect("광고유형", adtype_opts, placeholder="전체",
+                                label_visibility="collapsed")
+
+    st.markdown("**📦 제품코드**")
+    prodcode_opts = valid_opts("제품코드")
+    sel_prodcode = st.multiselect("제품코드", prodcode_opts, placeholder="전체",
+                                  label_visibility="collapsed")
+
+    st.markdown("**🎪 이벤트명**")
+    event_opts = valid_opts("스킴명")
+    sel_event = st.multiselect("이벤트명", event_opts, placeholder="전체",
+                               label_visibility="collapsed")
+
+    st.markdown("---")
+    if st.button("🔄 데이터 새로고침"):
+        st.cache_data.clear()
+        st.rerun()
+
+    st.caption(f"최근 업데이트: {max_date}")
+
+
+# ── 필터 적용 ──────────────────────────────────────────────────
+mask = pd.Series([True] * len(df), index=df.index)
+if sel_years:
+    mask &= df["날짜"].dt.year.isin(sel_years)
+if sel_months:
+    sel_month_nums = [int(m.replace("월", "")) for m in sel_months]
+    mask &= df["날짜"].dt.month.isin(sel_month_nums)
+if sel_dates:
+    mask &= df["날짜"].dt.strftime("%Y-%m-%d").isin(sel_dates)
+if sel_media:
+    mask &= df["매체"].astype(str).isin(sel_media)
+if sel_adtype:
+    mask &= df["영상/이미지 구분"].astype(str).isin(sel_adtype)
+if sel_prodcode:
+    mask &= df["제품코드"].astype(str).isin(sel_prodcode)
+if sel_event:
+    mask &= df["스킴명"].astype(str).isin(sel_event)
+
+fdf = df[mask].copy()
+
+if fdf.empty:
+    st.warning("필터 조건에 맞는 데이터가 없어요. 필터를 조정해주세요.")
+    st.stop()
+
+
+# ── KPI 집계 ───────────────────────────────────────────────────
+def calc_kpi(d: pd.DataFrame) -> dict:
+    spend = d["광고비 (KRW)"].sum()
+    imp   = d["노출"].sum()
+    clk   = d["클릭"].sum()
+    conv  = d["전환수"].sum()
+    return dict(spend=spend, imp=imp, clk=clk, conv=conv,
+                ctr=clk/imp*100 if imp > 0 else 0,
+                cpa=spend/conv if conv > 0 else 0)
+
+kpi = calc_kpi(fdf)
+
+def fmt_krw(v): return f"₩{int(v):,}"
+def fmt_num(v): return f"{int(v):,}"
+
+
+# ── 공통: KPI 카드 ─────────────────────────────────────────────
+def render_kpi(k: dict):
+    c1, c2, c3, c4, c5, c6 = st.columns(6)
+    c1.metric("💰 광고비", fmt_krw(k["spend"]))
+    c2.metric("👁 노출",   fmt_num(k["imp"]))
+    c3.metric("🖱 클릭",   fmt_num(k["clk"]))
+    c4.metric("🛒 전환수", fmt_num(k["conv"]))
+    c5.metric("📈 CTR",    f"{k['ctr']:.2f}%")
+    c6.metric("🎯 CPA",    fmt_krw(k["cpa"]))
+
+
+# ── 공통: 원본 테이블 ──────────────────────────────────────────
+
+
+# ── 탭 ────────────────────────────────────────────────────────
+tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    ["📊 전체 요약", "🍿 팝콘 요약", "📺 매체별", "🎨 소재별", "📦 제품별"]
+)
+
+
+# ══════════════════════════════════════════════════════════════
+# TAB 1: 전체 요약
+# ══════════════════════════════════════════════════════════════
+with tab1:
+    render_kpi(kpi)
+    st.markdown("---")
+
+    daily_prod = (
+        fdf.groupby([fdf["날짜"].dt.date, "제품코드"])
+        .agg(spend=("광고비 (KRW)", "sum"))
+        .reset_index().rename(columns={"날짜": "date"})
+    )
+    daily_prod["spend_man"] = daily_prod["spend"] / 10000
+
+    daily_cpa = (
+        fdf.groupby(fdf["날짜"].dt.date)
+        .agg(spend=("광고비 (KRW)", "sum"), imp=("노출", "sum"),
+             clk=("클릭", "sum"), conv=("전환수", "sum"))
+        .reset_index().rename(columns={"날짜": "date"})
+    )
+    daily_cpa["CPA"] = (daily_cpa["spend"] / daily_cpa["conv"].replace(0, float("nan"))).fillna(0)
+    daily_cpa["CTR"] = (daily_cpa["clk"] / daily_cpa["imp"].replace(0, float("nan")) * 100).fillna(0)
+    daily_cpa["CPC"] = (daily_cpa["spend"] / daily_cpa["clk"].replace(0, float("nan"))).fillna(0)
+    daily_cpa["CVR"] = (daily_cpa["conv"] / daily_cpa["clk"].replace(0, float("nan")) * 100).fillna(0)
+
+    prod_codes_sorted = (
+        daily_prod.groupby("제품코드")["spend"].sum()
+        .sort_values(ascending=False).index.tolist()
+    )
+
+    hdr_col, btn_col = st.columns([6, 1])
+    with hdr_col:
+        st.markdown("**📊 일별 광고비 & CPA**")
+    with btn_col:
+        view_mode = st.radio("보기", ["그래프", "테이블"], horizontal=True,
+                             label_visibility="collapsed", key="daily_view_mode")
+
+    if view_mode == "그래프":
+        fig = go.Figure()
+        for i, pc in enumerate(prod_codes_sorted):
+            d = daily_prod[daily_prod["제품코드"] == pc]
+            fig.add_bar(x=d["date"], y=d["spend_man"], name=str(pc),
+                        marker_color=BAR_PALETTE[i % len(BAR_PALETTE)], yaxis="y1",
+                        hovertemplate=f"<b>{pc}</b><br>날짜: %{{x}}<br>광고비: %{{y:,.0f}}만원<extra></extra>")
+        fig.add_scatter(x=daily_cpa["date"], y=daily_cpa["CPA"],
+                        name="CPA", mode="lines+markers",
+                        line=dict(color="#9B8EC4", width=2.5), marker=dict(size=6), yaxis="y2",
+                        hovertemplate="날짜: %{x}<br>CPA: %{y:,.0f}원<extra></extra>")
+        fig.update_layout(
+            barmode="stack",
+            xaxis=dict(title=""),
+            yaxis=dict(title="광고비", ticksuffix="만원", tickformat=",",
+                       showgrid=True, gridcolor="#f0f0f0"),
+            yaxis2=dict(title="CPA (원)", overlaying="y", side="right",
+                        showgrid=False, tickformat=",", ticksuffix="원"),
+            legend=dict(orientation="h", y=1.10, font=dict(size=11)),
+            plot_bgcolor="white", paper_bgcolor="white",
+            margin=dict(t=50, b=40), height=400,
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        render_pinned_total_table(daily_table(fdf))
+
+    col_a, col_b = st.columns(2)
+    with col_a:
+        by_adtype = fdf.groupby("영상/이미지 구분")["광고비 (KRW)"].sum().reset_index()
+        fig2 = px.pie(by_adtype, names="영상/이미지 구분", values="광고비 (KRW)",
+                      title="소재유형별 광고비 비중 (V/I)", color_discrete_sequence=PALETTE)
+        fig2.update_layout(height=300, margin=dict(t=50, b=20),
+                           paper_bgcolor="white", plot_bgcolor="white")
+        st.plotly_chart(fig2, use_container_width=True)
+    with col_b:
+        by_media_pie = fdf.groupby("매체")["광고비 (KRW)"].sum().reset_index()
+        fig3 = px.pie(by_media_pie, names="매체", values="광고비 (KRW)",
+                      title="매체별 광고비 비중", color_discrete_sequence=PALETTE)
+        fig3.update_layout(height=300, margin=dict(t=50, b=20),
+                           paper_bgcolor="white", plot_bgcolor="white")
+        st.plotly_chart(fig3, use_container_width=True)
+
+    st.markdown("---")
+
+    fdf_m = fdf.copy()
+    fdf_m["월"] = fdf_m["날짜"].dt.month
+    monthly_tbl = build_summary_table(fdf_m, "월", label_fn=lambda x: f"{int(x):02d}")
+    st.markdown("**📅 월별 데이터 추이**")
+    render_pinned_total_table(style_summary(monthly_tbl, "월"))
+
+    fdf_w = fdf.copy()
+    fdf_w["week_start"] = fdf_w["날짜"].dt.to_period("W").apply(lambda p: p.start_time.date())
+    recent_weeks = sorted(fdf_w["week_start"].unique())[-4:]
+    fdf_w4 = fdf_w[fdf_w["week_start"].isin(recent_weeks)]
+
+    def week_label(ws):
+        if ws == "총합계": return ws
+        return f"{ws.strftime('%m/%d')}~{(ws + timedelta(days=6)).strftime('%m/%d')}"
+
+    weekly_tbl = build_summary_table(fdf_w4, "week_start", label_fn=week_label)
+    weekly_tbl = weekly_tbl.rename(columns={"week_start": "주차"})
+    st.markdown("**📆 주차별 성과 (최근 4주)**")
+    render_pinned_total_table(style_summary(weekly_tbl, "주차"))
+
+
+# ══════════════════════════════════════════════════════════════
+# TAB 2: 팝콘 요약
+# ══════════════════════════════════════════════════════════════
+with tab2:
+    # 팝콘 필터: 제품코드에 "PC" 포함
+    fdf_pc = fdf[fdf["제품코드"].astype(str).str.contains("PC", na=False)].copy()
+
+    if fdf_pc.empty:
+        st.warning("팝콘(PC) 데이터가 없어요. 사이드바 필터를 확인해주세요.")
+    else:
+        render_kpi(calc_kpi(fdf_pc))
+        st.markdown("---")
+
+        # ── 1. 일별 광고비 테이블 ─────────────────────────────
+        st.markdown("**📊 일별 광고비 & CPA**")
+        render_pinned_total_table(daily_table(fdf_pc))
+
+        st.markdown("---")
+
+        # ── 2. 5P구성 성과 ────────────────────────────────────
+        st.markdown("**📋 5P구성 성과**")
+
+        T_BEFORE_END  = pd.Timestamp("2026-06-16")
+        T_AFTER_START = pd.Timestamp("2026-06-17")
+        T_AFTER_END   = pd.Timestamp("2026-06-30")
+        T_BEFORE_START = pd.Timestamp("2026-06-01")
+
+        before = fdf_pc[(fdf_pc["날짜"] >= T_BEFORE_START) & (fdf_pc["날짜"] <= T_BEFORE_END)]
+        after  = fdf_pc[(fdf_pc["날짜"] >= T_AFTER_START)  & (fdf_pc["날짜"] <= T_AFTER_END)]
+
+        period_df = pd.DataFrame([
+            perf_row("5p구성 이전(6/1~6/16)",   before),
+            perf_row("5p구성 적용(6/17~6/30)",  after),
+            perf_row("총합계",                   fdf_pc),
+        ])
+        render_pinned_total_table(period_df)
+
+        st.markdown("---")
+
+        # ── 3. 이벤트별 성과 ──────────────────────────────────
+        st.markdown("**🎪 이벤트별 성과**")
+
+        event_tbl = build_summary_table(fdf_pc, "스킴명")
+        event_tbl = event_tbl.rename(columns={"스킴명": "이벤트명"})
+        _ev_total = event_tbl[event_tbl["이벤트명"] == "총합계"]
+        _ev_data  = event_tbl[event_tbl["이벤트명"] != "총합계"].sort_values("광고비", ascending=False)
+        event_tbl = pd.concat([_ev_data, _ev_total], ignore_index=True)
+        render_pinned_total_table(style_summary(event_tbl, "이벤트명"))
