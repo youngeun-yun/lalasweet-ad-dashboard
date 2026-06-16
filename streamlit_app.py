@@ -73,15 +73,16 @@ def render_pinned_total_table(df: pd.DataFrame):
     # 정렬 가능한 데이터 테이블
     st.dataframe(data, use_container_width=True, hide_index=True)
 
-    # 총합계 고정 행
+    # 총합계 고정 행 — 위 dataframe에 바짝 붙임
     if not total.empty:
         n = len(df.columns)
         pct = 100 / n
         td = (f"padding:5px 8px; font-size:0.82rem; white-space:nowrap; width:{pct:.1f}%;"
               f" background:{TOTAL_BG}; color:{TOTAL_FG}; font-weight:{TOTAL_FONT};"
-              f" border:1px solid #e0e0e0;")
+              f" border-left:1px solid #e0e0e0; border-right:1px solid #e0e0e0;"
+              f" border-bottom:1px solid #e0e0e0;")
         cells = "".join(f"<td style='{td}'>{v}</td>" for v in total.iloc[0])
-        html = (f'<div style="overflow-x:auto; margin-top:2px;">'
+        html = (f'<div style="overflow-x:auto; margin-top:-1rem;">'
                 f'<table style="width:100%; border-collapse:collapse; table-layout:fixed;">'
                 f'<tbody><tr>{cells}</tr></tbody></table></div>')
         st.markdown(html, unsafe_allow_html=True)
@@ -479,6 +480,4 @@ with tab2:
         event_tbl = event_tbl.rename(columns={"스킴명": "이벤트명"})
         _ev_total = event_tbl[event_tbl["이벤트명"] == "총합계"]
         _ev_data  = event_tbl[event_tbl["이벤트명"] != "총합계"].sort_values("광고비", ascending=False)
-        event_tbl = pd.concat([_ev_data, _ev_total], ignore_index=True)
-        render_pinned_total_table(style_summary(event_tbl, "이벤트명"))
-
+        event_tbl = pd.c
