@@ -159,8 +159,13 @@ while current <= until:
         "인지", "파인트", "스틱바", "얼리썸머", "패밀리세일", "빙과",
         "제로바", "듬뿍바", "멜론바", "모나카", "미니생초코",
         "복요파", "블요바", "젤라또", "쫀득바", "요거트바", "초코페스티벌",
+        "듬뿍바출시이벤트", "딸기축제이벤트", "망요바출시",
+        "모나카반값특가", "미니생초코출시", "쫀득바출시",
     ]
-    _EXCLUDE_CODES = ["BA망", "CO바", "P혼", "ZB귤", "ZB파", "스틱바", "제로바"]
+    _EXCLUDE_CODES = [
+        "BA망", "CO바", "P혼", "ZB귤", "ZB파", "스틱바", "제로바",
+        "BA딸", "BA옥", "BA혼", "C혼", "JD망", "MB바", "M우", "M팥", "혼합",
+    ]
     filtered = [
         r for r in daily_rows
         if not any(kw in r.get("metrics", {}).get("campaign_name", "") for kw in _EXCLUDE_KW)
