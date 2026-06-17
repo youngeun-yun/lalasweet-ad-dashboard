@@ -164,12 +164,16 @@ while current <= until:
     ]
     _EXCLUDE_CODES = [
         "BA망", "CO바", "P혼", "ZB귤", "ZB파", "스틱바", "제로바",
-        "BA딸", "BA옥", "BA혼", "C혼", "JD망", "MB바", "M우", "M팥", "혼합",
+        "BA딸", "BA옥", "BA혼", "JD망", "MB바", "M우", "M팥", "혼합",
     ]
     filtered = [
         r for r in daily_rows
         if not any(kw in r.get("metrics", {}).get("campaign_name", "") for kw in _EXCLUDE_KW)
                 and not any(code in r.get("metrics", {}).get("ad_name", "") for code in _EXCLUDE_CODES)
+                and not (
+                    "C혼" in r.get("metrics", {}).get("ad_name", "")
+                    and "PC혼" not in r.get("metrics", {}).get("ad_name", "")
+                )
     ]
     log(f"  {date_str}: 전체 {len(daily_rows)}행 -> 제외 후 {len(filtered)}행")
     all_rows.extend(filtered)
