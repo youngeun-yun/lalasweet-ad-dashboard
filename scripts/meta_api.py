@@ -88,22 +88,33 @@ def clean_ad_name(name: str) -> str:
         return name
     return re.sub(r'\s*-\s*사본(\s+\d+)?$', '', name).strip()
 
+# 백필 모드: 환경변수 BACKFILL_SINCE / BACKFILL_UNTIL 우선
+_backfill_since = os.environ.get("BACKFILL_SINCE", "").strip()
+_backfill_until = os.environ.get("BACKFILL_UNTIL", "").strip()
+IS_BACKFILL = bool(_backfill_since and _backfill_until)
+
 today = datetime.date.today()
-until = today - datetime.timedelta(days=1)
 
-last_success = None
-if os.path.exists(STATE_PATH):
-    try:
-        with open(STATE_PATH, encoding="utf-8") as f:
-            last_success = datetime.date.fromisoformat(f.read().strip())
-    except Exception:
-        pass
+if IS_BACKFILL:
+    since = datetime.date.fromisoformat(_backfill_since)
+    until = datetime.date.fromisoformat(_backfill_until)
+    log(f"[백필 모드] 수집 범위: {since} ~ {until}")
+else:
+    until = today - datetime.timedelta(days=1)
 
-since = (last_success + datetime.timedelta(days=1)) if last_success else until
+    last_success = None
+    if os.path.exists(STATE_PATH):
+        try:
+            with open(STATE_PATH, encoding="utf-8") as f:
+                last_success = datetime.date.fromisoformat(f.read().strip())
+        except Exception:
+            pass
 
-if since > until:
-    log(f"받을 새 데이터 없음 (이미 {last_success}까지 수집 완료) -> 종료")
-    sys.exit(0)
+    since = (last_success + datetime.timedelta(days=1)) if last_success else until
+
+    if since > until:
+        log(f"받을 새 데이터 없음 (이미 {last_success}까지 수집 완료) -> 종료")
+        sys.exit(0)
 
 gap_days = (until - since).days + 1
 if gap_days > 60:
@@ -129,6 +140,8 @@ filtering = [
     {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "P혼"},
     {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "ZB귤"},
     {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "ZB파"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "스틱바"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "제로바"},
 ]
 
 params = {
@@ -266,8 +279,9 @@ with open(out_path, "w", encoding="utf-8-sig", newline="") as f:
     writer.writeheader()
     writer.writerows(out)
 
-with open(STATE_PATH, "w", encoding="utf-8") as f:
-    f.write(str(until))
+if not IS_BACKFILL:
+    with open(STATE_PATH, "w", encoding="utf-8") as f:
+        f.write(str(until))
+    log(f"마지막 성공 날짜 갱신: {until}")
 
 log(f"완료: {len(out)}행 -> {out_path}")
-log(f"마지막 성공 날짜 갱신: {until}")
