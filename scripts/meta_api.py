@@ -152,7 +152,6 @@ filtering = [
     {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "BA딸"},
     {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "BA옥"},
     {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "BA혼"},
-    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "C혼"},
     {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "JD망"},
     {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "MB바"},
     {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "M우"},
@@ -285,6 +284,12 @@ for r in rows:
 
 if sbon_count > 0:
     log(f"소재명 ' - 사본' 정리 완료: {sbon_count}건")
+
+# C혼 소재 제외 (PC혼은 팝콘 코드이므로 유지)
+out = [r for r in out if not (
+    "C혼" in (r.get("ad_name") or "") and
+    "PC혼" not in (r.get("ad_name") or "")
+)]
 
 if len(out) == 0:
     die("수집된 행이 0개 -> 파일 생성 안 함")
