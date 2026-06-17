@@ -134,6 +134,13 @@ filtering = [
     {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "얼리썸머"},
     {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "패밀리세일"},
     {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "빙과"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "듬뿍바출시이벤트"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "딸기축제이벤트"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "망요바출시"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "모나카반값특가"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "미니생초코출시"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "쫀득바출시"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "초코페스티벌"},
     # 소재명 제품코드 기준 제외
     {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "BA망"},
     {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "CO바"},
@@ -142,6 +149,15 @@ filtering = [
     {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "ZB파"},
     {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "스틱바"},
     {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "제로바"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "BA딸"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "BA옥"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "BA혼"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "C혼"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "JD망"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "MB바"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "M우"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "M팥"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "혼합"},
 ]
 
 params = {
