@@ -160,7 +160,7 @@ while current <= until:
         "제로바", "듬뿍바", "멜론바", "모나카", "미니생초코",
         "복요파", "블요바", "젤라또", "쫀득바", "요거트바", "초코페스티벌",
     ]
-    _EXCLUDE_CODES = ["BA망", "CO바", "P혼", "ZB귤", "ZB파"]
+    _EXCLUDE_CODES = ["BA망", "CO바", "P혼", "ZB귤", "ZB파", "스틱바", "제로바"]
     filtered = [
         r for r in daily_rows
         if not any(kw in r.get("metrics", {}).get("campaign_name", "") for kw in _EXCLUDE_KW)
