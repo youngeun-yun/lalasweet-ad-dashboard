@@ -96,8 +96,8 @@ def render_pinned_total_table(df):
         'ths[col].querySelector("span").innerHTML=asc?"&#x2191;":"&#x2193;";'
         'var rows=Array.from(tbody.querySelectorAll("tr"));'
         'rows.sort(function(a,b){'
-        'var va=a.cells[col].textContent.replace(/[\u20a9%,\s]/g,"");'
-        'var vb=b.cells[col].textContent.replace(/[\u20a9%,\s]/g,"");'
+        'var va=a.cells[col].textContent.replace(/[₩%,\s]/g,"");'
+        'var vb=b.cells[col].textContent.replace(/[₩%,\s]/g,"");'
         'var na=parseFloat(va),nb=parseFloat(vb);'
         'if(!isNaN(na)&&!isNaN(nb))return asc?na-nb:nb-na;'
         'return asc?va.localeCompare(vb,"ko"):vb.localeCompare(va,"ko");'
@@ -361,9 +361,6 @@ def render_kpi(k: dict):
     c6.metric("🎯 CPA",    fmt_krw(k["cpa"]))
 
 
-# ── 공통: 원본 테이블 ──────────────────────────────────────────
-
-
 # ── 탭 ────────────────────────────────────────────────────────
 tab1, tab2 = st.tabs(
     ["📊 전체 요약", "🍿 팝콘 요약"]
@@ -464,7 +461,7 @@ with tab1:
 
     def week_label(ws):
         if ws == "총합계": return ws
-        return f"{ws.strftime('%m/%d')}~{(ws + timedelta(days=6)).strftime('%m/%d')}"
+        return f"{ws.strftime('%m/%d')}}{(ws + timedelta(days=6)).strftime('%m/%d')}"
 
     weekly_tbl = build_summary_table(fdf_w4, "week_start", label_fn=week_label)
     weekly_tbl = weekly_tbl.rename(columns={"week_start": "주차"})
@@ -541,14 +538,25 @@ with tab2:
 
         fdf_pc_c = fdf_pc.copy()
         fdf_pc_c["_유형"] = fdf_pc_c["소재명"].apply(_classify_creative)
-        creative_rows = []
+
+        _type_data = []
         for t in _CREATIVE_TYPES:
             sub = fdf_pc_c[fdf_pc_c["_유형"] == t]
             if not sub.empty:
-                creative_rows.append(perf_row(t, sub, key_col="소재 유형"))
-        if creative_rows:
+                _type_data.append((t, sub, sub["광고비 (KRW)"].sum()))
+
+        if _type_data:
+            _type_data.sort(key=lambda x: x[2], reverse=True)
+            creative_rows = [perf_row(t, sub, key_col="소재 유형") for t, sub, _ in _type_data]
             typed_total = fdf_pc_c[fdf_pc_c["_유형"].notna()]
             creative_rows.append(perf_row("총합계", typed_total, key_col="소재 유형"))
             render_pinned_total_table(pd.DataFrame(creative_rows))
+
+            st.markdown("**🔍 소재 유형별 포함 소재명**")
+            for t, sub, _ in _type_data:
+                _unique_ads = sorted(sub["소재명"].unique())
+                with st.expander(f"{t}  ·  {len(_unique_ads)}개 소재"):
+                    for _ad in _unique_ads:
+                        st.caption(_ad)
         else:
             st.info("현재 필터 조건에서 해당 소재 유형 데이터가 없습니다.")
