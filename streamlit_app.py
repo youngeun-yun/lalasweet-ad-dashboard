@@ -520,3 +520,35 @@ with tab2:
         _ev_data  = event_tbl[event_tbl["이벤트명"] != "총합계"].sort_values("광고비", ascending=False)
         event_tbl = pd.concat([_ev_data, _ev_total], ignore_index=True)
         render_pinned_total_table(style_summary(event_tbl, "이벤트명"))
+
+        st.markdown("---")
+
+        # ── 4. 소재 유형별 성과 ───────────────────────────────
+        st.markdown("**🎨 소재 유형별 성과**")
+
+        _CREATIVE_TYPES = [
+            "맛페인포인트.5P소구",
+            "메시지검증.5P소구",
+            "맛페인포인트",
+            "5P소구",
+        ]
+
+        def _classify_creative(ad_name):
+            for t in _CREATIVE_TYPES:
+                if t in str(ad_name):
+                    return t
+            return None
+
+        fdf_pc_c = fdf_pc.copy()
+        fdf_pc_c["_유형"] = fdf_pc_c["소재명"].apply(_classify_creative)
+        creative_rows = []
+        for t in _CREATIVE_TYPES:
+            sub = fdf_pc_c[fdf_pc_c["_유형"] == t]
+            if not sub.empty:
+                creative_rows.append(perf_row(t, sub, key_col="소재 유형"))
+        if creative_rows:
+            typed_total = fdf_pc_c[fdf_pc_c["_유형"].notna()]
+            creative_rows.append(perf_row("총합계", typed_total, key_col="소재 유형"))
+            render_pinned_total_table(pd.DataFrame(creative_rows))
+        else:
+            st.info("현재 필터 조건에서 해당 소재 유형 데이터가 없습니다.")
