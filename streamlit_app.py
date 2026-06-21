@@ -520,7 +520,7 @@ with tab2:
 
         st.markdown("---")
 
-        # ── 4. 소재 유형별 성과 ───────────────────────────────
+        # ── 4. 소재 유형별 성과 (피벗 트리 테이블) ──────────────
         st.markdown("**🎨 소재 유형별 성과**")
 
         _CREATIVE_TYPES = [
@@ -547,16 +547,61 @@ with tab2:
 
         if _type_data:
             _type_data.sort(key=lambda x: x[2], reverse=True)
-            creative_rows = [perf_row(t, sub, key_col="소재 유형") for t, sub, _ in _type_data]
             typed_total = fdf_pc_c[fdf_pc_c["_유형"].notna()]
-            creative_rows.append(perf_row("총합계", typed_total, key_col="소재 유형"))
-            render_pinned_total_table(pd.DataFrame(creative_rows))
+            total_row = perf_row("총합계", typed_total, key_col="소재 유형")
 
-            st.markdown("**🔍 소재 유형별 포함 소재명**")
-            for t, sub, _ in _type_data:
-                _unique_ads = sorted(sub["소재명"].unique())
-                with st.expander(f"{t}  ·  {len(_unique_ads)}개 소재"):
-                    for _ad in _unique_ads:
-                        st.caption(_ad)
+            import uuid as _uuid
+            _tid = "ct_" + _uuid.uuid4().hex[:8]
+            _cols = ["소재 유형", "광고비", "노출", "링크 클릭", "전환수", "CTR", "CPC", "CVR", "CPA"]
+            _th  = "padding:7px 10px;text-align:left;background:#f0f2f6;border-bottom:2px solid #ddd;font-size:0.82rem;white-space:nowrap;"
+            _tdp = "padding:6px 10px;border-bottom:1px solid #eee;font-size:0.82rem;white-space:nowrap;"
+            _tdc1 = "padding:5px 10px 5px 28px;border-bottom:1px solid #f5f5f5;font-size:0.80rem;white-space:nowrap;color:#555;background:#fafcff;"
+            _tdcn = "padding:5px 10px;border-bottom:1px solid #f5f5f5;font-size:0.80rem;white-space:nowrap;color:#555;background:#fafcff;"
+            _tft  = f"padding:6px 10px;font-size:0.82rem;white-space:nowrap;background:{TOTAL_BG};color:{TOTAL_FG};font-weight:{TOTAL_FONT};border-top:2px solid #ddd;"
+
+            _hdr = "".join(f'<th style="{_th}">{c}</th>' for c in _cols)
+
+            _body = ""
+            _n_child = 0
+            for _idx, (_t, _sub, _) in enumerate(_type_data):
+                _pid = f"p_{_tid}_{_idx}"
+                _pr  = perf_row(_t, _sub, key_col="소재 유형")
+                _p1  = (f'<td style="{_tdp}cursor:pointer;">'
+                        f'<span id="ico_{_pid}" style="display:inline-block;width:14px;'
+                        f'font-size:0.75rem">▶</span> {_t}</td>')
+                _pr2 = "".join(f'<td style="{_tdp}">{_pr[c]}</td>' for c in _cols[1:])
+                _body += f'<tr onclick="toggleCT(\'{_pid}\')" style="cursor:pointer;">{_p1}{_pr2}</tr>'
+                # 소재명 행: 광고비 내림차순
+                _ads = []
+                for _an in _sub["소재명"].unique():
+                    _as = _sub[_sub["소재명"] == _an]
+                    _ads.append((_an, perf_row(_an, _as, key_col="소재 유형"), _as["광고비 (KRW)"].sum()))
+                _ads.sort(key=lambda x: x[2], reverse=True)
+                for _an, _ar, _ in _ads:
+                    _c1 = f'<td style="{_tdc1}">{_an}</td>'
+                    _cr = "".join(f'<td style="{_tdcn}">{_ar[c]}</td>' for c in _cols[1:])
+                    _body += f'<tr class="cc_{_pid}" style="display:none;">{_c1}{_cr}</tr>'
+                    _n_child += 1
+
+            _ftd = "".join(f'<td style="{_tft}">{total_row[c]}</td>' for c in _cols)
+            _js  = (
+                "function toggleCT(pid){"
+                "var rows=document.querySelectorAll('.cc_'+pid);"
+                "var ico=document.getElementById('ico_'+pid);"
+                "var show=rows.length>0&&rows[0].style.display==='none';"
+                "rows.forEach(function(r){r.style.display=show?'':'none';});"
+                "if(ico)ico.textContent=show?'▼':'▶';}"
+            )
+            _html = (
+                '<div style="overflow-x:auto;border-radius:8px;border:1px solid #e0e0e0;">'
+                '<table style="width:100%;border-collapse:collapse;">'
+                f'<thead><tr>{_hdr}</tr></thead>'
+                f'<tbody>{_body}</tbody>'
+                f'<tfoot><tr>{_ftd}</tr></tfoot>'
+                '</table></div>'
+                f'<script>{_js}</script>'
+            )
+            _h = max(150, 52 + (len(_type_data) + _n_child + 1) * 34)
+            components.html(_html, height=_h, scrolling=False)
         else:
             st.info("현재 필터 조건에서 해당 소재 유형 데이터가 없습니다.")
