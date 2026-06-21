@@ -552,7 +552,7 @@ with tab2:
 
             import uuid as _uuid
             _tid = "ct_" + _uuid.uuid4().hex[:8]
-            _cols = ["소재 유형", "광고비", "노출", "링크 클릭", "전환수", "CTR", "CPC", "CVR", "CPA"]
+            _cols = ["소재 유형", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
             _th  = "padding:7px 10px;text-align:left;background:#f0f2f6;border-bottom:2px solid #ddd;font-size:0.82rem;white-space:nowrap;"
             _tdp = "padding:6px 10px;border-bottom:1px solid #eee;font-size:0.82rem;white-space:nowrap;"
             _tdc1 = "padding:5px 10px 5px 28px;border-bottom:1px solid #f5f5f5;font-size:0.80rem;white-space:nowrap;color:#555;background:#fafcff;"
