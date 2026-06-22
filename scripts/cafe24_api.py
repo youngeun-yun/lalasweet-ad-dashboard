@@ -193,7 +193,6 @@ def collect_date(date_str: str):
         data = cafe24_get("/admin/orders", params={
             "start_date": date_str,
             "end_date":   date_str,
-            "date_type":  "payment_date",
             "embed":      "items",
             "limit":      limit,
             "offset":     offset,
