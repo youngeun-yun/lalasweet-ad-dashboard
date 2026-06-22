@@ -202,22 +202,12 @@ def collect_date(date_str: str):
         if not orders:
             break
 
-        # 디버그: 첫 번째 페이지 첫 주문 정보 출력
-        if offset == 0 and orders:
-            first = orders[0]
-            log(f"[DEBUG] 총 주문 수(이 페이지): {len(orders)}")
-            log(f"[DEBUG] 첫 주문 order_status: {first.get('order_status')}")
-            items_sample = (first.get("items") or [])
-            log(f"[DEBUG] 첫 주문 items 수: {len(items_sample)}")
-            if items_sample:
-                log(f"[DEBUG] 첫 아이템 product_no: {items_sample[0].get('product_no')} (type: {type(items_sample[0].get('product_no')).__name__})")
-                log(f"[DEBUG] 첫 아이템 keys: {list(items_sample[0].keys())}")
-
         for order in orders:
-            for item in (order.get("items") or []):
-                if str(item.get("order_status", "")) not in VALID_STATUSES:
-                    continue
+            # 손익봇과 동일: order 레벨 canceled 필드로 취소 주문 제외
+            if order.get("canceled") == "T":
+                continue
 
+            for item in (order.get("items") or []):
                 try:
                     pno = int(item.get("product_no", 0))
                 except (TypeError, ValueError):
