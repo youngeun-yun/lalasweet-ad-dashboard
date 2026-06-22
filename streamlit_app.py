@@ -240,7 +240,7 @@ def valid_opts(df: pd.DataFrame, col: str) -> list:
 def week_label(ws) -> str:
     if ws == "총합계":
         return ws
-    return f"{ws.strftime('%m/%d')}}{(ws + timedelta(days=6)).strftime('%m/%d')}"
+    return f"{ws.strftime('%m/%d')}~{(ws + timedelta(days=6)).strftime('%m/%d')}"
 
 
 def classify_creative(ad_name: str):
