@@ -3,6 +3,9 @@
 라라스윗 광고 대시보드
 Streamlit + Plotly | 데이터 소스: Google Sheets (통합RD_원본)
 """
+import html as _html
+import uuid
+
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
@@ -10,11 +13,9 @@ import plotly.express as px
 import plotly.graph_objects as go
 import gspread
 from google.oauth2.service_account import Credentials
-import json
 from datetime import date, timedelta
-import calendar
 
-# ── 페이지 설정 ────────────────────────────────────────────────
+# --- 페이지 설정 ---
 st.set_page_config(
     page_title="라라스윗 광고 대시보드",
     page_icon="🍬",
@@ -22,7 +23,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── 커스텀 CSS ─────────────────────────────────────────────────
+# --- 커스텀 CSS ---
 st.markdown("""
 <style>
     .block-container { padding-top: 3rem; padding-bottom: 1rem; max-width: 1400px; }
@@ -43,76 +44,91 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ── 브랜드 컬러 ────────────────────────────────────────────────
-BRAND   = "#F4845F"
-META_C  = "#7BAFD4"
+# --- 브랜드 컬러 ---
 PALETTE = ["#F4845F", "#7BAFD4", "#82C9A7", "#B5A8E0",
            "#F7B97A", "#85C1B2", "#F49AC2", "#A8D5BA"]
 BAR_PALETTE = ["#F4845F", "#7BAFD4", "#F7B97A", "#82C9A7",
                "#F49AC2", "#B5A8E0", "#E8A87C", "#85C1B2"]
-
 TOTAL_BG   = "#FFF0E6"
 TOTAL_FG   = "#B84A00"
 TOTAL_FONT = "bold"
 
-def style_with_total(df: pd.DataFrame):
-    first_col = df.columns[0]
-    def row_style(row):
-        if row[first_col] == "총합계":
-            return [f"background-color: {TOTAL_BG}; font-weight: {TOTAL_FONT}; color: {TOTAL_FG}"] * len(row)
-        return [""] * len(row)
-    return df.style.apply(row_style, axis=1)
+# --- 5P구성 기준일 ---
+PC_BEFORE_START = pd.Timestamp("2026-06-01")
+PC_BEFORE_END   = pd.Timestamp("2026-06-16")
+PC_AFTER_START  = pd.Timestamp("2026-06-17")
+PC_AFTER_END    = pd.Timestamp("2026-06-30")
 
-def render_pinned_total_table(df):
-    import uuid
+# --- 소재 유형 우선순위 ---
+CREATIVE_TYPES = [
+    "맛페인포인트.5P소구",
+    "메시지검증.5P소구",
+    "맛페인포인트",
+    "5P소구",
+]
+
+
+# =============================================================
+# 헬퍼 함수
+# =============================================================
+
+def _esc(v) -> str:
+    return _html.escape(str(v))
+
+
+def render_pinned_total_table(df: pd.DataFrame) -> None:
     tid = "tbl_" + uuid.uuid4().hex[:8]
     first_col = df.columns[0]
     data  = df[df[first_col] != "총합계"].reset_index(drop=True)
     total = df[df[first_col] == "총합계"]
-    th = "padding:7px 10px; text-align:left; background:#f0f2f6; border-bottom:2px solid #ddd; font-size:0.82rem; white-space:nowrap; cursor:pointer; user-select:none;"
+    th = ("padding:7px 10px; text-align:left; background:#f0f2f6;"
+          "border-bottom:2px solid #ddd; font-size:0.82rem;"
+          "white-space:nowrap; cursor:pointer; user-select:none;")
     td = "padding:6px 10px; border-bottom:1px solid #eee; font-size:0.82rem; white-space:nowrap;"
-    tf = "padding:6px 10px; font-size:0.82rem; white-space:nowrap; background:" + TOTAL_BG + "; color:" + TOTAL_FG + "; font-weight:" + TOTAL_FONT + "; border-top:2px solid #ddd;"
-    hdr = ''.join(
-        '<th style="' + th + '" onclick="sortTbl(\'' + tid + '\',' + str(i) + ')" data-order="">'
-        + col + ' <span style="color:#bbb;font-size:0.7rem">&#x21C5;</span></th>'
+    tf = (f"padding:6px 10px; font-size:0.82rem; white-space:nowrap;"
+          f"background:{TOTAL_BG}; color:{TOTAL_FG}; font-weight:{TOTAL_FONT};"
+          f"border-top:2px solid #ddd;")
+    hdr = "".join(
+        f'<th style="{th}" onclick="sortTbl(\'{tid}\',{i})" data-order="">'
+        f'{_esc(col)} <span style="color:#bbb;font-size:0.7rem">&#x21C5;</span></th>'
         for i, col in enumerate(df.columns)
     )
-    bdy = ''.join(
-        '<tr>' + ''.join('<td style="' + td + '">' + str(v) + '</td>' for v in row) + '</tr>'
+    bdy = "".join(
+        "<tr>" + "".join(f'<td style="{td}">{_esc(v)}</td>' for v in row) + "</tr>"
         for _, row in data.iterrows()
     )
-    ftr = (''.join(
-        '<tr>' + ''.join('<td style="' + tf + '">' + str(v) + '</td>' for v in row) + '</tr>'
+    ftr = ("".join(
+        "<tr>" + "".join(f'<td style="{tf}">{_esc(v)}</td>' for v in row) + "</tr>"
         for _, row in total.iterrows()
-    ) if not total.empty else '')
+    ) if not total.empty else "")
     js = (
-        'function sortTbl(tid,col){'
-        'var tbl=document.getElementById(tid);'
-        'var tbody=tbl.querySelector("tbody");'
-        'var ths=tbl.querySelectorAll("thead th");'
-        'var asc=ths[col].dataset.order!=="asc";'
-        'ths.forEach(function(h){h.dataset.order="";h.querySelector("span").innerHTML="&#x21C5;";});'
-        'ths[col].dataset.order=asc?"asc":"desc";'
-        'ths[col].querySelector("span").innerHTML=asc?"&#x2191;":"&#x2193;";'
-        'var rows=Array.from(tbody.querySelectorAll("tr"));'
-        'rows.sort(function(a,b){'
-        'var va=a.cells[col].textContent.replace(/[₩%,\s]/g,"");'
-        'var vb=b.cells[col].textContent.replace(/[₩%,\s]/g,"");'
-        'var na=parseFloat(va),nb=parseFloat(vb);'
-        'if(!isNaN(na)&&!isNaN(nb))return asc?na-nb:nb-na;'
-        'return asc?va.localeCompare(vb,"ko"):vb.localeCompare(va,"ko");'
-        '});'
-        'rows.forEach(function(r){tbody.appendChild(r);});'
-        '}'
+        "function sortTbl(tid,col){"
+        "var tbl=document.getElementById(tid);"
+        "var tbody=tbl.querySelector('tbody');"
+        "var ths=tbl.querySelectorAll('thead th');"
+        "var asc=ths[col].dataset.order!=='asc';"
+        "ths.forEach(function(h){h.dataset.order='';h.querySelector('span').innerHTML='&#x21C5;';});"
+        "ths[col].dataset.order=asc?'asc':'desc';"
+        "ths[col].querySelector('span').innerHTML=asc?'&#x2191;':'&#x2193;';"
+        "var rows=Array.from(tbody.querySelectorAll('tr'));"
+        "rows.sort(function(a,b){"
+        "var va=a.cells[col].textContent.replace(/[\\u20a9%,\\s]/g,'');"
+        "var vb=b.cells[col].textContent.replace(/[\\u20a9%,\\s]/g,'');"
+        "var na=parseFloat(va),nb=parseFloat(vb);"
+        "if(!isNaN(na)&&!isNaN(nb))return asc?na-nb:nb-na;"
+        "return asc?va.localeCompare(vb,'ko'):vb.localeCompare(va,'ko');"
+        "});"
+        "rows.forEach(function(r){tbody.appendChild(r);});"
+        "}"
     )
     html = (
         '<div style="overflow-x:auto; border-radius:8px; border:1px solid #e0e0e0;">'
-        '<table id="' + tid + '" style="width:100%; border-collapse:collapse;">'
-        '<thead><tr>' + hdr + '</tr></thead>'
-        '<tbody>' + bdy + '</tbody>'
-        '<tfoot>' + ftr + '</tfoot>'
-        '</table></div>'
-        '<script>' + js + '</script>'
+        f'<table id="{tid}" style="width:100%; border-collapse:collapse;">'
+        f'<thead><tr>{hdr}</tr></thead>'
+        f'<tbody>{bdy}</tbody>'
+        f'<tfoot>{ftr}</tfoot>'
+        f'</table></div>'
+        f'<script>{js}</script>'
     )
     height = max(150, 52 + len(data) * 34 + (38 if not total.empty else 0))
     components.html(html, height=height, scrolling=False)
@@ -129,11 +145,13 @@ def build_summary_table(data: pd.DataFrame, group_col: str, label_fn=None) -> pd
     grp["CPC"] = (grp["광고비"] / grp["링크클릭"].replace(0, float("nan"))).fillna(0)
     grp["CVR"] = (grp["구매"] / grp["링크클릭"].replace(0, float("nan")) * 100).fillna(0)
     grp["CPA"] = (grp["광고비"] / grp["구매"].replace(0, float("nan"))).fillna(0)
-    tot = grp[["광고비","노출","링크클릭","구매"]].sum()
+    tot = grp[["광고비", "노출", "링크클릭", "구매"]].sum()
     grp = pd.concat([grp, pd.DataFrame([{
-        group_col: "총합계",
-        "광고비": tot["광고비"], "노출": tot["노출"],
-        "링크클릭": tot["링크클릭"], "구매": tot["구매"],
+        group_col:  "총합계",
+        "광고비":   tot["광고비"],
+        "노출":     tot["노출"],
+        "링크클릭": tot["링크클릭"],
+        "구매":     tot["구매"],
         "CTR": tot["링크클릭"] / tot["노출"] * 100 if tot["노출"] > 0 else 0,
         "CPC": tot["광고비"] / tot["링크클릭"] if tot["링크클릭"] > 0 else 0,
         "CVR": tot["구매"] / tot["링크클릭"] * 100 if tot["링크클릭"] > 0 else 0,
@@ -142,6 +160,7 @@ def build_summary_table(data: pd.DataFrame, group_col: str, label_fn=None) -> pd
     if label_fn:
         grp[group_col] = grp[group_col].apply(lambda x: label_fn(x) if x != "총합계" else x)
     return grp
+
 
 def style_summary(df: pd.DataFrame, first_col: str) -> pd.DataFrame:
     s = df.copy()
@@ -154,6 +173,7 @@ def style_summary(df: pd.DataFrame, first_col: str) -> pd.DataFrame:
     s["CVR"]     = s["CVR"].apply(lambda x: f"{x:.2f}%")
     s["CPA"]     = s["CPA"].apply(lambda x: f"{int(x):,}")
     return s.rename(columns={"링크클릭": "링크 클릭"})
+
 
 def perf_row(label: str, d: pd.DataFrame, key_col: str = "구분") -> dict:
     s = d["광고비 (KRW)"].sum()
@@ -171,6 +191,7 @@ def perf_row(label: str, d: pd.DataFrame, key_col: str = "구분") -> dict:
         "CVR":      f"{v/c*100:.2f}%" if c > 0 else "0.00%",
         "CPA":      f"{int(s/v):,}" if v > 0 else "0",
     }
+
 
 def daily_table(d: pd.DataFrame) -> pd.DataFrame:
     grp = (
@@ -210,7 +231,58 @@ def daily_table(d: pd.DataFrame) -> pd.DataFrame:
     return pd.concat([tbl, total], ignore_index=True)
 
 
-@st.cache_data(ttl=3600, show_spinner="데이터 불러오는 중…")
+def valid_opts(df: pd.DataFrame, col: str) -> list:
+    grp = df.groupby(col)["노출"].sum()
+    return sorted([str(v) for v, imp in grp.items()
+                   if str(v).strip() != "" and imp > 0])
+
+
+def week_label(ws) -> str:
+    if ws == "총합계":
+        return ws
+    return f"{ws.strftime('%m/%d')}}{(ws + timedelta(days=6)).strftime('%m/%d')}"
+
+
+def classify_creative(ad_name: str):
+    for t in CREATIVE_TYPES:
+        if t in str(ad_name):
+            return t
+    return None
+
+
+def calc_kpi(d: pd.DataFrame) -> dict:
+    spend = d["광고비 (KRW)"].sum()
+    imp   = d["노출"].sum()
+    clk   = d["클릭"].sum()
+    conv  = d["전환수"].sum()
+    return dict(spend=spend, imp=imp, clk=clk, conv=conv,
+                ctr=clk / imp * 100 if imp > 0 else 0,
+                cpa=spend / conv if conv > 0 else 0)
+
+
+def fmt_krw(v: float) -> str:
+    return f"₩{int(v):,}"
+
+
+def fmt_num(v: float) -> str:
+    return f"{int(v):,}"
+
+
+def render_kpi(k: dict) -> None:
+    c1, c2, c3, c4, c5, c6 = st.columns(6)
+    c1.metric("💰 광고비", fmt_krw(k["spend"]))
+    c2.metric("👁 노출",   fmt_num(k["imp"]))
+    c3.metric("🖱 클릭",   fmt_num(k["clk"]))
+    c4.metric("🛒 전환수", fmt_num(k["conv"]))
+    c5.metric("📈 CTR",    f"{k['ctr']:.2f}%")
+    c6.metric("🎯 CPA",    fmt_krw(k["cpa"]))
+
+
+# =============================================================
+# 데이터 로드
+# =============================================================
+
+@st.cache_data(ttl=3600, show_spinner="데이터 불러오는 중...")
 def load_data() -> pd.DataFrame:
     creds = Credentials.from_service_account_info(
         dict(st.secrets["gcp_service_account"]),
@@ -245,14 +317,14 @@ if df.empty:
 
 max_date = df["날짜"].max().strftime("%Y-%m-%d")
 
+
+# =============================================================
+# 사이드바
+# =============================================================
+
 with st.sidebar:
     st.markdown("## 🍬 라라스윗 제과 전환광고")
     st.markdown("---")
-
-    def valid_opts(col):
-        grp = df.groupby(col)["노출"].sum()
-        return sorted([str(v) for v, imp in grp.items()
-                       if str(v).strip() != "" and imp > 0])
 
     _cur_year  = date.today().year
     _cur_month = f"{date.today().month}월"
@@ -276,24 +348,20 @@ with st.sidebar:
                                label_visibility="collapsed")
 
     st.markdown("**📺 매체**")
-    media_opts = valid_opts("매체")
-    sel_media = st.multiselect("매체", media_opts, placeholder="전체",
-                               label_visibility="collapsed")
+    sel_media = st.multiselect("매체", valid_opts(df, "매체"),
+                               placeholder="전체", label_visibility="collapsed")
 
     st.markdown("**🎬 광고유형**")
-    adtype_opts = valid_opts("영상/이미지 구분")
-    sel_adtype = st.multiselect("광고유형", adtype_opts, placeholder="전체",
-                                label_visibility="collapsed")
+    sel_adtype = st.multiselect("광고유형", valid_opts(df, "영상/이미지 구분"),
+                                placeholder="전체", label_visibility="collapsed")
 
     st.markdown("**📦 제품코드**")
-    prodcode_opts = valid_opts("제품코드")
-    sel_prodcode = st.multiselect("제품코드", prodcode_opts, placeholder="전체",
-                                  label_visibility="collapsed")
+    sel_prodcode = st.multiselect("제품코드", valid_opts(df, "제품코드"),
+                                  placeholder="전체", label_visibility="collapsed")
 
     st.markdown("**🎪 이벤트명**")
-    event_opts = valid_opts("스킴명")
-    sel_event = st.multiselect("이벤트명", event_opts, placeholder="전체",
-                               label_visibility="collapsed")
+    sel_event = st.multiselect("이벤트명", valid_opts(df, "스킴명"),
+                               placeholder="전체", label_visibility="collapsed")
 
     st.markdown("---")
     if st.button("🔄 데이터 새로고침"):
@@ -303,7 +371,10 @@ with st.sidebar:
     st.caption(f"최근 업데이트: {max_date}")
 
 
-# ── 필터 적용 ──────────────────────────────────────────────────
+# =============================================================
+# 필터 적용
+# =============================================================
+
 mask = pd.Series([True] * len(df), index=df.index)
 if sel_years:
     mask &= df["날짜"].dt.year.isin(sel_years)
@@ -323,53 +394,27 @@ if sel_event:
 
 fdf = df[mask].copy()
 
-# 월별 데이터 추이: 연도 필터만 적용
-mask_monthly = pd.Series([True] * len(df), index=df.index)
+# 월별 추이: 연도 필터만 적용 (월 필터 제외, 전체 월 흐름 표시)
+mask_year_only = pd.Series([True] * len(df), index=df.index)
 if sel_years:
-    mask_monthly &= df["날짜"].dt.year.isin(sel_years)
-fdf_monthly = df[mask_monthly].copy()
+    mask_year_only &= df["날짜"].dt.year.isin(sel_years)
+fdf_year_only = df[mask_year_only].copy()
 
 if fdf.empty:
     st.warning("필터 조건에 맞는 데이터가 없어요. 필터를 조정해주세요.")
     st.stop()
 
-
-# ── KPI 집계 ───────────────────────────────────────────────────
-def calc_kpi(d: pd.DataFrame) -> dict:
-    spend = d["광고비 (KRW)"].sum()
-    imp   = d["노출"].sum()
-    clk   = d["클릭"].sum()
-    conv  = d["전환수"].sum()
-    return dict(spend=spend, imp=imp, clk=clk, conv=conv,
-                ctr=clk/imp*100 if imp > 0 else 0,
-                cpa=spend/conv if conv > 0 else 0)
-
 kpi = calc_kpi(fdf)
 
-def fmt_krw(v): return f"₩{int(v):,}"
-def fmt_num(v): return f"{int(v):,}"
+
+# =============================================================
+# 탭
+# =============================================================
+
+tab1, tab2 = st.tabs(["📊 전체 요약", "🍿 팝콘 요약"])
 
 
-# ── 공통: KPI 카드 ─────────────────────────────────────────────
-def render_kpi(k: dict):
-    c1, c2, c3, c4, c5, c6 = st.columns(6)
-    c1.metric("💰 광고비", fmt_krw(k["spend"]))
-    c2.metric("👁 노출",   fmt_num(k["imp"]))
-    c3.metric("🖱 클릭",   fmt_num(k["clk"]))
-    c4.metric("🛒 전환수", fmt_num(k["conv"]))
-    c5.metric("📈 CTR",    f"{k['ctr']:.2f}%")
-    c6.metric("🎯 CPA",    fmt_krw(k["cpa"]))
-
-
-# ── 탭 ────────────────────────────────────────────────────────
-tab1, tab2 = st.tabs(
-    ["📊 전체 요약", "🍿 팝콘 요약"]
-)
-
-
-# ══════════════════════════════════════════════════════════════
-# TAB 1: 전체 요약
-# ══════════════════════════════════════════════════════════════
+# --- TAB 1: 전체 요약 ---
 with tab1:
     render_kpi(kpi)
     st.markdown("---")
@@ -448,7 +493,7 @@ with tab1:
 
     st.markdown("---")
 
-    fdf_m = fdf_monthly.copy()
+    fdf_m = fdf_year_only.copy()
     fdf_m["월"] = fdf_m["날짜"].dt.month
     monthly_tbl = build_summary_table(fdf_m, "월", label_fn=lambda x: f"{int(x):02d}")
     st.markdown("**📅 월별 데이터 추이**")
@@ -459,21 +504,14 @@ with tab1:
     recent_weeks = sorted(fdf_w["week_start"].unique())[-4:]
     fdf_w4 = fdf_w[fdf_w["week_start"].isin(recent_weeks)]
 
-    def week_label(ws):
-        if ws == "총합계": return ws
-        return f"{ws.strftime('%m/%d')}~{(ws + timedelta(days=6)).strftime('%m/%d')}"
-
     weekly_tbl = build_summary_table(fdf_w4, "week_start", label_fn=week_label)
     weekly_tbl = weekly_tbl.rename(columns={"week_start": "주차"})
     st.markdown("**📆 주차별 성과 (최근 4주)**")
     render_pinned_total_table(style_summary(weekly_tbl, "주차"))
 
 
-# ══════════════════════════════════════════════════════════════
-# TAB 2: 팝콘 요약
-# ══════════════════════════════════════════════════════════════
+# --- TAB 2: 팝콘 요약 ---
 with tab2:
-    # 팝콘 필터: 제품코드에 "PC" 포함
     fdf_pc = fdf[fdf["제품코드"].astype(str).str.contains("PC", na=False)].copy()
 
     if fdf_pc.empty:
@@ -482,33 +520,35 @@ with tab2:
         render_kpi(calc_kpi(fdf_pc))
         st.markdown("---")
 
-        # ── 1. 일별 광고비 테이블 ─────────────────────────────
+        # 1. 일별 광고비 테이블
         st.markdown("**📊 일별 광고비 & CPA**")
         render_pinned_total_table(daily_table(fdf_pc))
 
         st.markdown("---")
 
-        # ── 2. 5P구성 성과 ────────────────────────────────────
+        # 2. 5P구성 성과
         st.markdown("**📋 5P구성 성과**")
 
-        T_BEFORE_END  = pd.Timestamp("2026-06-16")
-        T_AFTER_START = pd.Timestamp("2026-06-17")
-        T_AFTER_END   = pd.Timestamp("2026-06-30")
-        T_BEFORE_START = pd.Timestamp("2026-06-01")
+        before = fdf_pc[
+            (fdf_pc["날짜"] >= PC_BEFORE_START) & (fdf_pc["날짜"] <= PC_BEFORE_END)
+        ]
+        after = fdf_pc[
+            (fdf_pc["날짜"] >= PC_AFTER_START) & (fdf_pc["날짜"] <= PC_AFTER_END)
+        ]
+        period_total = pd.concat([before, after])  # 총합계: 두 구간만 합산
 
-        before = fdf_pc[(fdf_pc["날짜"] >= T_BEFORE_START) & (fdf_pc["날짜"] <= T_BEFORE_END)]
-        after  = fdf_pc[(fdf_pc["날짜"] >= T_AFTER_START)  & (fdf_pc["날짜"] <= T_AFTER_END)]
-
+        b_label = f"5p구성 이전({PC_BEFORE_START.strftime('%m/%d')}~{PC_BEFORE_END.strftime('%m/%d')})"
+        a_label = f"5p구성 적용({PC_AFTER_START.strftime('%m/%d')}}{PC_AFTER_END.strftime('%m/%d')})"
         period_df = pd.DataFrame([
-            perf_row("5p구성 이전(6/1~6/16)",   before),
-            perf_row("5p구성 적용(6/17~6/30)",  after),
-            perf_row("총합계",                   fdf_pc),
+            perf_row(b_label, before),
+            perf_row(a_label, after),
+            perf_row("총합계", period_total),
         ])
         render_pinned_total_table(period_df)
 
         st.markdown("---")
 
-        # ── 3. 이벤트별 성과 ──────────────────────────────────
+        # 3. 이벤트별 성과
         st.markdown("**🎪 이벤트별 성과**")
 
         event_tbl = build_summary_table(fdf_pc, "스킴명")
@@ -520,27 +560,14 @@ with tab2:
 
         st.markdown("---")
 
-        # ── 4. 소재 유형별 성과 (피벗 트리 테이블) ──────────────
+        # 4. 소재 유형별 성과 (피벗 트리 테이블)
         st.markdown("**🎨 소재 유형별 성과**")
 
-        _CREATIVE_TYPES = [
-            "맛페인포인트.5P소구",
-            "메시지검증.5P소구",
-            "맛페인포인트",
-            "5P소구",
-        ]
-
-        def _classify_creative(ad_name):
-            for t in _CREATIVE_TYPES:
-                if t in str(ad_name):
-                    return t
-            return None
-
         fdf_pc_c = fdf_pc.copy()
-        fdf_pc_c["_유형"] = fdf_pc_c["소재명"].apply(_classify_creative)
+        fdf_pc_c["_유형"] = fdf_pc_c["소재명"].apply(classify_creative)
 
         _type_data = []
-        for t in _CREATIVE_TYPES:
+        for t in CREATIVE_TYPES:
             sub = fdf_pc_c[fdf_pc_c["_유형"] == t]
             if not sub.empty:
                 _type_data.append((t, sub, sub["광고비 (KRW)"].sum()))
@@ -548,49 +575,55 @@ with tab2:
         if _type_data:
             _type_data.sort(key=lambda x: x[2], reverse=True)
             typed_total = fdf_pc_c[fdf_pc_c["_유형"].notna()]
-            total_row = perf_row("총합계", typed_total, key_col="소재 유형")
+            total_row   = perf_row("총합계", typed_total, key_col="소재 유형")
 
-            import uuid as _uuid
-            _tid = "ct_" + _uuid.uuid4().hex[:8]
-            _cols = ["소재 유형", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
-            _th  = "padding:7px 10px;text-align:left;background:#f0f2f6;border-bottom:2px solid #ddd;font-size:0.82rem;white-space:nowrap;"
-            _tdp = "padding:6px 10px;border-bottom:1px solid #eee;font-size:0.82rem;white-space:nowrap;"
-            _tdc1 = "padding:5px 10px 5px 28px;border-bottom:1px solid #f5f5f5;font-size:0.80rem;white-space:nowrap;color:#555;background:#fafcff;"
-            _tdcn = "padding:5px 10px;border-bottom:1px solid #f5f5f5;font-size:0.80rem;white-space:nowrap;color:#555;background:#fafcff;"
-            _tft  = f"padding:6px 10px;font-size:0.82rem;white-space:nowrap;background:{TOTAL_BG};color:{TOTAL_FG};font-weight:{TOTAL_FONT};border-top:2px solid #ddd;"
+            _tid  = "ct_" + uuid.uuid4().hex[:8]
+            _cols = ["소재 유형", "광고비", "노출", "링크 클릭", "구매",
+                     "CTR", "CPC", "CVR", "CPA"]
+            _th   = ("padding:7px 10px;text-align:left;background:#f0f2f6;"
+                     "border-bottom:2px solid #ddd;font-size:0.82rem;white-space:nowrap;")
+            _tdp  = "padding:6px 10px;border-bottom:1px solid #eee;font-size:0.82rem;white-space:nowrap;"
+            _tdc1 = ("padding:5px 10px 5px 28px;border-bottom:1px solid #f5f5f5;"
+                     "font-size:0.80rem;white-space:nowrap;color:#555;background:#fafcff;")
+            _tdcn = ("padding:5px 10px;border-bottom:1px solid #f5f5f5;"
+                     "font-size:0.80rem;white-space:nowrap;color:#555;background:#fafcff;")
+            _tft  = (f"padding:6px 10px;font-size:0.82rem;white-space:nowrap;"
+                     f"background:{TOTAL_BG};color:{TOTAL_FG};font-weight:{TOTAL_FONT};"
+                     f"border-top:2px solid #ddd;")
 
-            _hdr = "".join(f'<th style="{_th}">{c}</th>' for c in _cols)
+            _hdr = "".join(f'<th style="{_th}">{_esc(c)}</th>' for c in _cols)
 
-            _body = ""
+            _body    = ""
             _n_child = 0
             for _idx, (_t, _sub, _) in enumerate(_type_data):
                 _pid = f"p_{_tid}_{_idx}"
                 _pr  = perf_row(_t, _sub, key_col="소재 유형")
-                _p1  = (f'<td style="{_tdp}cursor:pointer;">'
-                        f'<span id="ico_{_pid}" style="display:inline-block;width:14px;'
-                        f'font-size:0.75rem">▶</span> {_t}</td>')
-                _pr2 = "".join(f'<td style="{_tdp}">{_pr[c]}</td>' for c in _cols[1:])
+                _ico = f'<span id="ico_{_pid}" style="display:inline-block;width:14px;font-size:0.75rem">&#9654;</span>'
+                _p1  = f'<td style="{_tdp}cursor:pointer;">{_ico} {_esc(_t)}</td>'
+                _pr2 = "".join(f'<td style="{_tdp}">{_esc(_pr[c])}</td>' for c in _cols[1:])
                 _body += f'<tr onclick="toggleCT(\'{_pid}\')" style="cursor:pointer;">{_p1}{_pr2}</tr>'
-                # 소재명 행: 광고비 내림차순
-                _ads = []
-                for _an in _sub["소재명"].unique():
-                    _as = _sub[_sub["소재명"] == _an]
-                    _ads.append((_an, perf_row(_an, _as, key_col="소재 유형"), _as["광고비 (KRW)"].sum()))
+
+                _ads = [
+                    (_an,
+                     perf_row(_an, _sub[_sub["소재명"] == _an], key_col="소재 유형"),
+                     _sub[_sub["소재명"] == _an]["광고비 (KRW)"].sum())
+                    for _an in _sub["소재명"].unique()
+                ]
                 _ads.sort(key=lambda x: x[2], reverse=True)
                 for _an, _ar, _ in _ads:
-                    _c1 = f'<td style="{_tdc1}">{_an}</td>'
-                    _cr = "".join(f'<td style="{_tdcn}">{_ar[c]}</td>' for c in _cols[1:])
+                    _c1   = f'<td style="{_tdc1}">{_esc(_an)}</td>'
+                    _cr   = "".join(f'<td style="{_tdcn}">{_esc(_ar[c])}</td>' for c in _cols[1:])
                     _body += f'<tr class="cc_{_pid}" style="display:none;">{_c1}{_cr}</tr>'
                     _n_child += 1
 
-            _ftd = "".join(f'<td style="{_tft}">{total_row[c]}</td>' for c in _cols)
+            _ftd = "".join(f'<td style="{_tft}">{_esc(total_row[c])}</td>' for c in _cols)
             _js  = (
                 "function toggleCT(pid){"
                 "var rows=document.querySelectorAll('.cc_'+pid);"
                 "var ico=document.getElementById('ico_'+pid);"
                 "var show=rows.length>0&&rows[0].style.display==='none';"
                 "rows.forEach(function(r){r.style.display=show?'':'none';});"
-                "if(ico)ico.textContent=show?'▼':'▶';}"
+                "if(ico)ico.innerHTML=show?'&#9660;':'&#9654;';}"
             )
             _html = (
                 '<div style="overflow-x:auto;border-radius:8px;border:1px solid #e0e0e0;">'
@@ -601,7 +634,8 @@ with tab2:
                 '</table></div>'
                 f'<script>{_js}</script>'
             )
-            _h = max(150, 52 + (len(_type_data) + _n_child + 1) * 34)
+            # 초기 높이: 자식 행 숨김 기준 (부모 행 + 총합계)
+            _h = max(150, 52 + (len(_type_data) + 1) * 36)
             components.html(_html, height=_h, scrolling=False)
         else:
             st.info("현재 필터 조건에서 해당 소재 유형 데이터가 없습니다.")
