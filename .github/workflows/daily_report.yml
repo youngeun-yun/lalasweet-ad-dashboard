@@ -2,14 +2,13 @@ name: 라라스윗 일일 광고 데이터 수집
 
 on:
   schedule:
-    - cron: '0 23 * * *'
-  workflow_dispatch:
+    - cron: '0 23 * * *'  # 매일 08:00 KST (= 전날 23:00 UTC)
+  workflow_dispatch:       # 수동 실행 가능
 
 jobs:
   collect-and-build:
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
     steps:
       - name: 저장소 체크아웃
         uses: actions/checkout@v4
@@ -22,7 +21,7 @@ jobs:
           python-version: '3.11'
 
       - name: 패키지 설치
-        run: pip install requests pandas gspread google-auth
+        run: pip install requests pandas gspread google-auth PyNaCl
 
       - name: 메타 데이터 수집
         env:
@@ -45,9 +44,22 @@ jobs:
 
       - name: Google Sheets 동기화
         env:
+          SHEETS_WEBAPP_URL: ${{ secrets.SHEETS_WEBAPP_URL }}
+          SHEETS_SECRET_KEY: ${{ secrets.SHEETS_SECRET_KEY }}
+        run: python scripts/sync_to_sheets.py
+
+      - name: 카페24 팝콘 데이터 수집
+        env:
+          CAFE24_CLIENT_ID: ${{ secrets.CAFE24_CLIENT_ID }}
+          CAFE24_CLIENT_SECRET: ${{ secrets.CAFE24_CLIENT_SECRET }}
+          CAFE24_ACCESS_TOKEN: ${{ secrets.CAFE24_ACCESS_TOKEN }}
+          CAFE24_REFRESH_TOKEN: ${{ secrets.CAFE24_REFRESH_TOKEN }}
+          GH_PAT: ${{ secrets.GH_PAT }}
           SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
           GCP_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
-        run: python scripts/sync_to_sheets.py
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_USER_ID: ${{ secrets.SLACK_USER_ID }}
+        run: python scripts/cafe24_api.py
 
       - name: 데이터 커밋 & 푸시
         run: |
