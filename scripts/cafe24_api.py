@@ -202,6 +202,17 @@ def collect_date(date_str: str):
         if not orders:
             break
 
+        # 디버그: 첫 번째 페이지 첫 주문 정보 출력
+        if offset == 0 and orders:
+            first = orders[0]
+            log(f"[DEBUG] 총 주문 수(이 페이지): {len(orders)}")
+            log(f"[DEBUG] 첫 주문 order_status: {first.get('order_status')}")
+            items_sample = (first.get("items") or [])
+            log(f"[DEBUG] 첫 주문 items 수: {len(items_sample)}")
+            if items_sample:
+                log(f"[DEBUG] 첫 아이템 product_no: {items_sample[0].get('product_no')} (type: {type(items_sample[0].get('product_no')).__name__})")
+                log(f"[DEBUG] 첫 아이템 keys: {list(items_sample[0].keys())}")
+
         for order in orders:
             if str(order.get("order_status", "")) not in VALID_STATUSES:
                 continue
