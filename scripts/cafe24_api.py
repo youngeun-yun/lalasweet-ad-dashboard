@@ -214,10 +214,10 @@ def collect_date(date_str: str):
                 log(f"[DEBUG] 첫 아이템 keys: {list(items_sample[0].keys())}")
 
         for order in orders:
-            if str(order.get("order_status", "")) not in VALID_STATUSES:
-                continue
-
             for item in (order.get("items") or []):
+                if str(item.get("order_status", "")) not in VALID_STATUSES:
+                    continue
+
                 try:
                     pno = int(item.get("product_no", 0))
                 except (TypeError, ValueError):
