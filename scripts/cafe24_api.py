@@ -203,11 +203,14 @@ def collect_date(date_str: str):
             break
 
         for order in orders:
-            if order.get("order_status") not in VALID_STATUSES:
+            if str(order.get("order_status", "")) not in VALID_STATUSES:
                 continue
 
             for item in (order.get("items") or []):
-                pno = item.get("product_no")
+                try:
+                    pno = int(item.get("product_no", 0))
+                except (TypeError, ValueError):
+                    continue
                 if pno not in PRODUCT_NOS:
                     continue
 
