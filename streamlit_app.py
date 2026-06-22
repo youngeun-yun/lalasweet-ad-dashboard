@@ -538,7 +538,7 @@ with tab2:
         period_total = pd.concat([before, after])  # 총합계: 두 구간만 합산
 
         b_label = f"5p구성 이전({PC_BEFORE_START.strftime('%m/%d')}~{PC_BEFORE_END.strftime('%m/%d')})"
-        a_label = f"5p구성 적용({PC_AFTER_START.strftime('%m/%d')}}{PC_AFTER_END.strftime('%m/%d')})"
+        a_label = f"5p구성 적용({PC_AFTER_START.strftime('%m/%d')}~{PC_AFTER_END.strftime('%m/%d')})"
         period_df = pd.DataFrame([
             perf_row(b_label, before),
             perf_row(a_label, after),
