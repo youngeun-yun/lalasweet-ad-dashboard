@@ -226,6 +226,11 @@ def collect_date(date_str: str):
                 summary[pno]["실매출"] += revenue
 
                 개입 = extract_개입(item.get("options"))
+                # 디버그: 옵션 구조 확인 (처음 1회만)
+                if not opt_data:
+                    log(f"[DEBUG] options 필드: {item.get('options')}")
+                    log(f"[DEBUG] option_value 필드: {item.get('option_value')}")
+                    log(f"[DEBUG] option_value_default 필드: {item.get('option_value_default')}")
                 if 개입 > 0:
                     opt_data[pno]["name"]           = item.get("product_name", "")
                     opt_data[pno]["buckets"][개입]   += 1
