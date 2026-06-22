@@ -359,8 +359,8 @@ def main():
     args = parser.parse_args()
 
     # 환경 변수 로드
-    _client_id     = get_env("CAFE24_CLIENT_ID")
-    _client_secret = get_env("CAFE24_CLIENT_SECRET")
+    _client_id     = get_env("CAFE24_API_KEY")
+    _client_secret = get_env("CAFE24_API_SECRET")
     _access_token  = get_env("CAFE24_ACCESS_TOKEN")
     _refresh_token = get_env("CAFE24_REFRESH_TOKEN")
     _gh_pat        = get_env("GH_PAT")
