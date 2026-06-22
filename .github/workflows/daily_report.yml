@@ -61,8 +61,8 @@ jobs:
 
       - name: 카페24 팝콘 데이터 수집
         env:
-          CAFE24_CLIENT_ID: ${{ secrets.CAFE24_CLIENT_ID }}
-          CAFE24_CLIENT_SECRET: ${{ secrets.CAFE24_CLIENT_SECRET }}
+          CAFE24_API_KEY: ${{ secrets.CAFE24_API_KEY }}
+          CAFE24_API_SECRET: ${{ secrets.CAFE24_API_SECRET }}
           CAFE24_ACCESS_TOKEN: ${{ secrets.CAFE24_ACCESS_TOKEN }}
           CAFE24_REFRESH_TOKEN: ${{ secrets.CAFE24_REFRESH_TOKEN }}
           GH_PAT: ${{ secrets.GH_PAT }}
