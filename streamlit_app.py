@@ -572,7 +572,7 @@ with tab2:
                 "rows.forEach(function(r){r.style.display=show?'':'none';});"
                 "if(ico)ico.innerHTML=show?'&#9660;':'&#9654;';}"
             )
-            _html = (
+            _ct_html = (
                 '<div style="overflow-x:auto;border-radius:8px;border:1px solid #e0e0e0;">'
                 '<table style="width:100%;border-collapse:collapse;">'
                 f'<thead><tr>{_hdr}</tr></thead>'
@@ -582,7 +582,7 @@ with tab2:
                 f'<script>{_js}</script>'
             )
             _h = max(150, 52 + (len(_type_data) + 1) * 36)
-            components.html(_html, height=_h, scrolling=False)
+            components.html(_ct_html, height=_h, scrolling=False)
         else:
             st.info("현재 필터 조건에서 해당 소재 유형 데이터가 없습니다.")
 
