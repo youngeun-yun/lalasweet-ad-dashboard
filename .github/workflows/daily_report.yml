@@ -3,7 +3,16 @@ name: 라라스윗 일일 광고 데이터 수집
 on:
   schedule:
     - cron: '0 23 * * *'  # 매일 08:00 KST (= 전날 23:00 UTC)
-  workflow_dispatch:       # 수동 실행 가능
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: '시작일 (YYYY-MM-DD, 비우면 어제)'
+        required: false
+        default: ''
+      end_date:
+        description: '종료일 (YYYY-MM-DD, 비우면 어제)'
+        required: false
+        default: ''
 
 jobs:
   collect-and-build:
@@ -59,7 +68,10 @@ jobs:
           GCP_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_USER_ID: ${{ secrets.SLACK_USER_ID }}
-        run: python scripts/cafe24_api.py
+        run: |
+          python scripts/cafe24_api.py \
+            ${{ inputs.start_date && format('--start {0}', inputs.start_date) || '' }} \
+            ${{ inputs.end_date && format('--end {0}', inputs.end_date) || '' }}
 
       - name: 데이터 커밋 & 푸시
         run: |
