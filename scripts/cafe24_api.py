@@ -159,18 +159,17 @@ def cafe24_get(path, params=None, _retried=False):
 
 
 # ── 개입 수 추출 ───────────────────────────────────────────────
-def extract_개입(options) -> int:
+def extract_개입(option_value_str) -> int:
     """
-    옵션 리스트에서 'N개입' 패턴을 모두 합산하여 총 개입 수를 반환.
-    예) '저당 콘스프맛 팝콘 10개입' → 10
-        옵션 2개 선택(10개입 + 5개입) → 15
+    아이템의 option_value 문자열에서 'N개입' 패턴을 모두 합산하여 총 개입 수를 반환.
+    예) '구성=저당 콘스프맛 팝콘 5개입, 구성=저당 카라멜 팝콘 5개입' → 10
+        '추가 구성=저당 초코범벅 팝콘 10개입' 포함 시 → 20
     """
+    if not option_value_str:
+        return 0
     total = 0
-    for opt in (options or []):
-        # Cafe24 API는 option_value 또는 value 필드명 혼용
-        text = str(opt.get("option_value") or opt.get("value") or "")
-        for m in re.findall(r"(\d+)개입", text):
-            total += int(m)
+    for m in re.findall(r"(\d+)개입", str(option_value_str)):
+        total += int(m)
     return total
 
 
@@ -225,12 +224,7 @@ def collect_date(date_str: str):
                 summary[pno]["주문수"]  += 1
                 summary[pno]["실매출"] += revenue
 
-                개입 = extract_개입(item.get("options"))
-                # 디버그: 옵션 구조 확인 (처음 1회만)
-                if not opt_data:
-                    log(f"[DEBUG] options 필드: {item.get('options')}")
-                    log(f"[DEBUG] option_value 필드: {item.get('option_value')}")
-                    log(f"[DEBUG] option_value_default 필드: {item.get('option_value_default')}")
+                개입 = extract_개입(item.get("option_value"))
                 if 개입 > 0:
                     opt_data[pno]["name"]           = item.get("product_name", "")
                     opt_data[pno]["buckets"][개입]   += 1
