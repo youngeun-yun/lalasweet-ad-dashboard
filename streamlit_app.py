@@ -823,5 +823,5 @@ with tab4:
             st.markdown("**🗂 소구점별 성과**")
             # 전체 펼쳐진 상태 기준으로 고정 높이 설정 (iframe sandbox로 동적 리사이즈 불가)
             # JS 리사이즈 코드는 작동 환경에서 추가 최적화로 동작
-            _pp_h = max(150, 52 + (len(_pp_groups) + _pp_n_child + 1) * 36 + 50)
+            _pp_h = max(150, 52 + (len(_pp_groups) + _pp_n_child + 1) * 36 + 100)
             components.html(_pp_ct_html, height=_pp_h, scrolling=False)
