@@ -812,13 +812,16 @@ with tab4:
                 '</table></div>'
                 f'<script>{_pp_js}</script>'
             )
-            # 초기 높이: 닫힌 상태(부모 행만) 기준 — 토글 시 JS가 동적으로 조정
-            _pp_h = max(150, 52 + (len(_pp_groups) + 1) * 36)
-            components.html(_pp_ct_html, height=_pp_h, scrolling=False)
-            # 소재명별 상세 테이블
+            # 소재명별 상세 테이블 (위)
             st.markdown("**📋 소재명별 상세 성과**")
             _pp_nm_tbl = build_summary_table(fdf_pp, "소재명")
             _pp_nm_data  = _pp_nm_tbl[_pp_nm_tbl["소재명"] != "총합계"].sort_values("광고비", ascending=False)
             _pp_nm_total = _pp_nm_tbl[_pp_nm_tbl["소재명"] == "총합계"]
             _pp_nm_tbl = pd.concat([_pp_nm_data, _pp_nm_total], ignore_index=True)
             render_pinned_total_table(style_summary(_pp_nm_tbl, "소재명"))
+            st.markdown("---")
+            st.markdown("**🗂 소구점별 성과**")
+            # 전체 펼쳐진 상태 기준으로 고정 높이 설정 (iframe sandbox로 동적 리사이즈 불가)
+            # JS 리사이즈 코드는 작동 환경에서 추가 최적화로 동작
+            _pp_h = max(150, 52 + (len(_pp_groups) + _pp_n_child + 1) * 36 + 20)
+            components.html(_pp_ct_html, height=_pp_h, scrolling=False)
