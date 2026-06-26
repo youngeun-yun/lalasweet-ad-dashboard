@@ -4,7 +4,9 @@
 - data/meta_raw_*.csv + data/tiktok_raw_*.csv 읽기
 - 소재명 파싱: 파일명 생성기 열 기준 (17컬럼)
 - data/통합RD_마스터.csv 에 중복 없이 append (날짜+매체+소재명 키)
-- 백필 모드(BACKFILL_SINCE/UNTIL 환경변수 존재 시): 기존 마스터 무시 → 새로 빌드
+- 백필 모드(BACKFILL_SINCE/UNTIL 환경변수 존재 시):
+    기존 마스터에서 해당 날짜 범위 행만 제거 후 새 데이터로 교체
+    (다른 날짜 데이터는 보존)
 """
 import os, glob, re
 import pandas as pd
@@ -13,10 +15,9 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 MASTER_PATH = os.path.join(DATA_DIR, "통합RD_마스터.csv")
 
 # 백필 모드 감지 (meta_api.py / tiktok_api.py 와 동일한 방식)
-IS_BACKFILL = bool(
-    os.environ.get("BACKFILL_SINCE", "").strip() and
-    os.environ.get("BACKFILL_UNTIL", "").strip()
-)
+BACKFILL_SINCE = os.environ.get("BACKFILL_SINCE", "").strip()
+BACKFILL_UNTIL = os.environ.get("BACKFILL_UNTIL", "").strip()
+IS_BACKFILL = bool(BACKFILL_SINCE and BACKFILL_UNTIL)
 
 # 통합 RD 최종 컬럼 순서
 RD_COLUMNS = [
@@ -149,17 +150,29 @@ if new_df.empty:
     print("빌드할 새 데이터 없음 -> 종료")
     exit(0)
 
+# raw CSV 내 중복 제거 (날짜별 파일 + 백필 파일이 같은 날짜를 중복 커버할 경우 대비)
+before = len(new_df)
+new_df = new_df.drop_duplicates(subset=["날짜", "매체", "소재명"])
+if len(new_df) < before:
+    print(f"raw CSV 내 중복 제거: {before - len(new_df)}행 제거")
+
 # 기존 마스터 로드
-# 백필 모드: 기존 마스터 무시 → raw CSV 전체로 새로 빌드
-if IS_BACKFILL:
-    print("[백필 모드] 기존 마스터 무시 → raw CSV 전체로 새로 빌드")
-    master = pd.DataFrame(columns=RD_COLUMNS)
-elif os.path.exists(MASTER_PATH):
+if os.path.exists(MASTER_PATH):
     master = pd.read_csv(MASTER_PATH, encoding="utf-8-sig", dtype=str)
 else:
     master = pd.DataFrame(columns=RD_COLUMNS)
 
-# 중복 제거: 날짜 + 매체 + 소재명 기준
+# 백필 모드: 해당 날짜 범위 행만 제거 후 새 데이터로 교체 (다른 날짜 보존)
+if IS_BACKFILL:
+    before_rows = len(master)
+    if not master.empty:
+        master = master[
+            ~master["날짜"].astype(str).between(BACKFILL_SINCE, BACKFILL_UNTIL)
+        ]
+    removed = before_rows - len(master)
+    print(f"[백필 모드] {BACKFILL_SINCE} ~ {BACKFILL_UNTIL} 기존 {removed}행 제거 → 새 데이터로 교체")
+
+# 중복 제거: 날짜 + 매체 + 소재명 기준 (일반 모드에서 이미 존재하는 행 스킵)
 existing_keys = set(zip(
     master["날짜"].astype(str),
     master["매체"].astype(str),
