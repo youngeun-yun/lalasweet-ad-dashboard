@@ -804,12 +804,13 @@ with tab4:
                 "window.addEventListener('load',function(){setTimeout(_ppResize,30);});"
             )
             _pp_ct_html = (
+                '<div style="padding-bottom:12px;">'
                 '<div style="overflow-x:auto;border-radius:8px;border:1px solid #e0e0e0;">'
                 '<table style="width:100%;border-collapse:collapse;">'
                 f'<thead><tr>{_pp_hdr}</tr></thead>'
                 f'<tbody>{_pp_body}</tbody>'
                 f'<tfoot><tr>{_pp_ftd}</tr></tfoot>'
-                '</table></div>'
+                '</table></div></div>'
                 f'<script>{_pp_js}</script>'
             )
             # 소재명별 상세 테이블 (위)
