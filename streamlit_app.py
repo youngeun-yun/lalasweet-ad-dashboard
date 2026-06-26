@@ -67,7 +67,7 @@ CREATIVE_TYPES = [
 def _esc(v) -> str:
     return _html.escape(str(v))
 def render_pinned_total_table(df: pd.DataFrame) -> None:
-    tid = "tbl_" + uuid.uuid4().hex[:8]
+    tid = "tbl_" + uuid.uuid4().hex[8;]
     first_col = df.columns[0]
     data  = df[df[first_col] != "총합계"].reset_index(drop=True)
     total = df[df[first_col] == "총합계"]
@@ -391,7 +391,7 @@ kpi = calc_kpi(fdf)
 # =============================================================
 # 탭
 # =============================================================
-tab1, tab2, tab3 = st.tabs(["📊 전체 요약", "🍿 팝콘 요약", "🛒 팝콘 카페24"])
+tab1, tab2, tab3, tab4 = st.tabs(["📊 전체 요약", "🍿 팝콘 요약", "🛒 팝콘 카페24", "🥐 단쉐 요약"])
 # --- TAB 1: 전체 요약 ---
 with tab1:
     render_kpi(kpi)
@@ -698,4 +698,39 @@ with tab3:
             _tot["합계"] = f"{int(_grand):,}"
             _o_rows.append(_tot)
 
-            render_pinned_total_table(pd.DataFrame(_o_rows))
+            able(pd.DataFrame(_o_rows))
+
+# --- TAB 4: 단쉐 요약 ---
+with tab4:
+    fdf_sk = fdf[fdf["소재명"].astype(str).str.contains("SK", na=False)].copy()
+    if fdf_sk.empty:
+        st.warning("단쉐(SK) 데이터가 없어요. 사이드바 필터를 확인해주세요.")
+    else:
+        render_kpi(calc_kpi(fdf_sk))
+        st.markdown("---")
+
+        # 1. 일별 광고비 & CPA
+        st.markdown("**📊 일별 광고비 & CPA**")
+        render_pinned_total_table(daily_table(fdf_sk))
+        st.markdown("---")
+
+        # 2. 제품코드별 성과
+        st.markdown("**📦 제품코드별 성과**")
+        prodcode_tbl = build_summary_table(fdf_sk, "제품코드")
+        _pc_total = prodcode_tbl[prodcode_tbl["제품코드"] == "총합계"]
+        _pc_data  = prodcode_tbl[prodcode_tbl["제품코드"] != "총합계"].sort_values("광고비", ascending=False)
+        prodcode_tbl = pd.concat([_pc_data, _pc_total], ignore_index=True)
+        render_pinned_total_table(style_summary(prodcode_tbl, "제품코드"))
+        st.markdown("---")
+
+        # 3. 페인포인트 소재 성과
+        st.markdown("**🎯 페인포인트 소재 성과**")
+        fdf_pp = fdf_sk[fdf_sk["소재명"].astype(str).str.contains("페인포인트", na=False)].copy()
+        if fdf_pp.empty:
+            st.info("페인포인트 소재 데이터가 없습니다.")
+        else:
+            pp_tbl = build_summary_table(fdf_pp, "소재명")
+            _pp_total = pp_tbl[pp_tbl["소재명"] == "총합계"]
+            _pp_data  = pp_tbl[pp_tbl["소재명"] != "총합계"].sort_values("광고비", ascending=False)
+            pp_tbl = pd.concat([_pp_data, _pp_total], ignore_index=True)
+            render_pinned_total_table(style_summary(pp_tbl, "소재명"))
