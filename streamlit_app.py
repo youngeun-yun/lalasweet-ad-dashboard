@@ -67,7 +67,7 @@ CREATIVE_TYPES = [
 def _esc(v) -> str:
     return _html.escape(str(v))
 def render_pinned_total_table(df: pd.DataFrame) -> None:
-    tid = "tbl_" + uuid.uuid4().hex[8;]
+    tid = "tbl_" + uuid.uuid4().hex[:8]
     first_col = df.columns[0]
     data  = df[df[first_col] != "총합계"].reset_index(drop=True)
     total = df[df[first_col] == "총합계"]
