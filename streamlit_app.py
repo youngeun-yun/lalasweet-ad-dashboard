@@ -787,12 +787,17 @@ with tab4:
             _pp_ftd = "".join(f'<td style="{_pp_tft}">{_esc(_pp_total_row[c])}</td>'
                               for c in _pp_cols)
             _pp_js  = (
+                "function _ppResize(){"
+                "window.parent.postMessage({type:'streamlit:setFrameHeight',"
+                "height:document.body.scrollHeight},'*');}"
                 "function toggleCT(pid){"
                 "var rows=document.querySelectorAll('.cc_'+pid);"
                 "var ico=document.getElementById('ico_'+pid);"
                 "var show=rows.length>0&&rows[0].style.display==='none';"
                 "rows.forEach(function(r){r.style.display=show?'':'none';});"
-                "if(ico)ico.innerHTML=show?'&#9660;':'&#9654;';}"
+                "if(ico)ico.innerHTML=show?'&#9660;':'&#9654;';"
+                "setTimeout(_ppResize,30);}"
+                "window.addEventListener('load',function(){setTimeout(_ppResize,30);});"
             )
             _pp_ct_html = (
                 '<div style="overflow-x:auto;border-radius:8px;border:1px solid #e0e0e0;">'
@@ -803,7 +808,8 @@ with tab4:
                 '</table></div>'
                 f'<script>{_pp_js}</script>'
             )
-            _pp_h = max(150, 52 + (len(_pp_groups) + _pp_n_child + 1) * 36)
+            # 초기 높이: 닫힌 상태(부모 행만) 기준 — 토글 시 JS가 동적으로 조정
+            _pp_h = max(150, 52 + (len(_pp_groups) + 1) * 36)
             components.html(_pp_ct_html, height=_pp_h, scrolling=False)
             # 소재명별 상세 테이블
             st.markdown("**📋 소재명별 상세 성과**")
