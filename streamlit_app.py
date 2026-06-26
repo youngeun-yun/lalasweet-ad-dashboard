@@ -805,3 +805,10 @@ with tab4:
             )
             _pp_h = max(150, 52 + (len(_pp_groups) + _pp_n_child + 1) * 36)
             components.html(_pp_ct_html, height=_pp_h, scrolling=False)
+            # 소재명별 상세 테이블
+            st.markdown("**📋 소재명별 상세 성과**")
+            _pp_nm_tbl = build_summary_table(fdf_pp, "소재명")
+            _pp_nm_data  = _pp_nm_tbl[_pp_nm_tbl["소재명"] != "총합계"].sort_values("광고비", ascending=False)
+            _pp_nm_total = _pp_nm_tbl[_pp_nm_tbl["소재명"] == "총합계"]
+            _pp_nm_tbl = pd.concat([_pp_nm_data, _pp_nm_total], ignore_index=True)
+            render_pinned_total_table(style_summary(_pp_nm_tbl, "소재명"))
