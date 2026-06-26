@@ -698,7 +698,7 @@ with tab3:
             _tot["합계"] = f"{int(_grand):,}"
             _o_rows.append(_tot)
 
-            able(pd.DataFrame(_o_rows))
+            render_pinned_total_table(pd.DataFrame(_o_rows))
 
 # --- TAB 4: 단쉐 요약 ---
 with tab4:
