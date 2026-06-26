@@ -787,9 +787,13 @@ with tab4:
             _pp_ftd = "".join(f'<td style="{_pp_tft}">{_esc(_pp_total_row[c])}</td>'
                               for c in _pp_cols)
             _pp_js  = (
+                # components.html은 srcdoc iframe → window.frameElement로 직접 높이 조정
+                # (streamlit:setFrameHeight postMessage는 declare_component 전용이라 작동 안 함)
                 "function _ppResize(){"
-                "window.parent.postMessage({type:'streamlit:setFrameHeight',"
-                "height:document.body.scrollHeight},'*');}"
+                "var h=document.body.scrollHeight;"
+                "if(window.frameElement){"
+                "window.frameElement.style.height=h+'px';"
+                "window.frameElement.height=h;}}"
                 "function toggleCT(pid){"
                 "var rows=document.querySelectorAll('.cc_'+pid);"
                 "var ico=document.getElementById('ico_'+pid);"
