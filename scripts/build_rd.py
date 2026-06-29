@@ -151,8 +151,9 @@ if new_df.empty:
     exit(0)
 
 # raw CSV 내 중복 제거 (날짜별 파일 + 백필 파일이 같은 날짜를 중복 커버할 경우 대비)
+# 키: 날짜+매체+광고그룹명+소재명 (같은 소재가 여러 광고 세트에 배정될 수 있으므로 광고그룹명 포함)
 before = len(new_df)
-new_df = new_df.drop_duplicates(subset=["날짜", "매체", "소재명"])
+new_df = new_df.drop_duplicates(subset=["날짜", "매체", "광고그룹명", "소재명"])
 if len(new_df) < before:
     print(f"raw CSV 내 중복 제거: {before - len(new_df)}행 제거")
 
@@ -172,15 +173,16 @@ if IS_BACKFILL:
     removed = before_rows - len(master)
     print(f"[백필 모드] {BACKFILL_SINCE} ~ {BACKFILL_UNTIL} 기존 {removed}행 제거 → 새 데이터로 교체")
 
-# 중복 제거: 날짜 + 매체 + 소재명 기준 (일반 모드에서 이미 존재하는 행 스킵)
+# 중복 제거: 날짜+매체+광고그룹명+소재명 기준 (일반 모드에서 이미 존재하는 행 스킵)
 existing_keys = set(zip(
     master["날짜"].astype(str),
     master["매체"].astype(str),
+    master["광고그룹명"].astype(str),
     master["소재명"].astype(str),
 )) if not master.empty else set()
 
 new_df = new_df[~new_df.apply(
-    lambda r: (str(r["날짜"]), str(r["매체"]), str(r["소재명"])) in existing_keys,
+    lambda r: (str(r["날짜"]), str(r["매체"]), str(r["광고그룹명"]), str(r["소재명"])) in existing_keys,
     axis=1,
 )]
 
