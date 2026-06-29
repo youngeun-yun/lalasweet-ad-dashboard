@@ -54,6 +54,11 @@ PC_BEFORE_START = pd.Timestamp("2026-06-01")
 PC_BEFORE_END   = pd.Timestamp("2026-06-16")
 PC_AFTER_START  = pd.Timestamp("2026-06-17")
 PC_AFTER_END    = pd.Timestamp("2026-06-30")
+# --- 단쉐 스킴 기준일 ---
+SK_SCHEME1_START = pd.Timestamp("2026-06-24")
+SK_SCHEME1_END   = pd.Timestamp("2026-06-26")
+SK_SCHEME2_START = pd.Timestamp("2026-06-27")
+SK_SCHEME2_END   = pd.Timestamp("2026-06-30")
 # --- 소재 유형 우선순위 ---
 CREATIVE_TYPES = [
     "맛페인포인트.5P소구",
@@ -714,7 +719,22 @@ with tab4:
         render_pinned_total_table(daily_table(fdf_sk))
         st.markdown("---")
 
-        # 2. 제품코드별 성과
+        # 2. 스킴별 성과
+        st.markdown("**📋 스킴별 성과**")
+        sk_s1 = fdf_sk[(fdf_sk["날짜"] >= SK_SCHEME1_START) & (fdf_sk["날짜"] <= SK_SCHEME1_END)]
+        sk_s2 = fdf_sk[(fdf_sk["날짜"] >= SK_SCHEME2_START) & (fdf_sk["날짜"] <= SK_SCHEME2_END)]
+        sk_total = pd.concat([sk_s1, sk_s2])
+        sk1_label = f"스킴 1차({SK_SCHEME1_START.strftime('%m/%d')}~{SK_SCHEME1_END.strftime('%m/%d')})"
+        sk2_label = f"스킴 2차({SK_SCHEME2_START.strftime('%m/%d')}~{SK_SCHEME2_END.strftime('%m/%d')})"
+        sk_period_df = pd.DataFrame([
+            perf_row(sk1_label, sk_s1),
+            perf_row(sk2_label, sk_s2),
+            perf_row("총합계", sk_total),
+        ])
+        render_pinned_total_table(sk_period_df)
+        st.markdown("---")
+
+        # 3. 제품코드별 성과
         st.markdown("**📦 제품코드별 성과**")
         prodcode_tbl = build_summary_table(fdf_sk, "제품코드")
         _pc_total = prodcode_tbl[prodcode_tbl["제품코드"] == "총합계"]
