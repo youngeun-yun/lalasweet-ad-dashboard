@@ -864,3 +864,17 @@ with tab4:
             # 전체 펼쳐진 상태 기준 고정 높이 (iframe sandbox로 동적 리사이즈 불가)
             _nw_h = max(150, 52 + (len(_nw_groups) + _nw_n_child + 1) * 36 + 100)
             components.html(_nw_html, height=_nw_h, scrolling=False)
+
+        st.markdown("---")
+
+        # 4. 영상 소재별 성과
+        st.markdown("**🎬 영상 소재별 성과**")
+        fdf_v = fdf_sk[fdf_sk["영상/이미지 구분"].astype(str).str.strip().str.upper() == "V"].copy()
+        if fdf_v.empty:
+            st.info("영상(V) 소재 데이터가 없습니다.")
+        else:
+            _v_tbl = build_summary_table(fdf_v, "소재명")
+            _v_data  = _v_tbl[_v_tbl["소재명"] != "총합계"].sort_values("광고비", ascending=False)
+            _v_total = _v_tbl[_v_tbl["소재명"] == "총합계"]
+            _v_tbl = pd.concat([_v_data, _v_total], ignore_index=True)
+            render_pinned_total_table(style_summary(_v_tbl, "소재명"))
