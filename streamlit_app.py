@@ -6,6 +6,7 @@ Streamlit + Plotly | 데이터 소스: Google Sheets (통합RD_원본)
 import html as _html
 import re
 import uuid
+import requests
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
@@ -250,6 +251,90 @@ def render_kpi(k: dict) -> None:
     c5.metric("📈 CTR",    f"{k['ctr']:.2f}%")
     c6.metric("🎯 CPA",    fmt_krw(k["cpa"]))
 # =============================================================
+# 데이터 업데이트 (GitHub Actions 트리거)
+# =============================================================
+GH_OWNER         = "youngeun-yun"
+GH_REPO          = "lalasweet-ad-dashboard"
+REFRESH_WORKFLOW = "refresh.yml"
+
+def _gh_headers():
+    return {
+        "Authorization": f"Bearer {st.secrets['github_token']}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+
+def trigger_refresh(mode):
+    """refresh.yml 워크플로우 실행 요청. 성공 시 (True, ''), 실패 시 (False, 사유)"""
+    url = (f"https://api.github.com/repos/{GH_OWNER}/{GH_REPO}"
+           f"/actions/workflows/{REFRESH_WORKFLOW}/dispatches")
+    try:
+        r = requests.post(url, headers=_gh_headers(),
+                          json={"ref": "main", "inputs": {"mode": mode}}, timeout=30)
+    except Exception as e:
+        return False, f"요청 실패: {e}"
+    if r.status_code == 204:
+        return True, ""
+    return False, f"HTTP {r.status_code}: {r.text[:300]}"
+
+def latest_refresh_run():
+    """refresh.yml의 가장 최근 실행 정보 (없으면 None)"""
+    url = (f"https://api.github.com/repos/{GH_OWNER}/{GH_REPO}"
+           f"/actions/workflows/{REFRESH_WORKFLOW}/runs")
+    try:
+        r = requests.get(url, headers=_gh_headers(),
+                         params={"per_page": 1}, timeout=30)
+        runs = r.json().get("workflow_runs", [])
+        return runs[0] if runs else None
+    except Exception:
+        return None
+
+def render_update_buttons():
+    if "github_token" not in st.secrets:
+        st.caption("⚙️ 업데이트 버튼을 사용하려면 Streamlit secrets에 `github_token`을 추가해주세요.")
+        return
+    c1, c2, c3, c4 = st.columns([1.1, 1.3, 1.0, 1.1])
+    if c1.button("📥 전일자 업데이트",
+                 help="어제 데이터를 다시 수집해 최신 수치로 교체합니다 (약 2~4분 소요)"):
+        ok, err = trigger_refresh("yesterday")
+        st.session_state["refresh_msg"] = (
+            "🚀 전일자 업데이트 실행 요청 완료! 약 2~4분 뒤 '실행 상태 확인'을 눌러주세요."
+            if ok else f"❌ 실행 요청 실패: {err}"
+        )
+    if c2.button("⚡ 실시간 업데이트 (오늘)",
+                 help="오늘 데이터를 수집합니다. 당일 수치는 잠정치이며 계속 변합니다 (약 2~4분 소요)"):
+        ok, err = trigger_refresh("today")
+        st.session_state["refresh_msg"] = (
+            "🚀 실시간 업데이트 실행 요청 완료! 약 2~4분 뒤 '실행 상태 확인'을 눌러주세요."
+            if ok else f"❌ 실행 요청 실패: {err}"
+        )
+    if c3.button("⏱ 실행 상태 확인"):
+        run = latest_refresh_run()
+        if run is None:
+            st.session_state["refresh_msg"] = "실행 이력이 없어요."
+        else:
+            status = run.get("status")
+            concl  = run.get("conclusion")
+            try:
+                started = (pd.to_datetime(run.get("run_started_at"))
+                           .tz_convert("Asia/Seoul").strftime("%m/%d %H:%M"))
+            except Exception:
+                started = "?"
+            if status == "completed" and concl == "success":
+                msg = f"✅ 완료 ({started} 시작) — '대시보드 반영'을 누르면 새 데이터가 표시됩니다."
+            elif status == "completed":
+                msg = (f"❌ 실패 ({started} 시작, {concl}) — "
+                       f"[Actions 로그 보기]({run.get('html_url')})")
+            else:
+                msg = f"⏳ 진행 중 ({started} 시작) — 잠시 후 다시 확인해주세요."
+            st.session_state["refresh_msg"] = msg
+    if c4.button("📊 대시보드 반영"):
+        st.cache_data.clear()
+        st.session_state.pop("refresh_msg", None)
+        st.rerun()
+    if st.session_state.get("refresh_msg"):
+        st.caption(st.session_state["refresh_msg"])
+# =============================================================
 # 데이터 로드
 # =============================================================
 @st.cache_data(ttl=3600, show_spinner="데이터 불러오는 중...")
@@ -399,6 +484,8 @@ kpi = calc_kpi(fdf)
 tab1, tab2, tab3, tab4 = st.tabs(["📊 전체 요약", "🍿 팝콘 요약", "🛒 팝콘 카페24", "🥐 단쉐 요약"])
 # --- TAB 1: 전체 요약 ---
 with tab1:
+    render_update_buttons()
+    st.markdown("---")
     render_kpi(kpi)
     st.markdown("---")
     daily_prod = (
