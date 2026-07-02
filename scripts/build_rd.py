@@ -3,7 +3,8 @@
 메타 + 틱톡 raw CSV → 통합 RD 마스터 CSV
 - data/meta_raw_*.csv + data/tiktok_raw_*.csv 읽기
 - 소재명 파싱: 파일명 생성기 열 기준 (17컬럼)
-- data/통합RD_마스터.csv 에 중복 없이 append (날짜+매체+소재명 키)
+- 날짜별 교체 방식: 새로 수집된 날짜는 마스터에서 해당 날짜 행을 제거 후 최신본으로 교체
+  (실시간 수집한 당일 잠정치가 다음날 정기 수집 때 정확한 수치로 자동 갱신됨)
 - 백필 모드(BACKFILL_SINCE/UNTIL 환경변수 존재 시):
     기존 마스터에서 해당 날짜 범위 행만 제거 후 새 데이터로 교체
     (다른 날짜 데이터는 보존)
@@ -150,10 +151,11 @@ if new_df.empty:
     print("빌드할 새 데이터 없음 -> 종료")
     exit(0)
 
-# raw CSV 내 중복 제거 (날짜별 파일 + 백필 파일이 같은 날짜를 중복 커버할 경우 대비)
+# raw CSV 내 중복 제거 (여러 raw 파일이 같은 날짜를 중복 커버할 경우 대비)
 # 키: 날짜+매체+광고그룹명+소재명 (같은 소재가 여러 광고 세트에 배정될 수 있으므로 광고그룹명 포함)
+# keep="last": 파일명 정렬상 뒤에 오는(더 최근 수집된) 파일의 값을 우선
 before = len(new_df)
-new_df = new_df.drop_duplicates(subset=["날짜", "매체", "광고그룹명", "소재명"])
+new_df = new_df.drop_duplicates(subset=["날짜", "매체", "광고그룹명", "소재명"], keep="last")
 if len(new_df) < before:
     print(f"raw CSV 내 중복 제거: {before - len(new_df)}행 제거")
 
@@ -163,7 +165,7 @@ if os.path.exists(MASTER_PATH):
 else:
     master = pd.DataFrame(columns=RD_COLUMNS)
 
-# 백필 모드: 해당 날짜 범위 행만 제거 후 새 데이터로 교체 (다른 날짜 보존)
+# 백필 모드: 해당 날짜 범위 행 제거 (새 데이터에 없는 날짜도 범위 내면 비워짐)
 if IS_BACKFILL:
     before_rows = len(master)
     if not master.empty:
@@ -173,19 +175,17 @@ if IS_BACKFILL:
     removed = before_rows - len(master)
     print(f"[백필 모드] {BACKFILL_SINCE} ~ {BACKFILL_UNTIL} 기존 {removed}행 제거 → 새 데이터로 교체")
 
-# 중복 제거: 날짜+매체+광고그룹명+소재명 기준 (일반 모드에서 이미 존재하는 행 스킵)
-existing_keys = set(zip(
-    master["날짜"].astype(str),
-    master["매체"].astype(str),
-    master["광고그룹명"].astype(str),
-    master["소재명"].astype(str),
-)) if not master.empty else set()
-
-new_df = new_df[~new_df.apply(
-    lambda r: (str(r["날짜"]), str(r["매체"]), str(r["광고그룹명"]), str(r["소재명"])) in existing_keys,
-    axis=1,
-)]
+# 날짜별 교체: 새로 수집된 날짜는 기존 행을 지우고 최신본으로 교체
+# (실시간 수집으로 들어간 당일 잠정치가 다음 수집 때 정확한 수치로 덮어써지도록)
+if not master.empty:
+    new_dates = set(new_df["날짜"].astype(str))
+    before_rows = len(master)
+    master = master[~master["날짜"].astype(str).isin(new_dates)]
+    replaced = before_rows - len(master)
+    if replaced > 0:
+        print(f"날짜별 교체: 기존 {replaced}행 제거 후 최신 데이터로 교체")
 
 result = pd.concat([master, new_df], ignore_index=True)
+result = result.sort_values("날짜", kind="stable").reset_index(drop=True)
 result.to_csv(MASTER_PATH, index=False, encoding="utf-8-sig")
-print(f"통합 RD 완료: +{len(new_df)}행 추가 -> 총 {len(result)}행 ({MASTER_PATH})")
+print(f"통합 RD 완료: +{len(new_df)}행 반영 -> 총 {len(result)}행 ({MASTER_PATH})")
