@@ -551,7 +551,7 @@ kpi = calc_kpi(fdf)
 # 탭
 # =============================================================
 render_update_buttons()
-tab1, tab2, tab4 = st.tabs(["📊 전체 요약", "🍿 팝콘 요약", "🥐 단쉐 요약"])
+tab1, tab4, tab2 = st.tabs(["📊 전체 요약", "🥐 단쉐 요약", "🍿 팝콘 요약"])
 # --- TAB 1: 전체 요약 ---
 with tab1:
     render_kpi(kpi)
