@@ -290,6 +290,50 @@ def latest_refresh_run():
     except Exception:
         return None
 
+@st.cache_data(ttl=300, show_spinner=False)
+def last_collection_time():
+    """가장 최근 수집 성공 시각 (정기 수집·버튼 업데이트·백필 포함, 5분 캐시)"""
+    if "github_token" not in st.secrets:
+        return None
+    latest = None
+    for wf in ["daily_report.yml", "refresh.yml", "backfill.yml"]:
+        try:
+            r = requests.get(
+                f"https://api.github.com/repos/{GH_OWNER}/{GH_REPO}"
+                f"/actions/workflows/{wf}/runs",
+                headers=_gh_headers(),
+                params={"status": "success", "per_page": 1}, timeout=15)
+            runs = r.json().get("workflow_runs", [])
+            if runs:
+                t = pd.to_datetime(runs[0]["updated_at"])
+                if latest is None or t > latest:
+                    latest = t
+        except Exception:
+            continue
+    return latest
+
+def _data_freshness_line():
+    """'데이터 기준일 · 마지막 수집' 표시 문자열"""
+    try:
+        d = df["날짜"].max().date()
+    except Exception:
+        return ""
+    today_kst = pd.Timestamp.now(tz="Asia/Seoul").date()
+    diff = (today_kst - d).days
+    if diff == 0:
+        base = f"{d.month}/{d.day} (오늘)"
+    elif diff == 1:
+        base = f"{d.month}/{d.day} (어제)"
+    else:
+        base = str(d)
+    line = f"🕐 데이터 기준일 **{base}**"
+    t = last_collection_time()
+    if t is not None:
+        t_kst = t.tz_convert("Asia/Seoul")
+        day = "오늘 " if t_kst.date() == today_kst else f"{t_kst.month}/{t_kst.day} "
+        line += f" · 마지막 수집 **{day}{t_kst.strftime('%H:%M')}**"
+    return line
+
 def _start_refresh(mode, label):
     ok, err = trigger_refresh(mode)
     if ok:
@@ -308,6 +352,9 @@ def _render_refresh_status():
         msg = st.session_state.get("refresh_msg")
         if msg:
             st.markdown(msg)
+        line = _data_freshness_line()
+        if line:
+            st.caption(line)
         return
     started = st.session_state.get("refresh_started", time.time())
     label   = st.session_state.get("refresh_label", "")
@@ -344,7 +391,7 @@ def render_update_buttons():
         st.caption("⚙️ 업데이트 버튼을 사용하려면 Streamlit secrets에 `github_token`을 추가해주세요.")
         return
     active = st.session_state.get("refresh_active", False)
-    c1, c2, c3 = st.columns([1.1, 1.4, 4.0], vertical_alignment="center")
+    c1, c2, c3 = st.columns([1.0, 1.25, 5.5], gap="small", vertical_alignment="center")
     if c1.button("📥 전일자 업데이트", disabled=active,
                  help="어제 데이터를 다시 수집해 최신 수치로 교체합니다 (약 2~4분 소요)"):
         _start_refresh("yesterday", "전일자")
@@ -533,7 +580,7 @@ with tab1:
     with hdr_col:
         st.markdown("**📊 일별 광고비 & CPA**")
     with btn_col:
-        view_mode = st.radio("보기", ["그래프", "테이블"], horizontal=True,
+        view_mode = st.radio("보기", ["테이블", "그래프"], horizontal=True,
                              label_visibility="collapsed", key="daily_view_mode")
     if view_mode == "그래프":
         fig = go.Figure()
@@ -830,3 +877,13 @@ with tab4:
             # 소재명별 상세 테이블 (위)
             st.markdown("**📋 소재명별 상세 성과**")
             _pp_nm_tbl = build_summary_table(fdf_pp, "소재명")
+            _pp_nm_data  = _pp_nm_tbl[_pp_nm_tbl["소재명"] != "총합계"].sort_values("광고비", ascending=False)
+            _pp_nm_total = _pp_nm_tbl[_pp_nm_tbl["소재명"] == "총합계"]
+            _pp_nm_tbl = pd.concat([_pp_nm_data, _pp_nm_total], ignore_index=True)
+            render_pinned_total_table(style_summary(_pp_nm_tbl, "소재명"))
+            st.markdown("---")
+            st.markdown("**🗂 소구점별 성과**")
+            # 전체 펼쳐진 상태 기준으로 고정 높이 설정 (iframe sandbox로 동적 리사이즈 불가)
+            # JS 리사이즈 코드는 작동 환경에서 추가 최적화로 동작
+            _pp_h = max(150, 52 + (len(_pp_groups) + _pp_n_child + 1) * 36 + 100)
+            components.html(_pp_ct_html, height=_pp_h, scrolling=False)
