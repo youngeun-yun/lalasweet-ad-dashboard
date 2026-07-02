@@ -5,6 +5,7 @@ Streamlit + Plotly | 데이터 소스: Google Sheets (통합RD_원본)
 """
 import html as _html
 import re
+import time
 import uuid
 import requests
 import streamlit as st
@@ -289,51 +290,72 @@ def latest_refresh_run():
     except Exception:
         return None
 
+def _start_refresh(mode, label):
+    ok, err = trigger_refresh(mode)
+    if ok:
+        st.session_state["refresh_active"] = True
+        st.session_state["refresh_started"] = time.time()
+        st.session_state["refresh_label"] = label
+        st.session_state.pop("refresh_msg", None)
+    else:
+        st.session_state["refresh_msg"] = f"❌ 실행 요청 실패: {err}"
+    st.rerun()
+
+def _render_refresh_status():
+    """진행 상태 표시. 진행 중이면 fragment로 10초마다 자동 갱신되고,
+    완료 감지 시 캐시를 지우고 전체 대시보드를 자동 반영한다."""
+    if not st.session_state.get("refresh_active"):
+        msg = st.session_state.get("refresh_msg")
+        if msg:
+            st.markdown(msg)
+        return
+    started = st.session_state.get("refresh_started", time.time())
+    label   = st.session_state.get("refresh_label", "")
+    elapsed = int(time.time() - started)
+    run = latest_refresh_run()
+    run_is_current = False
+    if run is not None:
+        try:
+            created = pd.to_datetime(run.get("created_at")).timestamp()
+            run_is_current = created >= started - 60
+        except Exception:
+            run_is_current = False
+    if run_is_current and run.get("status") == "completed":
+        st.session_state["refresh_active"] = False
+        if run.get("conclusion") == "success":
+            st.cache_data.clear()
+            done_at = pd.Timestamp.now(tz="Asia/Seoul").strftime("%H:%M")
+            st.session_state["refresh_msg"] = f"✅ {label} 업데이트 완료 — 대시보드에 반영됨 ({done_at})"
+        else:
+            st.session_state["refresh_msg"] = (f"❌ {label} 업데이트 실패 — "
+                                               f"[Actions 로그 확인]({run.get('html_url')})")
+        st.rerun(scope="app")
+    elif elapsed > 900:
+        st.session_state["refresh_active"] = False
+        st.session_state["refresh_msg"] = ("⏱ 15분이 지나도 완료되지 않아 자동 확인을 중단했어요. "
+                                           "GitHub Actions에서 상태를 확인해주세요.")
+        st.rerun(scope="app")
+    else:
+        st.markdown(f"⏳ **{label} 업데이트 진행 중** ({elapsed // 60}분 {elapsed % 60}초 경과) "
+                    f"— 완료되면 자동 반영됩니다")
+
 def render_update_buttons():
     if "github_token" not in st.secrets:
         st.caption("⚙️ 업데이트 버튼을 사용하려면 Streamlit secrets에 `github_token`을 추가해주세요.")
         return
-    c1, c2, c3, c4 = st.columns([1.1, 1.3, 1.0, 1.1])
-    if c1.button("📥 전일자 업데이트",
+    active = st.session_state.get("refresh_active", False)
+    c1, c2, c3 = st.columns([1.1, 1.4, 4.0], vertical_alignment="center")
+    if c1.button("📥 전일자 업데이트", disabled=active,
                  help="어제 데이터를 다시 수집해 최신 수치로 교체합니다 (약 2~4분 소요)"):
-        ok, err = trigger_refresh("yesterday")
-        st.session_state["refresh_msg"] = (
-            "🚀 전일자 업데이트 실행 요청 완료! 약 2~4분 뒤 '실행 상태 확인'을 눌러주세요."
-            if ok else f"❌ 실행 요청 실패: {err}"
-        )
-    if c2.button("⚡ 실시간 업데이트 (오늘)",
+        _start_refresh("yesterday", "전일자")
+    if c2.button("⚡ 실시간 업데이트 (오늘)", disabled=active,
                  help="오늘 데이터를 수집합니다. 당일 수치는 잠정치이며 계속 변합니다 (약 2~4분 소요)"):
-        ok, err = trigger_refresh("today")
-        st.session_state["refresh_msg"] = (
-            "🚀 실시간 업데이트 실행 요청 완료! 약 2~4분 뒤 '실행 상태 확인'을 눌러주세요."
-            if ok else f"❌ 실행 요청 실패: {err}"
-        )
-    if c3.button("⏱ 실행 상태 확인"):
-        run = latest_refresh_run()
-        if run is None:
-            st.session_state["refresh_msg"] = "실행 이력이 없어요."
+        _start_refresh("today", "실시간")
+    with c3:
+        if active:
+            st.fragment(_render_refresh_status, run_every=10)()
         else:
-            status = run.get("status")
-            concl  = run.get("conclusion")
-            try:
-                started = (pd.to_datetime(run.get("run_started_at"))
-                           .tz_convert("Asia/Seoul").strftime("%m/%d %H:%M"))
-            except Exception:
-                started = "?"
-            if status == "completed" and concl == "success":
-                msg = f"✅ 완료 ({started} 시작) — '대시보드 반영'을 누르면 새 데이터가 표시됩니다."
-            elif status == "completed":
-                msg = (f"❌ 실패 ({started} 시작, {concl}) — "
-                       f"[Actions 로그 보기]({run.get('html_url')})")
-            else:
-                msg = f"⏳ 진행 중 ({started} 시작) — 잠시 후 다시 확인해주세요."
-            st.session_state["refresh_msg"] = msg
-    if c4.button("📊 대시보드 반영"):
-        st.cache_data.clear()
-        st.session_state.pop("refresh_msg", None)
-        st.rerun()
-    if st.session_state.get("refresh_msg"):
-        st.caption(st.session_state["refresh_msg"])
+            _render_refresh_status()
 # =============================================================
 # 데이터 로드
 # =============================================================
@@ -481,11 +503,10 @@ kpi = calc_kpi(fdf)
 # =============================================================
 # 탭
 # =============================================================
-tab1, tab2, tab3, tab4 = st.tabs(["📊 전체 요약", "🍿 팝콘 요약", "🛒 팝콘 카페24", "🥐 단쉐 요약"])
+render_update_buttons()
+tab1, tab2, tab4 = st.tabs(["📊 전체 요약", "🍿 팝콘 요약", "🥐 단쉐 요약"])
 # --- TAB 1: 전체 요약 ---
 with tab1:
-    render_update_buttons()
-    st.markdown("---")
     render_kpi(kpi)
     st.markdown("---")
     daily_prod = (
@@ -678,120 +699,6 @@ with tab2:
         else:
             st.info("현재 필터 조건에서 해당 소재 유형 데이터가 없습니다.")
 
-# --- TAB 3: 팝콘 카페24 ---
-with tab3:
-    try:
-        df_c24_s, df_c24_o = load_cafe24_data()
-    except Exception as e:
-        st.error(f"❌ 카페24 데이터를 불러오지 못했어요: `{e}`")
-        st.stop()
-
-    # 사이드바 연도·월·일 필터 적용
-    def _filter_c24(d: pd.DataFrame) -> pd.DataFrame:
-        if d.empty:
-            return d
-        m = pd.Series([True] * len(d), index=d.index)
-        if sel_years:
-            m &= d["날짜"].dt.year.isin(sel_years)
-        if sel_months:
-            nums = [int(x.replace("월", "")) for x in sel_months]
-            m &= d["날짜"].dt.month.isin(nums)
-        if sel_dates:
-            m &= d["날짜"].dt.strftime("%Y-%m-%d").isin(sel_dates)
-        return d[m].copy()
-
-    df_s = _filter_c24(df_c24_s)
-    df_o = _filter_c24(df_c24_o)
-
-    if df_s.empty:
-        st.warning("카페24 팝콘 데이터가 없어요. 사이드바 필터를 확인해주세요.")
-    else:
-        # ── 섹션 1: 일별 주문 요약 테이블 ──────────────────────────
-        st.markdown("**📦 일별 주문 요약**")
-        _s_rows = []
-        for _, row in df_s.iterrows():
-            _s_rows.append({
-                "날짜":      row["날짜"].strftime("%Y-%m-%d"),
-                "주문수":    f"{int(row['팝콘_주문수']):,}",
-                "실매출(원)": f"₩{int(row['팝콘_실매출']):,}",
-            })
-        _s_total = {
-            "날짜":      "총합계",
-            "주문수":    f"{int(df_s['팝콘_주문수'].sum()):,}",
-            "실매출(원)": f"₩{int(df_s['팝콘_실매출'].sum()):,}",
-        }
-        _s_rows.append(_s_total)
-        render_pinned_total_table(pd.DataFrame(_s_rows))
-
-        st.markdown("---")
-
-        # ── 섹션 2: 개입별 구매 비중 ───────────────────────────────
-        st.markdown("**📊 개입별 구매 비중**")
-
-        if df_o.empty:
-            st.info("옵션별 데이터가 없습니다.")
-        else:
-            qty_cols = sorted(
-                [c for c in df_o.columns if re.match(r'^\d+개$', c)],
-                key=lambda x: int(re.search(r'\d+', x).group()),
-            )
-
-            # 날짜별 합산 (상품 135+161 통합)
-            df_agg = df_o.groupby("날짜")[qty_cols].sum().reset_index().sort_values("날짜")
-            df_agg["합계"] = df_agg[qty_cols].sum(axis=1)
-            df_agg["date_str"] = df_agg["날짜"].dt.strftime("%m/%d")
-
-            # 100% 누적 바 차트
-            fig_opt = go.Figure()
-            for i, c in enumerate(qty_cols):
-                pct = (df_agg[c] / df_agg["합계"].replace(0, float("nan")) * 100).fillna(0)
-                fig_opt.add_bar(
-                    x=df_agg["date_str"],
-                    y=pct,
-                    name=c,
-                    marker_color=BAR_PALETTE[i % len(BAR_PALETTE)],
-                    hovertemplate=(
-                        f"<b>{c}</b><br>"
-                        "날짜: %{x}<br>"
-                        "비중: %{y:.1f}%<br>"
-                        "주문수: " + df_agg[c].astype(int).astype(str) + "건"
-                        "<extra></extra>"
-                    ),
-                )
-            fig_opt.update_layout(
-                barmode="stack",
-                xaxis=dict(title=""),
-                yaxis=dict(title="비중 (%)", ticksuffix="%", range=[0, 100],
-                           showgrid=True, gridcolor="#f0f0f0"),
-                legend=dict(orientation="h", y=1.12, font=dict(size=11)),
-                plot_bgcolor="white", paper_bgcolor="white",
-                margin=dict(t=50, b=40), height=350,
-            )
-            st.plotly_chart(fig_opt, use_container_width=True)
-
-            # 상세 테이블: 날짜 | 10개(건·%) | 15개(건·%) | ... | 합계
-            _o_rows = []
-            for _, row in df_agg.iterrows():
-                r = {"날짜": row["날짜"].strftime("%Y-%m-%d")}
-                for c in qty_cols:
-                    cnt = int(row[c])
-                    pct = cnt / row["합계"] * 100 if row["합계"] > 0 else 0
-                    r[c] = f"{cnt:,} ({pct:.1f}%)"
-                r["합계"] = f"{int(row['합계']):,}"
-                _o_rows.append(r)
-
-            # 총합계 행
-            _tot = {"날짜": "총합계"}
-            _grand = df_agg["합계"].sum()
-            for c in qty_cols:
-                _cnt = int(df_agg[c].sum())
-                _pct = _cnt / _grand * 100 if _grand > 0 else 0
-                _tot[c] = f"{_cnt:,} ({_pct:.1f}%)"
-            _tot["합계"] = f"{int(_grand):,}"
-            _o_rows.append(_tot)
-
-            render_pinned_total_table(pd.DataFrame(_o_rows))
-
 # --- TAB 4: 단쉐 요약 ---
 with tab4:
     fdf_sk = fdf[fdf["소재명"].astype(str).str.contains("SK", na=False)].copy()
@@ -923,13 +830,3 @@ with tab4:
             # 소재명별 상세 테이블 (위)
             st.markdown("**📋 소재명별 상세 성과**")
             _pp_nm_tbl = build_summary_table(fdf_pp, "소재명")
-            _pp_nm_data  = _pp_nm_tbl[_pp_nm_tbl["소재명"] != "총합계"].sort_values("광고비", ascending=False)
-            _pp_nm_total = _pp_nm_tbl[_pp_nm_tbl["소재명"] == "총합계"]
-            _pp_nm_tbl = pd.concat([_pp_nm_data, _pp_nm_total], ignore_index=True)
-            render_pinned_total_table(style_summary(_pp_nm_tbl, "소재명"))
-            st.markdown("---")
-            st.markdown("**🗂 소구점별 성과**")
-            # 전체 펼쳐진 상태 기준으로 고정 높이 설정 (iframe sandbox로 동적 리사이즈 불가)
-            # JS 리사이즈 코드는 작동 환경에서 추가 최적화로 동작
-            _pp_h = max(150, 52 + (len(_pp_groups) + _pp_n_child + 1) * 36 + 100)
-            components.html(_pp_ct_html, height=_pp_h, scrolling=False)
