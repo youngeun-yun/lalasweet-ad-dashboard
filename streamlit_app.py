@@ -784,106 +784,83 @@ with tab4:
         render_pinned_total_table(style_summary(prodcode_tbl, "제품코드"))
         st.markdown("---")
 
-        # 3. 페인포인트 소재 성과
-        st.markdown("**🎯 페인포인트 소재 성과**")
-        fdf_pp = fdf_sk[fdf_sk["소재명"].astype(str).str.contains("페인포인트", na=False)].copy()
-        # 집행시작일 필터: 6자리 숫자이고 260625 이상인 소재만 포함 (형식 불일치/빈 값은 제외)
-        if "집행시작일" in fdf_pp.columns:
-            fdf_pp = fdf_pp[
-                fdf_pp["집행시작일"].astype(str).str.match(r"^\d{6}$") &
-                (fdf_pp["집행시작일"].astype(str) >= "260625")
-            ]
-        if fdf_pp.empty:
-            st.info("페인포인트 소재 데이터가 없습니다.")
+        # 3. 260701 신규 소재 성과 (라라권위/타사비교/원재료강조)
+        st.markdown("**🎯 260701 신규 소재 성과**")
+        NEW_KEYWORDS = ["라라권위", "타사비교", "원재료강조"]
+        fdf_nw = fdf_sk[fdf_sk["소재명"].astype(str).str.contains("260701", na=False)].copy()
+        _nw_any = pd.Series(False, index=fdf_nw.index)
+        for _nw_kw in NEW_KEYWORDS:
+            _nw_any |= fdf_nw["소재명"].astype(str).str.contains(_nw_kw, na=False)
+        fdf_nw = fdf_nw[_nw_any]
+        if fdf_nw.empty:
+            st.info("조건에 맞는 소재 데이터가 없습니다. (소재명에 260701 + 라라권위/타사비교/원재료강조 포함)")
         else:
-            _pp_key_col = "상세연출(소재구분)"
-            _pp_tid  = "ct_" + uuid.uuid4().hex[:8]
-            _pp_cols = ["소구점", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
-            _pp_th   = ("padding:7px 10px;text-align:left;background:#f0f2f6;"
+            _nw_tid  = "ct_" + uuid.uuid4().hex[:8]
+            _nw_cols = ["소재 구분", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
+            _nw_th   = ("padding:7px 10px;text-align:left;background:#f0f2f6;"
                         "border-bottom:2px solid #ddd;font-size:0.82rem;white-space:nowrap;")
-            _pp_tdp  = "padding:6px 10px;border-bottom:1px solid #eee;font-size:0.82rem;white-space:nowrap;"
-            _pp_tdc1 = ("padding:5px 10px 5px 28px;border-bottom:1px solid #f5f5f5;"
+            _nw_tdp  = "padding:6px 10px;border-bottom:1px solid #eee;font-size:0.82rem;white-space:nowrap;"
+            _nw_tdc1 = ("padding:5px 10px 5px 28px;border-bottom:1px solid #f5f5f5;"
                         "font-size:0.80rem;white-space:nowrap;color:#555;background:#fafcff;")
-            _pp_tdcn = ("padding:5px 10px;border-bottom:1px solid #f5f5f5;"
+            _nw_tdcn = ("padding:5px 10px;border-bottom:1px solid #f5f5f5;"
                         "font-size:0.80rem;white-space:nowrap;color:#555;background:#fafcff;")
-            _pp_tft  = (f"padding:6px 10px;font-size:0.82rem;white-space:nowrap;"
+            _nw_tft  = (f"padding:6px 10px;font-size:0.82rem;white-space:nowrap;"
                         f"background:{TOTAL_BG};color:{TOTAL_FG};font-weight:{TOTAL_FONT};"
                         f"border-top:2px solid #ddd;")
-            _pp_hdr = "".join(f'<th style="{_pp_th}">{_esc(c)}</th>' for c in _pp_cols)
-            # 상세연출(소재구분)별 그룹핑 → 부모 행
-            _pp_groups = []
-            if _pp_key_col in fdf_pp.columns:
-                for _pp_kw, _pp_sub in fdf_pp.groupby(_pp_key_col):
-                    if not str(_pp_kw).strip():
-                        continue
-                    _pp_groups.append((_pp_kw, _pp_sub, _pp_sub["광고비 (KRW)"].sum()))
-            _pp_groups.sort(key=lambda x: x[2], reverse=True)
-            _pp_body    = ""
-            _pp_n_child = 0
-            for _pp_idx, (_pp_kw, _pp_sub, _) in enumerate(_pp_groups):
-                _pp_pid = f"p_{_pp_tid}_{_pp_idx}"
-                _pp_pr  = perf_row(_pp_kw, _pp_sub, key_col="소구점")
-                _pp_ico = (f'<span id="ico_{_pp_pid}" '
+            _nw_hdr = "".join(f'<th style="{_nw_th}">{_esc(c)}</th>' for c in _nw_cols)
+            # 키워드별 그룹핑 → 부모 행
+            _nw_groups = []
+            for _nw_kw in NEW_KEYWORDS:
+                _nw_sub = fdf_nw[fdf_nw["소재명"].astype(str).str.contains(_nw_kw, na=False)]
+                if not _nw_sub.empty:
+                    _nw_groups.append((_nw_kw, _nw_sub, _nw_sub["광고비 (KRW)"].sum()))
+            _nw_groups.sort(key=lambda x: x[2], reverse=True)
+            _nw_body    = ""
+            _nw_n_child = 0
+            for _nw_idx, (_nw_kw, _nw_sub, _) in enumerate(_nw_groups):
+                _nw_pid = f"p_{_nw_tid}_{_nw_idx}"
+                _nw_pr  = perf_row(_nw_kw, _nw_sub, key_col="소재 구분")
+                _nw_ico = (f'<span id="ico_{_nw_pid}" '
                            f'style="display:inline-block;width:14px;font-size:0.75rem">&#9654;</span>')
-                _pp_p1  = f'<td style="{_pp_tdp}cursor:pointer;">{_pp_ico} {_esc(_pp_kw)}</td>'
-                _pp_pr2 = "".join(f'<td style="{_pp_tdp}">{_esc(_pp_pr[c])}</td>'
-                                  for c in _pp_cols[1:])
-                _pp_body += (f'<tr onclick="toggleCT(\'{_pp_pid}\')" style="cursor:pointer;">'
-                             f'{_pp_p1}{_pp_pr2}</tr>')
+                _nw_p1  = f'<td style="{_nw_tdp}cursor:pointer;">{_nw_ico} {_esc(_nw_kw)}</td>'
+                _nw_pr2 = "".join(f'<td style="{_nw_tdp}">{_esc(_nw_pr[c])}</td>'
+                                  for c in _nw_cols[1:])
+                _nw_body += (f'<tr onclick="toggleCT(\'{_nw_pid}\')" style="cursor:pointer;">'
+                             f'{_nw_p1}{_nw_pr2}</tr>')
                 # 자식 행: 개별 소재명, 광고비 내림차순
-                _pp_ads = [
+                _nw_ads = [
                     (_an,
-                     perf_row(_an, _pp_sub[_pp_sub["소재명"] == _an], key_col="소구점"),
-                     _pp_sub[_pp_sub["소재명"] == _an]["광고비 (KRW)"].sum())
-                    for _an in _pp_sub["소재명"].unique()
+                     perf_row(_an, _nw_sub[_nw_sub["소재명"] == _an], key_col="소재 구분"),
+                     _nw_sub[_nw_sub["소재명"] == _an]["광고비 (KRW)"].sum())
+                    for _an in _nw_sub["소재명"].unique()
                 ]
-                _pp_ads.sort(key=lambda x: x[2], reverse=True)
-                for _pp_an, _pp_ar, _ in _pp_ads:
-                    _pp_c1   = f'<td style="{_pp_tdc1}">{_esc(_pp_an)}</td>'
-                    _pp_cr   = "".join(f'<td style="{_pp_tdcn}">{_esc(_pp_ar[c])}</td>'
-                                       for c in _pp_cols[1:])
-                    _pp_body += f'<tr class="cc_{_pp_pid}" style="display:none;">{_pp_c1}{_pp_cr}</tr>'
-                    _pp_n_child += 1
-            _pp_total_row = perf_row("총합계", fdf_pp, key_col="소구점")
-            _pp_ftd = "".join(f'<td style="{_pp_tft}">{_esc(_pp_total_row[c])}</td>'
-                              for c in _pp_cols)
-            _pp_js  = (
-                # components.html은 srcdoc iframe → window.frameElement로 직접 높이 조정
-                # (streamlit:setFrameHeight postMessage는 declare_component 전용이라 작동 안 함)
-                "function _ppResize(){"
-                "var h=document.body.scrollHeight;"
-                "if(window.frameElement){"
-                "window.frameElement.style.height=h+'px';"
-                "window.frameElement.height=h;}}"
+                _nw_ads.sort(key=lambda x: x[2], reverse=True)
+                for _nw_an, _nw_ar, _ in _nw_ads:
+                    _nw_c1 = f'<td style="{_nw_tdc1}">{_esc(_nw_an)}</td>'
+                    _nw_cr = "".join(f'<td style="{_nw_tdcn}">{_esc(_nw_ar[c])}</td>'
+                                     for c in _nw_cols[1:])
+                    _nw_body += f'<tr class="cc_{_nw_pid}" style="display:none;">{_nw_c1}{_nw_cr}</tr>'
+                    _nw_n_child += 1
+            _nw_total_row = perf_row("총합계", fdf_nw, key_col="소재 구분")
+            _nw_ftd = "".join(f'<td style="{_nw_tft}">{_esc(_nw_total_row[c])}</td>'
+                              for c in _nw_cols)
+            _nw_js  = (
                 "function toggleCT(pid){"
                 "var rows=document.querySelectorAll('.cc_'+pid);"
                 "var ico=document.getElementById('ico_'+pid);"
                 "var show=rows.length>0&&rows[0].style.display==='none';"
                 "rows.forEach(function(r){r.style.display=show?'':'none';});"
-                "if(ico)ico.innerHTML=show?'&#9660;':'&#9654;';"
-                "setTimeout(_ppResize,30);}"
-                "window.addEventListener('load',function(){setTimeout(_ppResize,30);});"
+                "if(ico)ico.innerHTML=show?'&#9660;':'&#9654;';}"
             )
-            _pp_ct_html = (
-                '<div style="padding-bottom:12px;">'
+            _nw_html = (
                 '<div style="overflow-x:auto;border-radius:8px;border:1px solid #e0e0e0;">'
                 '<table style="width:100%;border-collapse:collapse;">'
-                f'<thead><tr>{_pp_hdr}</tr></thead>'
-                f'<tbody>{_pp_body}</tbody>'
-                f'<tfoot><tr>{_pp_ftd}</tr></tfoot>'
-                '</table></div></div>'
-                f'<script>{_pp_js}</script>'
+                f'<thead><tr>{_nw_hdr}</tr></thead>'
+                f'<tbody>{_nw_body}</tbody>'
+                f'<tfoot><tr>{_nw_ftd}</tr></tfoot>'
+                '</table></div>'
+                f'<script>{_nw_js}</script>'
             )
-            # 소재명별 상세 테이블 (위)
-            st.markdown("**📋 소재명별 상세 성과**")
-            _pp_nm_tbl = build_summary_table(fdf_pp, "소재명")
-            _pp_nm_data  = _pp_nm_tbl[_pp_nm_tbl["소재명"] != "총합계"].sort_values("광고비", ascending=False)
-            _pp_nm_total = _pp_nm_tbl[_pp_nm_tbl["소재명"] == "총합계"]
-            _pp_nm_tbl = pd.concat([_pp_nm_data, _pp_nm_total], ignore_index=True)
-            render_pinned_total_table(style_summary(_pp_nm_tbl, "소재명"))
-            st.markdown("---")
-            st.markdown("**🗂 소구점별 성과**")
-            # 전체 펼쳐진 상태 기준으로 고정 높이 설정 (iframe sandbox로 동적 리사이즈 불가)
-            # JS 리사이즈 코드는 작동 환경에서 추가 최적화로 동작
-            _pp_h = max(150, 52 + (len(_pp_groups) + _pp_n_child + 1) * 36 + 100)
-            components.html(_pp_ct_html, height=_pp_h, scrolling=False)
+            # 전체 펼쳐진 상태 기준 고정 높이 (iframe sandbox로 동적 리사이즈 불가)
+            _nw_h = max(150, 52 + (len(_nw_groups) + _nw_n_child + 1) * 36 + 100)
+            components.html(_nw_html, height=_nw_h, scrolling=False)
