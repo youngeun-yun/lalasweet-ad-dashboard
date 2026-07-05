@@ -39,6 +39,7 @@ st.markdown("""
     [data-testid="stSidebar"] button { font-size: 0.75rem !important; }
     [data-testid="stSidebar"] .stCaption { font-size: 0.68rem !important; }
     div[data-testid="stTabs"] button { font-size: 0.9rem; font-weight: 500; }
+    .stButton button p { white-space: nowrap; }
     .stDataFrame { border-radius: 8px; overflow: hidden; }
     footer { visibility: hidden; }
 </style>
@@ -391,7 +392,7 @@ def render_update_buttons():
         st.caption("⚙️ 업데이트 버튼을 사용하려면 Streamlit secrets에 `github_token`을 추가해주세요.")
         return
     active = st.session_state.get("refresh_active", False)
-    c1, c2, c3 = st.columns([1.0, 1.25, 5.5], gap="small", vertical_alignment="center")
+    c1, c2, c3 = st.columns([1.3, 1.6, 5.1], gap="small", vertical_alignment="center")
     if c1.button("📥 전일자 업데이트", disabled=active,
                  help="어제 데이터를 다시 수집해 최신 수치로 교체합니다 (약 2~4분 소요)"):
         _start_refresh("yesterday", "전일자")
