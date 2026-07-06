@@ -62,6 +62,9 @@ SK_SCHEME1_START = pd.Timestamp("2026-06-24")
 SK_SCHEME1_END   = pd.Timestamp("2026-06-26")
 SK_SCHEME2_START = pd.Timestamp("2026-06-27")
 SK_SCHEME2_END   = pd.Timestamp("2026-06-30")
+SK_SCHEME3_START = pd.Timestamp("2026-07-01")
+SK_SCHEME3_END   = pd.Timestamp("2026-07-05")
+SK_SCHEME4_START = pd.Timestamp("2026-07-06")  # 4차 스킴: 종료일 미정 (이후 전체)
 # --- 소재 유형 우선순위 ---
 CREATIVE_TYPES = [
     "맛페인포인트.5P소구",
@@ -761,16 +764,24 @@ with tab4:
         render_pinned_total_table(daily_table(fdf_sk))
         st.markdown("---")
 
-        # 2. 스킴별 성과
+        # 2. 스킴별 성과 (사이드바 필터와 무관하게 전체 기간 기준)
         st.markdown("**📋 스킴별 성과**")
-        sk_s1 = fdf_sk[(fdf_sk["날짜"] >= SK_SCHEME1_START) & (fdf_sk["날짜"] <= SK_SCHEME1_END)]
-        sk_s2 = fdf_sk[(fdf_sk["날짜"] >= SK_SCHEME2_START) & (fdf_sk["날짜"] <= SK_SCHEME2_END)]
-        sk_total = pd.concat([sk_s1, sk_s2])
-        sk1_label = f"스킴 1차({SK_SCHEME1_START.strftime('%m/%d')}~{SK_SCHEME1_END.strftime('%m/%d')})"
-        sk2_label = f"스킴 2차({SK_SCHEME2_START.strftime('%m/%d')}~{SK_SCHEME2_END.strftime('%m/%d')})"
+        st.caption("사이드바 필터와 무관하게 전체 기간 데이터 기준입니다.")
+        df_sk_all = df[df["소재명"].astype(str).str.contains("SK", na=False)].copy()
+        sk_s1 = df_sk_all[(df_sk_all["날짜"] >= SK_SCHEME1_START) & (df_sk_all["날짜"] <= SK_SCHEME1_END)]
+        sk_s2 = df_sk_all[(df_sk_all["날짜"] >= SK_SCHEME2_START) & (df_sk_all["날짜"] <= SK_SCHEME2_END)]
+        sk_s3 = df_sk_all[(df_sk_all["날짜"] >= SK_SCHEME3_START) & (df_sk_all["날짜"] <= SK_SCHEME3_END)]
+        sk_s4 = df_sk_all[df_sk_all["날짜"] >= SK_SCHEME4_START]
+        sk_total = pd.concat([sk_s1, sk_s2, sk_s3, sk_s4])
+        sk1_label = f"1차 스킴({SK_SCHEME1_START.strftime('%m/%d')}~{SK_SCHEME1_END.strftime('%m/%d')})"
+        sk2_label = f"2차 스킴({SK_SCHEME2_START.strftime('%m/%d')}~{SK_SCHEME2_END.strftime('%m/%d')})"
+        sk3_label = f"3차 스킴({SK_SCHEME3_START.strftime('%m/%d')}~{SK_SCHEME3_END.strftime('%m/%d')})"
+        sk4_label = f"4차 스킴({SK_SCHEME4_START.strftime('%m/%d')}~)"
         sk_period_df = pd.DataFrame([
             perf_row(sk1_label, sk_s1),
             perf_row(sk2_label, sk_s2),
+            perf_row(sk3_label, sk_s3),
+            perf_row(sk4_label, sk_s4),
             perf_row("총합계", sk_total),
         ])
         render_pinned_total_table(sk_period_df)
@@ -868,7 +879,22 @@ with tab4:
 
         st.markdown("---")
 
-        # 4. 영상 소재별 성과
+        # 4. 영상 포맷별 성과 (광고유형 V, 소재명 7번째 조각 '소분류 연출' 기준)
+        st.markdown("**🎞 영상 포맷별 성과**")
+        fdf_vf = fdf_sk[fdf_sk["영상/이미지 구분"].astype(str).str.strip().str.upper() == "V"].copy()
+        fdf_vf = fdf_vf[fdf_vf["소분류 연출"].astype(str).str.strip() != ""]
+        if fdf_vf.empty:
+            st.info("영상(V) 소재 데이터가 없습니다.")
+        else:
+            _vf_tbl = build_summary_table(fdf_vf, "소분류 연출")
+            _vf_data  = _vf_tbl[_vf_tbl["소분류 연출"] != "총합계"].sort_values("광고비", ascending=False)
+            _vf_total = _vf_tbl[_vf_tbl["소분류 연출"] == "총합계"]
+            _vf_tbl = pd.concat([_vf_data, _vf_total], ignore_index=True)
+            _vf_tbl = _vf_tbl.rename(columns={"소분류 연출": "영상 포맷"})
+            render_pinned_total_table(style_summary(_vf_tbl, "영상 포맷"))
+        st.markdown("---")
+
+        # 5. 영상 소재별 성과
         st.markdown("**🎬 영상 소재별 성과**")
         fdf_v = fdf_sk[fdf_sk["영상/이미지 구분"].astype(str).str.strip().str.upper() == "V"].copy()
         if fdf_v.empty:
