@@ -242,6 +242,74 @@ def render_tree_table(groups, total_row, cols) -> None:
         '</table></div>'
     )
     st.markdown(html, unsafe_allow_html=True)
+def render_tree_table3(groups, total_row, cols) -> None:
+    """3단계 접기/펼치기 트리 테이블 (부모 → 자식 → 손자, CSS 체크박스 방식).
+    groups: [(부모라벨, 부모행, [(자식라벨, 자식행, [(손자라벨, 손자행), ...]), ...]), ...]
+    """
+    tid  = "tt" + uuid.uuid4().hex[:8]
+    th   = ("padding:7px 10px;text-align:left;background:#f0f2f6;"
+            "border-bottom:2px solid #ddd;font-size:0.82rem;white-space:nowrap;")
+    tdp  = "padding:6px 10px;border-bottom:1px solid #eee;font-size:0.82rem;white-space:nowrap;"
+    tdc1 = ("border-bottom:1px solid #f5f5f5;"
+            "font-size:0.80rem;white-space:nowrap;color:#555;background:#fafcff;")
+    tdcn = ("padding:5px 10px;border-bottom:1px solid #f5f5f5;"
+            "font-size:0.80rem;white-space:nowrap;color:#555;background:#fafcff;")
+    tdg1 = ("padding:4px 10px 4px 46px;border-bottom:1px solid #f8f8f8;"
+            "font-size:0.78rem;white-space:nowrap;color:#777;background:#f4f8fd;")
+    tdgn = ("padding:4px 10px;border-bottom:1px solid #f8f8f8;"
+            "font-size:0.78rem;white-space:nowrap;color:#777;background:#f4f8fd;")
+    tft  = (f"padding:6px 10px;font-size:0.82rem;white-space:nowrap;"
+            f"background:{TOTAL_BG};color:{TOTAL_FG};font-weight:{TOTAL_FONT};"
+            f"border-top:2px solid #ddd;")
+    css_rules = [
+        f"#{tid} tr.ttc{{display:none;}}",
+        f"#{tid} span.tti::before{{content:'▶';font-size:0.7rem;color:#888;}}",
+        f"#{tid} label{{cursor:pointer;display:block;margin:0;font-weight:inherit;}}",
+    ]
+    for i, (_, _, children) in enumerate(groups):
+        css_rules.append(f"#{tid} tr.ttp{i}:has(input:checked) ~ tr.ttq{i}{{display:table-row;}}")
+        css_rules.append(f"#{tid} tr.ttp{i}:has(input:checked) span.tti::before{{content:'▼';}}")
+        for j in range(len(children)):
+            css_rules.append(
+                f"#{tid} tr.ttp{i}:has(input:checked) ~ tr.ttq{i}_{j}:has(input:checked)"
+                f" ~ tr.ttg{i}_{j}{{display:table-row;}}")
+            css_rules.append(f"#{tid} tr.ttq{i}_{j}:has(input:checked) span.tti::before{{content:'▼';}}")
+    css = "<style>" + "".join(css_rules) + "</style>"
+    hdr = "".join(f'<th style="{th}">{_esc(c)}</th>' for c in cols)
+    body = ""
+    for i, (plabel, prow, children) in enumerate(groups):
+        cbp = f"{tid}p{i}"
+        first = (f'<td style="{tdp}padding:0;">'
+                 f'<label for="{cbp}" style="padding:6px 10px;">'
+                 f'<input type="checkbox" id="{cbp}" style="display:none;">'
+                 f'<span class="tti" style="display:inline-block;width:14px;"></span>'
+                 f'{_esc(plabel)}</label></td>')
+        rest = "".join(f'<td style="{tdp}">{_esc(prow[c])}</td>' for c in cols[1:])
+        body += f'<tr class="ttp{i}">{first}{rest}</tr>'
+        for j, (clabel, crow, grands) in enumerate(children):
+            cbq = f"{tid}q{i}_{j}"
+            cfirst = (f'<td style="{tdc1}padding:0;">'
+                      f'<label for="{cbq}" style="padding:5px 10px 5px 28px;">'
+                      f'<input type="checkbox" id="{cbq}" style="display:none;">'
+                      f'<span class="tti" style="display:inline-block;width:14px;"></span>'
+                      f'{_esc(clabel)}</label></td>')
+            crest = "".join(f'<td style="{tdcn}">{_esc(crow[c])}</td>' for c in cols[1:])
+            body += f'<tr class="ttc ttq{i} ttq{i}_{j}">{cfirst}{crest}</tr>'
+            for glabel, grow in grands:
+                g1 = f'<td style="{tdg1}">{_esc(glabel)}</td>'
+                gr = "".join(f'<td style="{tdgn}">{_esc(grow[c])}</td>' for c in cols[1:])
+                body += f'<tr class="ttc ttg{i}_{j}">{g1}{gr}</tr>'
+    ftd = "".join(f'<td style="{tft}">{_esc(total_row[c])}</td>' for c in cols)
+    html = (
+        css
+        + '<div style="overflow-x:auto;border-radius:8px;border:1px solid #e0e0e0;">'
+        f'<table id="{tid}" style="width:100%;border-collapse:collapse;">'
+        f'<thead><tr>{hdr}</tr></thead>'
+        f'<tbody>{body}</tbody>'
+        f'<tfoot><tr>{ftd}</tr></tfoot>'
+        '</table></div>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
 def daily_table(d: pd.DataFrame) -> pd.DataFrame:
     grp = (
         d.groupby(d["날짜"].dt.date)
@@ -735,74 +803,37 @@ with tab2:
         event_tbl = pd.concat([_ev_data, _ev_total], ignore_index=True)
         render_pinned_total_table(style_summary(event_tbl, "이벤트명"))
         st.markdown("---")
-        # 4. 소재 유형별 성과 (피벗 트리 테이블)
+        # 4. 소재 유형별 성과 (접기/펼치기 트리 테이블)
         st.markdown("**🎨 소재 유형별 성과**")
         fdf_pc_c = fdf_pc.copy()
         fdf_pc_c["_유형"] = fdf_pc_c["소재명"].apply(classify_creative)
-        _type_data = []
-        for t in CREATIVE_TYPES:
-            sub = fdf_pc_c[fdf_pc_c["_유형"] == t]
-            if not sub.empty:
-                _type_data.append((t, sub, sub["광고비 (KRW)"].sum()))
-        if _type_data:
-            _type_data.sort(key=lambda x: x[2], reverse=True)
+        _ct_cols = ["소재 유형", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
+        _ct_groups = []
+        for _t in CREATIVE_TYPES:
+            _sub = fdf_pc_c[fdf_pc_c["_유형"] == _t]
+            if _sub.empty:
+                continue
+            _ads = [
+                (_an,
+                 perf_row(_an, _sub[_sub["소재명"] == _an], key_col="소재 유형"),
+                 _sub[_sub["소재명"] == _an]["광고비 (KRW)"].sum())
+                for _an in _sub["소재명"].unique()
+            ]
+            _ads.sort(key=lambda x: x[2], reverse=True)
+            _ct_groups.append((
+                _t,
+                perf_row(_t, _sub, key_col="소재 유형"),
+                [(_a, _r) for _a, _r, _ in _ads],
+                _sub["광고비 (KRW)"].sum(),
+            ))
+        if _ct_groups:
+            _ct_groups.sort(key=lambda x: x[3], reverse=True)
             typed_total = fdf_pc_c[fdf_pc_c["_유형"].notna()]
-            total_row   = perf_row("총합계", typed_total, key_col="소재 유형")
-            _tid  = "ct_" + uuid.uuid4().hex[:8]
-            _cols = ["소재 유형", "광고비", "노출", "링크 클릭", "구매",
-                     "CTR", "CPC", "CVR", "CPA"]
-            _th   = ("padding:7px 10px;text-align:left;background:#f0f2f6;"
-                     "border-bottom:2px solid #ddd;font-size:0.82rem;white-space:nowrap;")
-            _tdp  = "padding:6px 10px;border-bottom:1px solid #eee;font-size:0.82rem;white-space:nowrap;"
-            _tdc1 = ("padding:5px 10px 5px 28px;border-bottom:1px solid #f5f5f5;"
-                     "font-size:0.80rem;white-space:nowrap;color:#555;background:#fafcff;")
-            _tdcn = ("padding:5px 10px;border-bottom:1px solid #f5f5f5;"
-                     "font-size:0.80rem;white-space:nowrap;color:#555;background:#fafcff;")
-            _tft  = (f"padding:6px 10px;font-size:0.82rem;white-space:nowrap;"
-                     f"background:{TOTAL_BG};color:{TOTAL_FG};font-weight:{TOTAL_FONT};"
-                     f"border-top:2px solid #ddd;")
-            _hdr = "".join(f'<th style="{_th}">{_esc(c)}</th>' for c in _cols)
-            _body    = ""
-            _n_child = 0
-            for _idx, (_t, _sub, _) in enumerate(_type_data):
-                _pid = f"p_{_tid}_{_idx}"
-                _pr  = perf_row(_t, _sub, key_col="소재 유형")
-                _ico = f'<span id="ico_{_pid}" style="display:inline-block;width:14px;font-size:0.75rem">&#9654;</span>'
-                _p1  = f'<td style="{_tdp}cursor:pointer;">{_ico} {_esc(_t)}</td>'
-                _pr2 = "".join(f'<td style="{_tdp}">{_esc(_pr[c])}</td>' for c in _cols[1:])
-                _body += f'<tr onclick="toggleCT(\'{_pid}\')" style="cursor:pointer;">{_p1}{_pr2}</tr>'
-                _ads = [
-                    (_an,
-                     perf_row(_an, _sub[_sub["소재명"] == _an], key_col="소재 유형"),
-                     _sub[_sub["소재명"] == _an]["광고비 (KRW)"].sum())
-                    for _an in _sub["소재명"].unique()
-                ]
-                _ads.sort(key=lambda x: x[2], reverse=True)
-                for _an, _ar, _ in _ads:
-                    _c1   = f'<td style="{_tdc1}">{_esc(_an)}</td>'
-                    _cr   = "".join(f'<td style="{_tdcn}">{_esc(_ar[c])}</td>' for c in _cols[1:])
-                    _body += f'<tr class="cc_{_pid}" style="display:none;">{_c1}{_cr}</tr>'
-                    _n_child += 1
-            _ftd = "".join(f'<td style="{_tft}">{_esc(total_row[c])}</td>' for c in _cols)
-            _js  = (
-                "function toggleCT(pid){"
-                "var rows=document.querySelectorAll('.cc_'+pid);"
-                "var ico=document.getElementById('ico_'+pid);"
-                "var show=rows.length>0&&rows[0].style.display==='none';"
-                "rows.forEach(function(r){r.style.display=show?'':'none';});"
-                "if(ico)ico.innerHTML=show?'&#9660;':'&#9654;';}"
+            render_tree_table(
+                [(_g[0], _g[1], _g[2]) for _g in _ct_groups],
+                perf_row("총합계", typed_total, key_col="소재 유형"),
+                _ct_cols,
             )
-            _ct_html = (
-                '<div style="overflow-x:auto;border-radius:8px;border:1px solid #e0e0e0;">'
-                '<table style="width:100%;border-collapse:collapse;">'
-                f'<thead><tr>{_hdr}</tr></thead>'
-                f'<tbody>{_body}</tbody>'
-                f'<tfoot><tr>{_ftd}</tr></tfoot>'
-                '</table></div>'
-                f'<script>{_js}</script>'
-            )
-            _h = max(150, 52 + (len(_type_data) + 1) * 36)
-            components.html(_ct_html, height=_h, scrolling=False)
         else:
             st.info("현재 필터 조건에서 해당 소재 유형 데이터가 없습니다.")
 
@@ -891,7 +922,7 @@ with tab4:
 
         st.markdown("---")
 
-        # 4. 영상 포맷별 성과 (광고유형 V, 대분류 포맷 → 클릭 시 소분류 연출별)
+        # 4. 영상 포맷별 성과 (광고유형 V, 대분류 포맷 → 소분류 연출 → 소재명)
         st.markdown("**🎞 영상 포맷별 성과**")
         fdf_vf = fdf_sk[fdf_sk["영상/이미지 구분"].astype(str).str.strip().str.upper() == "V"].copy()
         fdf_vf = fdf_vf[fdf_vf["대분류 포맷"].astype(str).str.strip() != ""]
@@ -906,18 +937,28 @@ with tab4:
                 _vf_kids = []
                 for _vf_dt, _vf_ssub in _vf_sub.groupby("소분류 연출"):
                     _vf_label = str(_vf_dt).strip() or "(미분류)"
-                    _vf_kids.append((_vf_label,
-                                     perf_row(_vf_label, _vf_ssub, key_col="영상 포맷"),
-                                     _vf_ssub["광고비 (KRW)"].sum()))
-                _vf_kids.sort(key=lambda x: x[2], reverse=True)
+                    _vf_ads = [
+                        (_an,
+                         perf_row(_an, _vf_ssub[_vf_ssub["소재명"] == _an], key_col="영상 포맷"),
+                         _vf_ssub[_vf_ssub["소재명"] == _an]["광고비 (KRW)"].sum())
+                        for _an in _vf_ssub["소재명"].unique()
+                    ]
+                    _vf_ads.sort(key=lambda x: x[2], reverse=True)
+                    _vf_kids.append((
+                        _vf_label,
+                        perf_row(_vf_label, _vf_ssub, key_col="영상 포맷"),
+                        [(_a, _r) for _a, _r, _ in _vf_ads],
+                        _vf_ssub["광고비 (KRW)"].sum(),
+                    ))
+                _vf_kids.sort(key=lambda x: x[3], reverse=True)
                 _vf_groups.append((
                     str(_vf_fmt),
                     perf_row(str(_vf_fmt), _vf_sub, key_col="영상 포맷"),
-                    [(_a, _r) for _a, _r, _ in _vf_kids],
+                    [(_a, _r, _k) for _a, _r, _k, _ in _vf_kids],
                     _vf_sub["광고비 (KRW)"].sum(),
                 ))
             _vf_groups.sort(key=lambda x: x[3], reverse=True)
-            render_tree_table(
+            render_tree_table3(
                 [(_g[0], _g[1], _g[2]) for _g in _vf_groups],
                 perf_row("총합계", fdf_vf, key_col="영상 포맷"),
                 _vf_cols,
