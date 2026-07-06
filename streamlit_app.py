@@ -186,6 +186,62 @@ def perf_row(label: str, d: pd.DataFrame, key_col: str = "구분") -> dict:
         "CVR":      f"{v/c*100:.2f}%" if c > 0 else "0.00%",
         "CPA":      f"{int(s/v):,}" if v > 0 else "0",
     }
+def render_tree_table(groups, total_row, cols) -> None:
+    """접기/펼치기 트리 테이블 (CSS 체크박스 방식, iframe 미사용).
+    페이지 흐름에 직접 렌더링되어 접힌 상태에선 공백이 없고,
+    펼치면 그만큼 아래 콘텐츠가 자연스럽게 밀려난다.
+    groups: [(부모라벨, 부모행dict, [(자식라벨, 자식행dict), ...]), ...]
+    total_row: 총합계 행 dict / cols: 컬럼 순서 (첫 컬럼 = 구분)
+    """
+    tid  = "tt" + uuid.uuid4().hex[:8]
+    th   = ("padding:7px 10px;text-align:left;background:#f0f2f6;"
+            "border-bottom:2px solid #ddd;font-size:0.82rem;white-space:nowrap;")
+    tdp  = "padding:6px 10px;border-bottom:1px solid #eee;font-size:0.82rem;white-space:nowrap;"
+    tdc1 = ("padding:5px 10px 5px 28px;border-bottom:1px solid #f5f5f5;"
+            "font-size:0.80rem;white-space:nowrap;color:#555;background:#fafcff;")
+    tdcn = ("padding:5px 10px;border-bottom:1px solid #f5f5f5;"
+            "font-size:0.80rem;white-space:nowrap;color:#555;background:#fafcff;")
+    tft  = (f"padding:6px 10px;font-size:0.82rem;white-space:nowrap;"
+            f"background:{TOTAL_BG};color:{TOTAL_FG};font-weight:{TOTAL_FONT};"
+            f"border-top:2px solid #ddd;")
+    css = (
+        f"<style>"
+        f"#{tid} tr.ttc{{display:none;}}"
+        f"#{tid} span.tti::before{{content:'▶';font-size:0.7rem;color:#888;}}"
+        f"#{tid} label{{cursor:pointer;display:block;margin:0;font-weight:inherit;}}"
+        + "".join(
+            f"#{tid} tr.ttp{i}:has(input:checked) ~ tr.ttc{i}{{display:table-row;}}"
+            f"#{tid} tr.ttp{i}:has(input:checked) span.tti::before{{content:'▼';}}"
+            for i in range(len(groups))
+        )
+        + "</style>"
+    )
+    hdr = "".join(f'<th style="{th}">{_esc(c)}</th>' for c in cols)
+    body = ""
+    for i, (plabel, prow, children) in enumerate(groups):
+        cb = f"{tid}cb{i}"
+        first = (f'<td style="{tdp}padding:0;">'
+                 f'<label for="{cb}" style="padding:6px 10px;">'
+                 f'<input type="checkbox" id="{cb}" style="display:none;">'
+                 f'<span class="tti" style="display:inline-block;width:14px;"></span>'
+                 f'{_esc(plabel)}</label></td>')
+        rest = "".join(f'<td style="{tdp}">{_esc(prow[c])}</td>' for c in cols[1:])
+        body += f'<tr class="ttp{i}">{first}{rest}</tr>'
+        for clabel, crow in children:
+            c1 = f'<td style="{tdc1}">{_esc(clabel)}</td>'
+            cr = "".join(f'<td style="{tdcn}">{_esc(crow[c])}</td>' for c in cols[1:])
+            body += f'<tr class="ttc ttc{i}">{c1}{cr}</tr>'
+    ftd = "".join(f'<td style="{tft}">{_esc(total_row[c])}</td>' for c in cols)
+    html = (
+        css
+        + '<div style="overflow-x:auto;border-radius:8px;border:1px solid #e0e0e0;">'
+        f'<table id="{tid}" style="width:100%;border-collapse:collapse;">'
+        f'<thead><tr>{hdr}</tr></thead>'
+        f'<tbody>{body}</tbody>'
+        f'<tfoot><tr>{ftd}</tr></tfoot>'
+        '</table></div>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
 def daily_table(d: pd.DataFrame) -> pd.DataFrame:
     grp = (
         d.groupby(d["날짜"].dt.date)
@@ -807,39 +863,12 @@ with tab4:
         if fdf_nw.empty:
             st.info("조건에 맞는 소재 데이터가 없습니다. (소재명에 260701 + 라라권위/타사비교/원재료강조 포함)")
         else:
-            _nw_tid  = "ct_" + uuid.uuid4().hex[:8]
             _nw_cols = ["소재 구분", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
-            _nw_th   = ("padding:7px 10px;text-align:left;background:#f0f2f6;"
-                        "border-bottom:2px solid #ddd;font-size:0.82rem;white-space:nowrap;")
-            _nw_tdp  = "padding:6px 10px;border-bottom:1px solid #eee;font-size:0.82rem;white-space:nowrap;"
-            _nw_tdc1 = ("padding:5px 10px 5px 28px;border-bottom:1px solid #f5f5f5;"
-                        "font-size:0.80rem;white-space:nowrap;color:#555;background:#fafcff;")
-            _nw_tdcn = ("padding:5px 10px;border-bottom:1px solid #f5f5f5;"
-                        "font-size:0.80rem;white-space:nowrap;color:#555;background:#fafcff;")
-            _nw_tft  = (f"padding:6px 10px;font-size:0.82rem;white-space:nowrap;"
-                        f"background:{TOTAL_BG};color:{TOTAL_FG};font-weight:{TOTAL_FONT};"
-                        f"border-top:2px solid #ddd;")
-            _nw_hdr = "".join(f'<th style="{_nw_th}">{_esc(c)}</th>' for c in _nw_cols)
-            # 키워드별 그룹핑 → 부모 행
             _nw_groups = []
             for _nw_kw in NEW_KEYWORDS:
                 _nw_sub = fdf_nw[fdf_nw["소재명"].astype(str).str.contains(_nw_kw, na=False)]
-                if not _nw_sub.empty:
-                    _nw_groups.append((_nw_kw, _nw_sub, _nw_sub["광고비 (KRW)"].sum()))
-            _nw_groups.sort(key=lambda x: x[2], reverse=True)
-            _nw_body    = ""
-            _nw_n_child = 0
-            for _nw_idx, (_nw_kw, _nw_sub, _) in enumerate(_nw_groups):
-                _nw_pid = f"p_{_nw_tid}_{_nw_idx}"
-                _nw_pr  = perf_row(_nw_kw, _nw_sub, key_col="소재 구분")
-                _nw_ico = (f'<span id="ico_{_nw_pid}" '
-                           f'style="display:inline-block;width:14px;font-size:0.75rem">&#9654;</span>')
-                _nw_p1  = f'<td style="{_nw_tdp}cursor:pointer;">{_nw_ico} {_esc(_nw_kw)}</td>'
-                _nw_pr2 = "".join(f'<td style="{_nw_tdp}">{_esc(_nw_pr[c])}</td>'
-                                  for c in _nw_cols[1:])
-                _nw_body += (f'<tr onclick="toggleCT(\'{_nw_pid}\')" style="cursor:pointer;">'
-                             f'{_nw_p1}{_nw_pr2}</tr>')
-                # 자식 행: 개별 소재명, 광고비 내림차순
+                if _nw_sub.empty:
+                    continue
                 _nw_ads = [
                     (_an,
                      perf_row(_an, _nw_sub[_nw_sub["소재명"] == _an], key_col="소재 구분"),
@@ -847,51 +876,53 @@ with tab4:
                     for _an in _nw_sub["소재명"].unique()
                 ]
                 _nw_ads.sort(key=lambda x: x[2], reverse=True)
-                for _nw_an, _nw_ar, _ in _nw_ads:
-                    _nw_c1 = f'<td style="{_nw_tdc1}">{_esc(_nw_an)}</td>'
-                    _nw_cr = "".join(f'<td style="{_nw_tdcn}">{_esc(_nw_ar[c])}</td>'
-                                     for c in _nw_cols[1:])
-                    _nw_body += f'<tr class="cc_{_nw_pid}" style="display:none;">{_nw_c1}{_nw_cr}</tr>'
-                    _nw_n_child += 1
-            _nw_total_row = perf_row("총합계", fdf_nw, key_col="소재 구분")
-            _nw_ftd = "".join(f'<td style="{_nw_tft}">{_esc(_nw_total_row[c])}</td>'
-                              for c in _nw_cols)
-            _nw_js  = (
-                "function toggleCT(pid){"
-                "var rows=document.querySelectorAll('.cc_'+pid);"
-                "var ico=document.getElementById('ico_'+pid);"
-                "var show=rows.length>0&&rows[0].style.display==='none';"
-                "rows.forEach(function(r){r.style.display=show?'':'none';});"
-                "if(ico)ico.innerHTML=show?'&#9660;':'&#9654;';}"
+                _nw_groups.append((
+                    _nw_kw,
+                    perf_row(_nw_kw, _nw_sub, key_col="소재 구분"),
+                    [(_a, _r) for _a, _r, _ in _nw_ads],
+                    _nw_sub["광고비 (KRW)"].sum(),
+                ))
+            _nw_groups.sort(key=lambda x: x[3], reverse=True)
+            render_tree_table(
+                [(_g[0], _g[1], _g[2]) for _g in _nw_groups],
+                perf_row("총합계", fdf_nw, key_col="소재 구분"),
+                _nw_cols,
             )
-            _nw_html = (
-                '<div style="overflow-x:auto;border-radius:8px;border:1px solid #e0e0e0;">'
-                '<table style="width:100%;border-collapse:collapse;">'
-                f'<thead><tr>{_nw_hdr}</tr></thead>'
-                f'<tbody>{_nw_body}</tbody>'
-                f'<tfoot><tr>{_nw_ftd}</tr></tfoot>'
-                '</table></div>'
-                f'<script>{_nw_js}</script>'
-            )
-            # 전체 펼쳐진 상태 기준 고정 높이 (iframe sandbox로 동적 리사이즈 불가)
-            _nw_h = max(150, 52 + (len(_nw_groups) + _nw_n_child + 1) * 36 + 100)
-            components.html(_nw_html, height=_nw_h, scrolling=False)
 
         st.markdown("---")
 
-        # 4. 영상 포맷별 성과 (광고유형 V, 소재명 7번째 조각 '소분류 연출' 기준)
+        # 4. 영상 포맷별 성과 (광고유형 V, 대분류 포맷 → 클릭 시 소분류 연출별)
         st.markdown("**🎞 영상 포맷별 성과**")
         fdf_vf = fdf_sk[fdf_sk["영상/이미지 구분"].astype(str).str.strip().str.upper() == "V"].copy()
-        fdf_vf = fdf_vf[fdf_vf["소분류 연출"].astype(str).str.strip() != ""]
+        fdf_vf = fdf_vf[fdf_vf["대분류 포맷"].astype(str).str.strip() != ""]
         if fdf_vf.empty:
             st.info("영상(V) 소재 데이터가 없습니다.")
         else:
-            _vf_tbl = build_summary_table(fdf_vf, "소분류 연출")
-            _vf_data  = _vf_tbl[_vf_tbl["소분류 연출"] != "총합계"].sort_values("광고비", ascending=False)
-            _vf_total = _vf_tbl[_vf_tbl["소분류 연출"] == "총합계"]
-            _vf_tbl = pd.concat([_vf_data, _vf_total], ignore_index=True)
-            _vf_tbl = _vf_tbl.rename(columns={"소분류 연출": "영상 포맷"})
-            render_pinned_total_table(style_summary(_vf_tbl, "영상 포맷"))
+            _vf_cols = ["영상 포맷", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
+            _vf_groups = []
+            for _vf_fmt, _vf_sub in fdf_vf.groupby("대분류 포맷"):
+                if not str(_vf_fmt).strip():
+                    continue
+                _vf_kids = []
+                for _vf_dt, _vf_ssub in _vf_sub.groupby("소분류 연출"):
+                    _vf_label = str(_vf_dt).strip() or "(미분류)"
+                    _vf_kids.append((_vf_label,
+                                     perf_row(_vf_label, _vf_ssub, key_col="영상 포맷"),
+                                     _vf_ssub["광고비 (KRW)"].sum()))
+                _vf_kids.sort(key=lambda x: x[2], reverse=True)
+                _vf_groups.append((
+                    str(_vf_fmt),
+                    perf_row(str(_vf_fmt), _vf_sub, key_col="영상 포맷"),
+                    [(_a, _r) for _a, _r, _ in _vf_kids],
+                    _vf_sub["광고비 (KRW)"].sum(),
+                ))
+            _vf_groups.sort(key=lambda x: x[3], reverse=True)
+            render_tree_table(
+                [(_g[0], _g[1], _g[2]) for _g in _vf_groups],
+                perf_row("총합계", fdf_vf, key_col="영상 포맷"),
+                _vf_cols,
+            )
+
         st.markdown("---")
 
         # 5. 영상 소재별 성과
