@@ -1058,19 +1058,41 @@ with tab5:
             render_tree_table3(_hr_groups, perf_row("총합계", _dh, key_col="시간대"), _hr_cols)
             st.markdown("---")
 
-            # 2. 캠페인/세트/소재별 시간대 추이
+            # 2. 캠페인/세트/소재별 시간대 추이 (3단 연쇄 멀티셀렉트)
             st.markdown("**📈 캠페인·세트·소재별 시간대 추이**")
-            c_lv, c_ent = st.columns([1.2, 3], vertical_alignment="center")
-            with c_lv:
-                _lv = st.radio("구분", ["캠페인", "광고세트", "소재"], horizontal=True,
-                               label_visibility="collapsed", key="hourly_level")
-            _lv_col = {"캠페인": "캠페인명", "광고세트": "광고그룹명", "소재": "소재명"}[_lv]
-            _ent_opts = (_dh.groupby(_lv_col)["광고비 (KRW)"].sum()
-                         .sort_values(ascending=False).index.astype(str).tolist())
-            with c_ent:
-                _ent = st.selectbox(f"{_lv} 선택 (광고비 큰 순)", _ent_opts, key="hourly_entity")
-            _de = _dh[_dh[_lv_col].astype(str) == _ent]
-            _tr_rows = [perf_row(f"{int(_hr):02d}시", _de[_de["시간"] == _hr], key_col="시간")
-                        for _hr in sorted(_de["시간"].unique())]
-            _tr_rows.append(perf_row("총합계", _de, key_col="시간"))
-            render_pinned_total_table(pd.DataFrame(_tr_rows))
+            st.caption("각 단계 복수 선택 가능, 비우면 전체 · 박스 클릭 후 타이핑하면 검색 · "
+                       "상위 선택을 바꾸면 범위 밖 하위 선택은 자동 해제")
+
+            def _spend_order(d, col):
+                return (d.groupby(col)["광고비 (KRW)"].sum()
+                        .sort_values(ascending=False).index.astype(str).tolist())
+
+            c_cp, c_as, c_ad = st.columns(3)
+            _cp_opts = _spend_order(_dh, "캠페인명")
+            if "hr_camps" in st.session_state:
+                st.session_state["hr_camps"] = [v for v in st.session_state["hr_camps"] if v in _cp_opts]
+            with c_cp:
+                _sel_cp = st.multiselect("캠페인", _cp_opts, placeholder="전체", key="hr_camps")
+            _d1 = _dh if not _sel_cp else _dh[_dh["캠페인명"].astype(str).isin(_sel_cp)]
+
+            _as_opts = _spend_order(_d1, "광고그룹명")
+            if "hr_sets" in st.session_state:
+                st.session_state["hr_sets"] = [v for v in st.session_state["hr_sets"] if v in _as_opts]
+            with c_as:
+                _sel_as = st.multiselect("광고세트", _as_opts, placeholder="전체", key="hr_sets")
+            _d2 = _d1 if not _sel_as else _d1[_d1["광고그룹명"].astype(str).isin(_sel_as)]
+
+            _ad_opts = _spend_order(_d2, "소재명")
+            if "hr_ads" in st.session_state:
+                st.session_state["hr_ads"] = [v for v in st.session_state["hr_ads"] if v in _ad_opts]
+            with c_ad:
+                _sel_ad = st.multiselect("소재", _ad_opts, placeholder="전체", key="hr_ads")
+            _de = _d2 if not _sel_ad else _d2[_d2["소재명"].astype(str).isin(_sel_ad)]
+
+            if _de.empty:
+                st.info("선택 조건에 데이터가 없습니다.")
+            else:
+                _tr_rows = [perf_row(f"{int(_hr):02d}시", _de[_de["시간"] == _hr], key_col="시간")
+                            for _hr in sorted(_de["시간"].unique())]
+                _tr_rows.append(perf_row("총합계", _de, key_col="시간"))
+                render_pinned_total_table(pd.DataFrame(_tr_rows))
