@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-단쉐(SK) 시간대별 성과 수집 → Google Sheets (단쉐_시간대별_원본)
+단쉐(SK) + 팝콘(PC) 시간대별 성과 수집 → Google Sheets
+- SK 소재 → 단쉐_시간대별_원본 / PC 소재 → 팝콘_시간대별_원본
 - 기본: 오늘(KST) 수집 / HOURLY_SINCE·HOURLY_UNTIL 환경변수 지정 시 해당 범위 백필
 - (날짜 × 시간 × 캠페인 × 광고그룹 × 소재) 단위로 누적 저장
 - 수집 범위에 해당하는 날짜 행만 교체, 다른 날짜는 보존
@@ -20,9 +21,14 @@ SLACK_USER_ID   = os.environ.get("SLACK_USER_ID", "")
 
 API_VERSION = "v21.0"
 BASE        = f"https://graph.facebook.com/{API_VERSION}"
-SHEET_NAME  = "단쉐_시간대별_원본"
 HEADER      = ["날짜", "시간", "캠페인명", "광고그룹명", "소재명",
                "노출", "클릭", "광고비", "구매", "수집시각"]
+
+# (소재명 포함 키워드, 대상 시트)
+TARGETS = [
+    ("SK", "단쉐_시간대별_원본"),
+    ("PC", "팝콘_시간대별_원본"),
+]
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
@@ -47,7 +53,7 @@ def send_slack(text):
 
 def die(msg):
     log(f"!!! 실패: {msg}")
-    send_slack(f":x: *단쉐 시간대별 수집 실패*\n• 사유: {msg}")
+    send_slack(f":x: *시간대별 수집 실패*\n• 사유: {msg}")
     sys.exit(1)
 
 RETRY_DELAYS = [10, 30, 60, 120]
@@ -80,55 +86,7 @@ def api_call(method, url, **kw):
 today = datetime.datetime.now(KST).date()
 since = os.environ.get("HOURLY_SINCE", "").strip() or str(today)
 until = os.environ.get("HOURLY_UNTIL", "").strip() or str(today)
-log(f"수집 범위: {since} ~ {until} (시간대별, SK 소재)")
 
-# ── Meta 인사이트 (시간대별 breakdown) ────────────────────────
-fields = "campaign_name,adset_name,ad_name,impressions,spend,inline_link_clicks,actions"
-filtering = [
-    {"field": "impressions", "operator": "GREATER_THAN", "value": 0},
-    {"field": "ad.name",     "operator": "CONTAIN",      "value": "SK"},
-]
-params = {
-    "level":          "ad",
-    "fields":         fields,
-    "breakdowns":     json.dumps(["hourly_stats_aggregated_by_advertiser_time_zone"]),
-    "time_range":     json.dumps({"since": since, "until": until}),
-    "time_increment": 1,
-    "filtering":      json.dumps(filtering),
-    "access_token":   ACCESS_TOKEN,
-}
-
-run = api_call("POST", f"{BASE}/{AD_ACCOUNT_ID}/insights", data=params)
-report_id = run.get("report_run_id")
-if not report_id:
-    die(f"report_run_id 없음: {run}")
-log(f"리포트 작업 생성: {report_id}")
-
-while True:
-    s  = api_call("GET", f"{BASE}/{report_id}", params={"access_token": ACCESS_TOKEN})
-    st = s.get("async_status")
-    log(f"  {s.get('async_percent_completion')}% / {st}")
-    if st == "Job Completed":
-        break
-    if st in ("Job Failed", "Job Skipped"):
-        die(f"리포트 작업 실패: {s}")
-    time.sleep(5)
-
-rows = []
-url  = f"{BASE}/{report_id}/insights"
-qp   = {"limit": 500, "access_token": ACCESS_TOKEN}
-page = 0
-while url:
-    resp  = api_call("GET", url, params=qp)
-    batch = resp.get("data", [])
-    rows.extend(batch)
-    page += 1
-    paging = resp.get("paging", {})
-    url = paging.get("next")
-    qp  = {}
-    log(f"  페이지 {page}: +{len(batch)}행 (누적 {len(rows)}행)")
-
-# ── 행 변환 ───────────────────────────────────────────────────
 PURCHASE_TYPES = [
     "offsite_conversion.fb_pixel_purchase", "omni_purchase",
     "purchase", "onsite_web_purchase",
@@ -144,51 +102,74 @@ def purchase_val(actions):
                 return 0
     return 0
 
-collected_at = datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M")
-out = []
-for r in rows:
-    hour_raw = str(r.get("hourly_stats_aggregated_by_advertiser_time_zone", ""))
-    try:
-        hour = int(hour_raw[:2])
-    except ValueError:
-        continue
-    out.append([
-        r.get("date_start", ""),
-        hour,
-        r.get("campaign_name", ""),
-        r.get("adset_name", ""),
-        r.get("ad_name", ""),
-        int(float(r.get("impressions", 0) or 0)),
-        int(float(r.get("inline_link_clicks", 0) or 0)),
-        float(r.get("spend", 0) or 0),
-        purchase_val(r.get("actions")),
-        collected_at,
-    ])
-log(f"변환 완료: {len(out)}행")
+def collect(keyword):
+    """소재명에 keyword가 포함된 광고의 시간대별 성과 수집"""
+    log(f"[{keyword}] 수집 범위: {since} ~ {until} (시간대별)")
+    fields = "campaign_name,adset_name,ad_name,impressions,spend,inline_link_clicks,actions"
+    filtering = [
+        {"field": "impressions", "operator": "GREATER_THAN", "value": 0},
+        {"field": "ad.name",     "operator": "CONTAIN",      "value": keyword},
+    ]
+    params = {
+        "level":          "ad",
+        "fields":         fields,
+        "breakdowns":     json.dumps(["hourly_stats_aggregated_by_advertiser_time_zone"]),
+        "time_range":     json.dumps({"since": since, "until": until}),
+        "time_increment": 1,
+        "filtering":      json.dumps(filtering),
+        "access_token":   ACCESS_TOKEN,
+    }
+    run = api_call("POST", f"{BASE}/{AD_ACCOUNT_ID}/insights", data=params)
+    report_id = run.get("report_run_id")
+    if not report_id:
+        die(f"[{keyword}] report_run_id 없음: {run}")
+    log(f"[{keyword}] 리포트 작업 생성: {report_id}")
 
-# ── Google Sheets 기록 (수집 범위 날짜 행 교체) ────────────────
-creds = Credentials.from_service_account_info(
-    json.loads(GCP_SA_JSON),
-    scopes=["https://spreadsheets.google.com/feeds",
-            "https://www.googleapis.com/auth/drive"],
-)
-client = gspread.authorize(creds)
-spreadsheet = client.open_by_key(SPREADSHEET_ID)
-try:
-    sheet = spreadsheet.worksheet(SHEET_NAME)
-except gspread.WorksheetNotFound:
-    sheet = spreadsheet.add_worksheet(title=SHEET_NAME, rows=1000, cols=len(HEADER))
-    sheet.update([HEADER])
+    while True:
+        s      = api_call("GET", f"{BASE}/{report_id}", params={"access_token": ACCESS_TOKEN})
+        status = s.get("async_status")
+        log(f"  {s.get('async_percent_completion')}% / {status}")
+        if status == "Job Completed":
+            break
+        if status in ("Job Failed", "Job Skipped"):
+            die(f"[{keyword}] 리포트 작업 실패: {s}")
+        time.sleep(5)
 
-existing = sheet.get_all_values()
-keep = []
-if len(existing) > 1:
-    for row in existing[1:]:
-        if not row or not row[0]:
+    rows = []
+    url  = f"{BASE}/{report_id}/insights"
+    qp   = {"limit": 500, "access_token": ACCESS_TOKEN}
+    page = 0
+    while url:
+        resp  = api_call("GET", url, params=qp)
+        batch = resp.get("data", [])
+        rows.extend(batch)
+        page += 1
+        url = resp.get("paging", {}).get("next")
+        qp  = {}
+        log(f"  페이지 {page}: +{len(batch)}행 (누적 {len(rows)}행)")
+
+    collected_at = datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M")
+    out = []
+    for r in rows:
+        hour_raw = str(r.get("hourly_stats_aggregated_by_advertiser_time_zone", ""))
+        try:
+            hour = int(hour_raw[:2])
+        except ValueError:
             continue
-        if since <= row[0] <= until:
-            continue  # 수집 범위 날짜는 새 데이터로 교체
-        keep.append(row)
+        out.append([
+            r.get("date_start", ""),
+            hour,
+            r.get("campaign_name", ""),
+            r.get("adset_name", ""),
+            r.get("ad_name", ""),
+            int(float(r.get("impressions", 0) or 0)),
+            int(float(r.get("inline_link_clicks", 0) or 0)),
+            float(r.get("spend", 0) or 0),
+            purchase_val(r.get("actions")),
+            collected_at,
+        ])
+    log(f"[{keyword}] 변환 완료: {len(out)}행")
+    return out
 
 def sort_key(row):
     try:
@@ -196,9 +177,41 @@ def sort_key(row):
     except (ValueError, IndexError):
         return (str(row[0]) if row else "", 0)
 
-merged = keep + [[str(v) for v in r] for r in out]
-merged.sort(key=sort_key)
+def write_sheet(spreadsheet, sheet_name, out):
+    """수집 범위 날짜 행을 교체하고 나머지는 보존"""
+    try:
+        sheet = spreadsheet.worksheet(sheet_name)
+    except gspread.WorksheetNotFound:
+        sheet = spreadsheet.add_worksheet(title=sheet_name, rows=1000, cols=len(HEADER))
+        sheet.update([HEADER])
 
-sheet.clear()
-sheet.update([HEADER] + merged, value_input_option="USER_ENTERED")
-log(f"시트 기록 완료: 교체 {len(out)}행 / 보존 {len(keep)}행 / 총 {len(merged)}행 -> {SHEET_NAME}")
+    existing = sheet.get_all_values()
+    keep = []
+    if len(existing) > 1:
+        for row in existing[1:]:
+            if not row or not row[0]:
+                continue
+            if since <= row[0] <= until:
+                continue  # 수집 범위 날짜는 새 데이터로 교체
+            keep.append(row)
+
+    merged = keep + [[str(v) for v in r] for r in out]
+    merged.sort(key=sort_key)
+    sheet.clear()
+    sheet.update([HEADER] + merged, value_input_option="USER_ENTERED")
+    log(f"시트 기록 완료: 교체 {len(out)}행 / 보존 {len(keep)}행 / 총 {len(merged)}행 -> {sheet_name}")
+
+# ── 실행 ──────────────────────────────────────────────────────
+creds = Credentials.from_service_account_info(
+    json.loads(GCP_SA_JSON),
+    scopes=["https://spreadsheets.google.com/feeds",
+            "https://www.googleapis.com/auth/drive"],
+)
+client = gspread.authorize(creds)
+spreadsheet = client.open_by_key(SPREADSHEET_ID)
+
+for kw, sheet_name in TARGETS:
+    data = collect(kw)
+    write_sheet(spreadsheet, sheet_name, data)
+
+log("전체 완료")
