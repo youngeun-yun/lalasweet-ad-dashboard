@@ -78,7 +78,17 @@ CREATIVE_TYPES = [
 def _esc(v) -> str:
     return _html.escape(str(v))
 def render_pinned_total_table(df: pd.DataFrame, compact: bool = False) -> None:
-    _tw = "auto" if compact else "100%"
+    _tw = "100%"
+    if compact:
+        _hl_map  = {"광고비": "background:#FFF9F1;", "CPA": "background:#F2F6FC;"}
+        _hlh_map = {"광고비": "background:#FFF3E4;color:#9A5B1F;", "CPA": "background:#EAF1FB;color:#2D5586;"}
+        col_extra  = [_hl_map.get(str(c), "") for c in df.columns]
+        head_extra = [_hlh_map.get(str(c), "") for c in df.columns]
+        colgroup = "<colgroup><col>" + '<col style="width:8.5%">' * (len(df.columns) - 1) + "</colgroup>"
+    else:
+        col_extra  = ["" for _ in df.columns]
+        head_extra = ["" for _ in df.columns]
+        colgroup = ""
     tid = "tbl_" + uuid.uuid4().hex[:8]
     first_col = df.columns[0]
     data  = df[df[first_col] != "총합계"].reset_index(drop=True)
@@ -91,12 +101,13 @@ def render_pinned_total_table(df: pd.DataFrame, compact: bool = False) -> None:
           f"background:{TOTAL_BG}; color:{TOTAL_FG}; font-weight:{TOTAL_FONT};"
           f"border-top:2px solid #ddd;")
     hdr = "".join(
-        f'<th style="{th}" onclick="sortTbl(\'{tid}\',{i})" data-order="">'
+        f'<th style="{th}{head_extra[i]}" onclick="sortTbl(\'{tid}\',{i})" data-order="">'
         f'{_esc(col)} <span style="color:#bbb;font-size:0.7rem">&#x21C5;</span></th>'
         for i, col in enumerate(df.columns)
     )
     bdy = "".join(
-        "<tr>" + "".join(f'<td style="{td}">{_esc(v)}</td>' for v in row) + "</tr>"
+        "<tr>" + "".join(f'<td style="{td}{col_extra[j]}">{_esc(v)}</td>'
+                         for j, v in enumerate(row)) + "</tr>"
         for _, row in data.iterrows()
     )
     ftr = ("".join(
@@ -125,7 +136,7 @@ def render_pinned_total_table(df: pd.DataFrame, compact: bool = False) -> None:
     )
     html = (
         '<div style="overflow-x:auto; border-radius:8px; border:1px solid #e0e0e0;">'
-        f'<table id="{tid}" style="width:{_tw}; border-collapse:collapse;">'
+        f'<table id="{tid}" style="width:{_tw}; border-collapse:collapse;">{colgroup}'
         f'<thead><tr>{hdr}</tr></thead>'
         f'<tbody>{bdy}</tbody>'
         f'<tfoot>{ftr}</tfoot>'
@@ -283,7 +294,10 @@ def render_tree_table3(groups, total_row, cols, compact: bool = False) -> None:
                 f" ~ tr.ttg{i}_{j}{{display:table-row;}}")
             css_rules.append(f"#{tid} tr.ttq{i}_{j}:has(input:checked) span.tti::before{{content:'▼';}}")
     css = "<style>" + "".join(css_rules) + "</style>"
-    hdr = "".join(f'<th style="{th}">{_esc(c)}</th>' for c in cols)
+    hl  = {"광고비": "background:#FFF9F1;", "CPA": "background:#F2F6FC;"} if compact else {}
+    hlh = {"광고비": "background:#FFF3E4;color:#9A5B1F;", "CPA": "background:#EAF1FB;color:#2D5586;"} if compact else {}
+    colgr = ("<colgroup><col>" + '<col style="width:8.5%">' * (len(cols) - 1) + "</colgroup>") if compact else ""
+    hdr = "".join(f'<th style="{th}{hlh.get(c, "")}">{_esc(c)}</th>' for c in cols)
     body = ""
     for i, (plabel, prow, children) in enumerate(groups):
         cbp = f"{tid}p{i}"
@@ -292,7 +306,7 @@ def render_tree_table3(groups, total_row, cols, compact: bool = False) -> None:
                  f'<input type="checkbox" id="{cbp}" style="display:none;">'
                  f'<span class="tti" style="display:inline-block;width:14px;"></span>'
                  f'{_esc(plabel)}</label></td>')
-        rest = "".join(f'<td style="{tdp}">{_esc(prow[c])}</td>' for c in cols[1:])
+        rest = "".join(f'<td style="{tdp}{hl.get(c, "")}">{_esc(prow[c])}</td>' for c in cols[1:])
         body += f'<tr class="ttp{i}">{first}{rest}</tr>'
         for j, (clabel, crow, grands) in enumerate(children):
             cbq = f"{tid}q{i}_{j}"
@@ -301,17 +315,17 @@ def render_tree_table3(groups, total_row, cols, compact: bool = False) -> None:
                       f'<input type="checkbox" id="{cbq}" style="display:none;">'
                       f'<span class="tti" style="display:inline-block;width:14px;"></span>'
                       f'{_esc(clabel)}</label></td>')
-            crest = "".join(f'<td style="{tdcn}">{_esc(crow[c])}</td>' for c in cols[1:])
+            crest = "".join(f'<td style="{tdcn}{hl.get(c, "")}">{_esc(crow[c])}</td>' for c in cols[1:])
             body += f'<tr class="ttc ttq{i} ttq{i}_{j}">{cfirst}{crest}</tr>'
             for glabel, grow in grands:
                 g1 = f'<td style="{tdg1}">{_esc(glabel)}</td>'
-                gr = "".join(f'<td style="{tdgn}">{_esc(grow[c])}</td>' for c in cols[1:])
+                gr = "".join(f'<td style="{tdgn}{hl.get(c, "")}">{_esc(grow[c])}</td>' for c in cols[1:])
                 body += f'<tr class="ttc ttg{i}_{j}">{g1}{gr}</tr>'
     ftd = "".join(f'<td style="{tft}">{_esc(total_row[c])}</td>' for c in cols)
     html = (
         css
         + '<div style="overflow-x:auto;border-radius:8px;border:1px solid #e0e0e0;">'
-        f'<table id="{tid}" style="width:{"auto" if compact else "100%"};border-collapse:collapse;">'
+        f'<table id="{tid}" style="width:100%;border-collapse:collapse;">{colgr}'
         f'<thead><tr>{hdr}</tr></thead>'
         f'<tbody>{body}</tbody>'
         f'<tfoot><tr>{ftd}</tr></tfoot>'
@@ -1026,16 +1040,11 @@ def render_hourly_tab(sheet_name: str, kp: str) -> None:
                 f"첫 수집 후 시트({sheet_name})가 생성되면 표시됩니다.")
         return
     _h_dates = sorted(dfh["날짜"].dt.strftime("%Y-%m-%d").unique().tolist(), reverse=True)
-    c_hd, c_hi = st.columns([2, 3], vertical_alignment="center")
+    c_hd, _c_sp = st.columns([2, 3], vertical_alignment="center")
     with c_hd:
         sel_h_dates = st.multiselect(
             "날짜 선택 (복수 선택 시 시간대별 합산 — 요일 패턴 비교용)",
             _h_dates, default=[_h_dates[0]], key=f"{kp}_dates")
-    with c_hi:
-        if "수집시각" in dfh.columns:
-            _h_last = dfh["수집시각"].astype(str).max()
-            st.caption(f"🕐 마지막 수집: {_h_last} · 1시간마다 자동 갱신 · "
-                       f"Meta 리포팅 특성상 최근 1시간 안팎 지연 가능")
     _dh = dfh if not sel_h_dates else dfh[dfh["날짜"].dt.strftime("%Y-%m-%d").isin(sel_h_dates)]
     if _dh.empty:
         st.warning("선택한 날짜에 데이터가 없습니다.")
@@ -1045,6 +1054,10 @@ def render_hourly_tab(sheet_name: str, kp: str) -> None:
 
     # 1. 시간대 → 캠페인 → 광고세트 트리
     st.markdown("**⏰ 시간대별 성과** (시간대 클릭 → 캠페인 → 광고세트)")
+    if "수집시각" in dfh.columns:
+        _h_last = dfh["수집시각"].astype(str).max()
+        st.caption(f"🕐 마지막 수집: {_h_last} · 1시간마다 자동 갱신 · "
+                   f"Meta 리포팅 특성상 최근 1시간 안팎 지연 가능")
     _hr_cols = ["시간대", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CPM", "CVR", "CPA"]
     _hr_groups = []
     for _hr in sorted(_dh["시간"].unique()):
