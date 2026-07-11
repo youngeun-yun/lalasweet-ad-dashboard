@@ -21,7 +21,7 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    .block-container { padding-top: 2.2rem; padding-bottom: 1rem; max-width: 480px; }
+    .block-container { padding-top: 2.2rem; padding-bottom: 7rem; max-width: 480px; }
     [data-testid="stMetricValue"] { font-size: 1.25rem; font-weight: 600; }
     [data-testid="stMetricLabel"] { font-size: 0.72rem; color: #888; }
     .stButton button p { white-space: nowrap; }
@@ -227,7 +227,7 @@ _kpi_cells = "".join(
     for _l, _v in _kpi_items
 )
 st.markdown(
-    f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;">{_kpi_cells}</div>',
+    f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:28px;">{_kpi_cells}</div>',
     unsafe_allow_html=True,
 )
 
