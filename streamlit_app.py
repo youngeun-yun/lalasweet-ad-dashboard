@@ -31,6 +31,7 @@ st.markdown("""
     [data-testid="stMetricLabel"] { font-size: 0.8rem; color: #888; }
     [data-testid="stMetricDelta"] { font-size: 0.85rem; }
     [data-testid="stSidebar"] { background: #fafafa; }
+    [data-testid="stSidebarNav"] { display: none; }
     [data-testid="stSidebar"] h2 { font-size: 0.95rem !important; margin-bottom: 0.2rem; }
     [data-testid="stSidebar"] p,
     [data-testid="stSidebar"] label,
