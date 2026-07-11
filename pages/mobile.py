@@ -159,57 +159,7 @@ if d.empty:
     st.warning("선택한 날짜에 데이터가 없습니다.")
     st.stop()
 
-k = hour_metrics(d)
-c1, c2 = st.columns(2)
-c1.metric("💰 광고비", f"₩{int(k['spend']):,}")
-c2.metric("🛒 구매", f"{int(k['conv']):,}")
-c3, c4 = st.columns(2)
-c3.metric("🎯 CPA", f"₩{int(k['cpa']):,}")
-c4.metric("📈 CTR", f"{k['ctr']:.2f}%")
-
-st.markdown("**⏰ 시간대별 성과**")
-view = st.radio("지표", ["기본", "효율"], horizontal=True,
-                label_visibility="collapsed", key="mb_view")
-
-rows = []
-for hr in sorted(d["시간"].unique()):
-    m = hour_metrics(d[d["시간"] == hr])
-    if view == "기본":
-        rows.append({
-            "시간":   f"{int(hr):02d}시",
-            "광고비": f"₩{int(m['spend']):,}",
-            "구매":   f"{int(m['conv']):,}",
-            "CPA":   f"₩{int(m['cpa']):,}",
-        })
-    else:
-        rows.append({
-            "시간":   f"{int(hr):02d}시",
-            "광고비": f"₩{int(m['spend']):,}",
-            "CPC":   f"₩{int(m['cpc']):,}",
-            "CVR":   f"{m['cvr']:.2f}%",
-            "CPA":   f"₩{int(m['cpa']):,}",
-        })
-if view == "기본":
-    rows.append({
-        "시간": "총합계",
-        "광고비": f"₩{int(k['spend']):,}",
-        "구매": f"{int(k['conv']):,}",
-        "CPA": f"₩{int(k['cpa']):,}",
-    })
-else:
-    rows.append({
-        "시간": "총합계",
-        "광고비": f"₩{int(k['spend']):,}",
-        "CPC": f"₩{int(k['cpc']):,}",
-        "CVR": f"{k['cvr']:.2f}%",
-        "CPA": f"₩{int(k['cpa']):,}",
-    })
-mobile_table(rows)
-
-# =============================================================
-# 실시간 업데이트 버튼 (자동 상태 표시 + 자동 반영)
-# =============================================================
-st.markdown("---")
+# ── 실시간 업데이트 버튼 (자동 상태 표시 + 자동 반영) ──
 
 def _mb_status():
     if not st.session_state.get("mb_active"):
@@ -259,3 +209,63 @@ else:
         st.fragment(_mb_status, run_every=10)()
     else:
         _mb_status()
+
+st.markdown("")
+
+k = hour_metrics(d)
+_kpi_card = "background:#f7f7f9;border-radius:10px;padding:10px 12px;"
+_kpi_lab  = "font-size:0.7rem;color:#888;margin:0;"
+_kpi_val  = "font-size:1.15rem;font-weight:600;margin:2px 0 0;color:#222;"
+_kpi_items = [
+    ("💰 광고비", f"₩{int(k['spend']):,}"),
+    ("🛒 구매",   f"{int(k['conv']):,}"),
+    ("🎯 CPA",    f"₩{int(k['cpa']):,}"),
+    ("📈 CTR",    f"{k['ctr']:.2f}%"),
+]
+_kpi_cells = "".join(
+    f'<div style="{_kpi_card}"><p style="{_kpi_lab}">{_l}</p><p style="{_kpi_val}">{_v}</p></div>'
+    for _l, _v in _kpi_items
+)
+st.markdown(
+    f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;">{_kpi_cells}</div>',
+    unsafe_allow_html=True,
+)
+
+st.markdown("**⏰ 시간대별 성과**")
+view = st.radio("지표", ["기본", "효율"], horizontal=True,
+                label_visibility="collapsed", key="mb_view")
+
+rows = []
+for hr in sorted(d["시간"].unique()):
+    m = hour_metrics(d[d["시간"] == hr])
+    if view == "기본":
+        rows.append({
+            "시간":   f"{int(hr):02d}시",
+            "광고비": f"₩{int(m['spend']):,}",
+            "구매":   f"{int(m['conv']):,}",
+            "CPA":   f"₩{int(m['cpa']):,}",
+        })
+    else:
+        rows.append({
+            "시간":   f"{int(hr):02d}시",
+            "광고비": f"₩{int(m['spend']):,}",
+            "CPC":   f"₩{int(m['cpc']):,}",
+            "CVR":   f"{m['cvr']:.2f}%",
+            "CPA":   f"₩{int(m['cpa']):,}",
+        })
+if view == "기본":
+    rows.append({
+        "시간": "총합계",
+        "광고비": f"₩{int(k['spend']):,}",
+        "구매": f"{int(k['conv']):,}",
+        "CPA": f"₩{int(k['cpa']):,}",
+    })
+else:
+    rows.append({
+        "시간": "총합계",
+        "광고비": f"₩{int(k['spend']):,}",
+        "CPC": f"₩{int(k['cpc']):,}",
+        "CVR": f"{k['cvr']:.2f}%",
+        "CPA": f"₩{int(k['cpa']):,}",
+    })
+mobile_table(rows)
