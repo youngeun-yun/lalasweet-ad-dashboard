@@ -96,6 +96,18 @@ jobs:
             --start ${{ steps.target.outputs.date }} \
             --end ${{ steps.target.outputs.date }}
 
+      - name: 단쉐 시간대별 수집 (실시간 모드)
+        if: github.event.inputs.mode == 'today'
+        continue-on-error: true
+        env:
+          META_ACCESS_TOKEN: "${{ secrets.META_ACCESS_TOKEN }}"
+          META_AD_ACCOUNT_ID: "${{ secrets.META_AD_ACCOUNT_ID }}"
+          SPREADSHEET_ID: "${{ secrets.SPREADSHEET_ID }}"
+          GCP_SERVICE_ACCOUNT_JSON: "${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}"
+          SLACK_BOT_TOKEN: "${{ secrets.SLACK_BOT_TOKEN }}"
+          SLACK_USER_ID: "${{ secrets.SLACK_USER_ID }}"
+        run: python scripts/meta_hourly.py
+
       - name: 데이터 커밋 & 푸시
         run: |
           git config user.name "github-actions[bot]"
