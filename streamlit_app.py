@@ -892,9 +892,9 @@ with tab2:
 
 # --- TAB 4: 단쉐 요약 ---
 with tab4:
-    fdf_sk = fdf[fdf["소재명"].astype(str).str.contains("SK", na=False)].copy()
+    fdf_sk = fdf[fdf["캠페인명"].astype(str).str.contains("단백질", na=False)].copy()
     if fdf_sk.empty:
-        st.warning("단쉐(SK) 데이터가 없어요. 사이드바 필터를 확인해주세요.")
+        st.warning("단쉐(캠페인명에 단백질 포함) 데이터가 없어요. 사이드바 필터를 확인해주세요.")
     else:
         render_kpi(calc_kpi(fdf_sk))
         st.markdown("---")
@@ -907,7 +907,7 @@ with tab4:
         # 2. 스킴별 성과 (사이드바 필터와 무관하게 전체 기간 기준)
         st.markdown("**📋 스킴별 성과**")
         st.caption("사이드바 필터와 무관하게 전체 기간 데이터 기준입니다.")
-        df_sk_all = df[df["소재명"].astype(str).str.contains("SK", na=False)].copy()
+        df_sk_all = df[df["캠페인명"].astype(str).str.contains("단백질", na=False)].copy()
         sk_s1 = df_sk_all[(df_sk_all["날짜"] >= SK_SCHEME1_START) & (df_sk_all["날짜"] <= SK_SCHEME1_END)]
         sk_s2 = df_sk_all[(df_sk_all["날짜"] >= SK_SCHEME2_START) & (df_sk_all["날짜"] <= SK_SCHEME2_END)]
         sk_s3 = df_sk_all[(df_sk_all["날짜"] >= SK_SCHEME3_START) & (df_sk_all["날짜"] <= SK_SCHEME3_END)]
