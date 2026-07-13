@@ -936,42 +936,14 @@ with tab4:
         render_pinned_total_table(style_summary(prodcode_tbl, "제품코드"))
         st.markdown("---")
 
-        # 3. 260701 신규 소재 성과 (라라권위/타사비교/원재료강조)
-        st.markdown("**🎯 260701 신규 소재 성과**")
-        NEW_KEYWORDS = ["라라권위", "타사비교", "원재료강조"]
-        fdf_nw = fdf_sk[fdf_sk["소재명"].astype(str).str.contains("260701", na=False)].copy()
-        _nw_any = pd.Series(False, index=fdf_nw.index)
-        for _nw_kw in NEW_KEYWORDS:
-            _nw_any |= fdf_nw["소재명"].astype(str).str.contains(_nw_kw, na=False)
-        fdf_nw = fdf_nw[_nw_any]
-        if fdf_nw.empty:
-            st.info("조건에 맞는 소재 데이터가 없습니다. (소재명에 260701 + 라라권위/타사비교/원재료강조 포함)")
-        else:
-            _nw_cols = ["소재 구분", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
-            _nw_groups = []
-            for _nw_kw in NEW_KEYWORDS:
-                _nw_sub = fdf_nw[fdf_nw["소재명"].astype(str).str.contains(_nw_kw, na=False)]
-                if _nw_sub.empty:
-                    continue
-                _nw_ads = [
-                    (_an,
-                     perf_row(_an, _nw_sub[_nw_sub["소재명"] == _an], key_col="소재 구분"),
-                     _nw_sub[_nw_sub["소재명"] == _an]["광고비 (KRW)"].sum())
-                    for _an in _nw_sub["소재명"].unique()
-                ]
-                _nw_ads.sort(key=lambda x: x[2], reverse=True)
-                _nw_groups.append((
-                    _nw_kw,
-                    perf_row(_nw_kw, _nw_sub, key_col="소재 구분"),
-                    [(_a, _r) for _a, _r, _ in _nw_ads],
-                    _nw_sub["광고비 (KRW)"].sum(),
-                ))
-            _nw_groups.sort(key=lambda x: x[3], reverse=True)
-            render_tree_table(
-                [(_g[0], _g[1], _g[2]) for _g in _nw_groups],
-                perf_row("총합계", fdf_nw, key_col="소재 구분"),
-                _nw_cols,
-            )
+        # 3. 프로모션별 성과 (이벤트명 기준)
+        st.markdown("**🎪 프로모션별 성과**")
+        promo_tbl = build_summary_table(fdf_sk, "스킴명")
+        promo_tbl = promo_tbl.rename(columns={"스킴명": "이벤트명"})
+        _pr_total = promo_tbl[promo_tbl["이벤트명"] == "총합계"]
+        _pr_data  = promo_tbl[promo_tbl["이벤트명"] != "총합계"].sort_values("광고비", ascending=False)
+        promo_tbl = pd.concat([_pr_data, _pr_total], ignore_index=True)
+        render_pinned_total_table(style_summary(promo_tbl, "이벤트명"))
 
         st.markdown("---")
 
