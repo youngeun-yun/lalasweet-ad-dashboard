@@ -991,17 +991,39 @@ with tab4:
 
         st.markdown("---")
 
-        # 5. 영상 소재별 성과
-        st.markdown("**🎬 영상 소재별 성과**")
-        fdf_v = fdf_sk[fdf_sk["영상/이미지 구분"].astype(str).str.strip().str.upper() == "V"].copy()
-        if fdf_v.empty:
-            st.info("영상(V) 소재 데이터가 없습니다.")
+        # 5. 신규 소재 성과 (집행시작일 260706 이후, 시작일 → 소재명 펼침)
+        st.markdown("**🗓 신규 소재 성과 (집행시작일 260706~)**")
+        NEW_START_DATE = "260706"
+        fdf_ns = fdf_sk.copy()
+        if "집행시작일" in fdf_ns.columns:
+            fdf_ns = fdf_ns[
+                fdf_ns["집행시작일"].astype(str).str.match(r"^\d{6}$") &
+                (fdf_ns["집행시작일"].astype(str) >= NEW_START_DATE)
+            ]
         else:
-            _v_tbl = build_summary_table(fdf_v, "소재명")
-            _v_data  = _v_tbl[_v_tbl["소재명"] != "총합계"].sort_values("광고비", ascending=False)
-            _v_total = _v_tbl[_v_tbl["소재명"] == "총합계"]
-            _v_tbl = pd.concat([_v_data, _v_total], ignore_index=True)
-            render_pinned_total_table(style_summary(_v_tbl, "소재명"))
+            fdf_ns = fdf_ns.iloc[0:0]
+        if fdf_ns.empty:
+            st.info(f"집행시작일 {NEW_START_DATE} 이후 소재 데이터가 없습니다.")
+        else:
+            _ns_cols = ["집행시작일", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
+            _ns_groups = []
+            for _sd in sorted(fdf_ns["집행시작일"].astype(str).unique()):
+                _sd_sub = fdf_ns[fdf_ns["집행시작일"].astype(str) == _sd]
+                _ns_ads = [
+                    (_an,
+                     perf_row(_an, _sd_sub[_sd_sub["소재명"] == _an], key_col="집행시작일"),
+                     _sd_sub[_sd_sub["소재명"] == _an]["광고비 (KRW)"].sum())
+                    for _an in _sd_sub["소재명"].unique()
+                ]
+                _ns_ads.sort(key=lambda x: x[2], reverse=True)
+                _ns_groups.append((
+                    _sd,
+                    perf_row(_sd, _sd_sub, key_col="집행시작일"),
+                    [(_a, _r) for _a, _r, _ in _ns_ads],
+                ))
+            render_tree_table(_ns_groups,
+                              perf_row("총합계", fdf_ns, key_col="집행시작일"),
+                              _ns_cols)
 
 # =============================================================
 # 시간대별 탭 공통 렌더링
