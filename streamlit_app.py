@@ -66,6 +66,10 @@ SK_SCHEME2_END   = pd.Timestamp("2026-06-30")
 SK_SCHEME3_START = pd.Timestamp("2026-07-01")
 SK_SCHEME3_END   = pd.Timestamp("2026-07-05")
 SK_SCHEME4_START = pd.Timestamp("2026-07-06")  # 4차 스킴: 종료일 미정 (이후 전체)
+# --- 단쉐 노출 가중목 ---
+SK_GOAL_IMP   = 22_000_000
+SK_GOAL_START = pd.Timestamp("2026-07-15")
+SK_GOAL_END   = pd.Timestamp("2026-07-31")
 # --- 소재 유형 우선순위 ---
 CREATIVE_TYPES = [
     "맛페인포인트.5P소구",
@@ -732,7 +736,7 @@ kpi = calc_kpi(fdf)
 # 탭
 # =============================================================
 render_update_buttons()
-tab1, tab4, tab2, tab5, tab6 = st.tabs(["📊 전체 요약", "🥐 단쉐 요약", "🍿 팝콘 요약", "⏰ 단쉐 시간대별", "⏰ 팝콘 시간대별"])
+tab1, tab4, tab7, tab2, tab5, tab6 = st.tabs(["📊 전체 요약", "🥐 단쉐 요약", "🫐 블트하 요약", "🍿 팝콘 요약", "⏰ 단쉐 시간대별", "⏰ 팝콘 시간대별"])
 # --- TAB 1: 전체 요약 ---
 with tab1:
     render_kpi(kpi)
@@ -897,6 +901,33 @@ with tab4:
         st.warning("단쉐(캠페인명에 단백질/단쉐 포함) 데이터가 없어요. 사이드바 필터를 확인해주세요.")
     else:
         render_kpi(calc_kpi(fdf_sk))
+        st.markdown("---")
+
+        # 0. 가중목 현황 (노출 목표 트래킹)
+        st.markdown(f"**🎯 가중목 현황** ({SK_GOAL_START.strftime('%m/%d')}~{SK_GOAL_END.strftime('%m/%d')} · 노출 목표 {SK_GOAL_IMP:,})")
+        st.caption("사이드바 필터와 무관하게 전체 데이터 기준 · 당일 수치는 실시간 업데이트 후 반영됩니다.")
+        _g = df[df["캠페인명"].astype(str).str.contains("단백질|단쉐", na=False)]
+        _g = _g[(_g["날짜"] >= SK_GOAL_START) & (_g["날짜"] <= SK_GOAL_END)]
+        _g_imp  = int(_g["노출"].sum())
+        _g_rate = _g_imp / SK_GOAL_IMP * 100
+        _g_days_total  = (SK_GOAL_END - SK_GOAL_START).days + 1
+        _g_today = pd.Timestamp(pd.Timestamp.now(tz="Asia/Seoul").strftime("%Y-%m-%d"))
+        _g_days_passed = min(max((_g_today - SK_GOAL_START).days + 1, 0), _g_days_total)
+        _g_pace = _g_days_passed / _g_days_total * 100
+        gc1, gc2, gc3, gc4 = st.columns(4)
+        gc1.metric("🎯 목표 노출", f"{SK_GOAL_IMP:,}")
+        gc2.metric("👁 누적 노출", f"{_g_imp:,}")
+        gc3.metric("📈 달성률", f"{_g_rate:.1f}%")
+        gc4.metric("📅 일자 진척률", f"{_g_pace:.1f}%", f"{_g_days_passed}일차 / {_g_days_total}일", delta_color="off")
+        st.progress(min(_g_rate / 100, 1.0), text=f"노출 달성률 {_g_rate:.1f}%")
+        st.progress(min(_g_pace / 100, 1.0), text=f"일자 진척률 {_g_pace:.1f}% ({_g_days_passed}일차 / {_g_days_total}일)")
+        if _g_days_passed > 0:
+            _g_diff = _g_rate - _g_pace
+            _g_proj = int(_g_imp / _g_days_passed * _g_days_total)
+            if _g_diff >= 0:
+                st.caption(f"✅ 일자 진척률보다 {_g_diff:.1f}%p 앞서고 있어요 · 이 추세면 기간 말 약 {_g_proj:,} 노출 예상")
+            else:
+                st.caption(f"⚠️ 일자 진척률보다 {abs(_g_diff):.1f}%p 뒤처져 있어요 · 이 추세면 기간 말 약 {_g_proj:,} 노출 예상")
         st.markdown("---")
 
         # 1. 일별 광고비 & CPA
@@ -1125,3 +1156,110 @@ with tab5:
 # --- TAB 6: 팝콘 시간대별 ---
 with tab6:
     render_hourly_tab("팝콘_시간대별_원본", "pc")
+
+# --- TAB 7: 블트하 요약 ---
+with tab7:
+    fdf_bt = fdf[fdf["제품코드"].astype(str).str.contains("BT", na=False)].copy()
+    if fdf_bt.empty:
+        st.warning("블트하(제품코드 BT) 데이터가 없어요. 사이드바 필터를 확인해주세요.")
+    else:
+        render_kpi(calc_kpi(fdf_bt))
+        st.markdown("---")
+
+        # 1. 일별 광고비 & CPA
+        st.markdown("**📊 일별 광고비 & CPA**")
+        render_pinned_total_table(daily_table(fdf_bt))
+        st.markdown("---")
+
+        # 2. 제품코드별 성과
+        st.markdown("**📦 제품코드별 성과**")
+        bt_pc_tbl = build_summary_table(fdf_bt, "제품코드")
+        _btpc_total = bt_pc_tbl[bt_pc_tbl["제품코드"] == "총합계"]
+        _btpc_data  = bt_pc_tbl[bt_pc_tbl["제품코드"] != "총합계"].sort_values("광고비", ascending=False)
+        bt_pc_tbl = pd.concat([_btpc_data, _btpc_total], ignore_index=True)
+        render_pinned_total_table(style_summary(bt_pc_tbl, "제품코드"))
+        st.markdown("---")
+
+        # 3. KR별 성과 (I: 소분류 연출 그대로 / V: 소분류 연출의 온점 이후 텍스트)
+        st.markdown("**🔤 KR별 성과** (클릭하면 소재별 상세)")
+        fdf_kr = fdf_bt.copy()
+
+        def _kr_label(_row):
+            _dt = str(_row["소분류 연출"]).strip()
+            if not _dt or _dt == "nan":
+                return ""
+            _vi = str(_row["영상/이미지 구분"]).strip().upper()
+            if _vi == "V" and "." in _dt:
+                return _dt.rsplit(".", 1)[-1].strip()
+            return _dt
+
+        fdf_kr["_KR"] = fdf_kr.apply(_kr_label, axis=1)
+        fdf_kr = fdf_kr[fdf_kr["_KR"] != ""]
+        if fdf_kr.empty:
+            st.info("KR 구분이 있는 소재 데이터가 없습니다.")
+        else:
+            _kr_cols = ["KR 구분", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
+            _kr_groups = []
+            for _kr, _kr_sub in fdf_kr.groupby("_KR"):
+                _kr_ads = [
+                    (_an,
+                     perf_row(_an, _kr_sub[_kr_sub["소재명"] == _an], key_col="KR 구분"),
+                     _kr_sub[_kr_sub["소재명"] == _an]["광고비 (KRW)"].sum())
+                    for _an in _kr_sub["소재명"].unique()
+                ]
+                _kr_ads.sort(key=lambda x: x[2], reverse=True)
+                _kr_groups.append((
+                    str(_kr),
+                    perf_row(str(_kr), _kr_sub, key_col="KR 구분"),
+                    [(_a, _r) for _a, _r, _ in _kr_ads],
+                    _kr_sub["광고비 (KRW)"].sum(),
+                ))
+            _kr_groups.sort(key=lambda x: x[3], reverse=True)
+            render_tree_table(
+                [(_g2[0], _g2[1], _g2[2]) for _g2 in _kr_groups],
+                perf_row("총합계", fdf_kr, key_col="KR 구분"),
+                _kr_cols,
+            )
+        st.markdown("---")
+
+        # 4. 영상 포맷별 성과 (광고유형 V, 대분류 포맷 → 소분류 연출 → 소재명)
+        st.markdown("**🎞 영상 포맷별 성과**")
+        fdf_btv = fdf_bt[fdf_bt["영상/이미지 구분"].astype(str).str.strip().str.upper() == "V"].copy()
+        fdf_btv = fdf_btv[fdf_btv["대분류 포맷"].astype(str).str.strip() != ""]
+        if fdf_btv.empty:
+            st.info("영상(V) 소재 데이터가 없습니다.")
+        else:
+            _btv_cols = ["영상 포맷", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
+            _btv_groups = []
+            for _btv_fmt, _btv_sub in fdf_btv.groupby("대분류 포맷"):
+                if not str(_btv_fmt).strip():
+                    continue
+                _btv_kids = []
+                for _btv_dt, _btv_ssub in _btv_sub.groupby("소분류 연출"):
+                    _btv_label = str(_btv_dt).strip() or "(미분류)"
+                    _btv_ads = [
+                        (_an,
+                         perf_row(_an, _btv_ssub[_btv_ssub["소재명"] == _an], key_col="영상 포맷"),
+                         _btv_ssub[_btv_ssub["소재명"] == _an]["광고비 (KRW)"].sum())
+                        for _an in _btv_ssub["소재명"].unique()
+                    ]
+                    _btv_ads.sort(key=lambda x: x[2], reverse=True)
+                    _btv_kids.append((
+                        _btv_label,
+                        perf_row(_btv_label, _btv_ssub, key_col="영상 포맷"),
+                        [(_a, _r) for _a, _r, _ in _btv_ads],
+                        _btv_ssub["광고비 (KRW)"].sum(),
+                    ))
+                _btv_kids.sort(key=lambda x: x[3], reverse=True)
+                _btv_groups.append((
+                    str(_btv_fmt),
+                    perf_row(str(_btv_fmt), _btv_sub, key_col="영상 포맷"),
+                    [(_a, _r, _k) for _a, _r, _k, _ in _btv_kids],
+                    _btv_sub["광고비 (KRW)"].sum(),
+                ))
+            _btv_groups.sort(key=lambda x: x[3], reverse=True)
+            render_tree_table3(
+                [(_g2[0], _g2[1], _g2[2]) for _g2 in _btv_groups],
+                perf_row("총합계", fdf_btv, key_col="영상 포맷"),
+                _btv_cols,
+            )
