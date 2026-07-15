@@ -1,1268 +1,544 @@
-# -*- coding: utf-8 -*-
-"""
-라라스윗 광고 대시보드
-Streamlit + Plotly | 데이터 소스: Google Sheets (통합RD_원본)
-"""
-import html as _html
-import re
-import time
-import uuid
-import requests
-import streamlit as st
-import streamlit.components.v1 as components
-import pandas as pd
-import plotly.graph_objects as go
-import plotly.express as px
-import gspread
-from google.oauth2.service_account import Credentials
-from datetime import date, timedelta
-# --- 페이지 설정 ---
-st.set_page_config(
-    page_title="라라스윗 광고 대시보드",
-    page_icon="🍬",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-# --- 커스텀 CSS ---
-st.markdown("""
-<style>
-    .block-container { padding-top: 3rem; padding-bottom: 1rem; max-width: 1400px; }
-    [data-testid="stMetricValue"] { font-size: 1.75rem; font-weight: 600; }
-    [data-testid="stMetricLabel"] { font-size: 0.8rem; color: #888; }
-    [data-testid="stMetricDelta"] { font-size: 0.85rem; }
-    [data-testid="stSidebar"] { background: #fafafa; }
-    [data-testid="stSidebarNav"] { display: none; }
-    [data-testid="stSidebar"] h2 { font-size: 0.95rem !important; margin-bottom: 0.2rem; }
-    [data-testid="stSidebar"] p,
-    [data-testid="stSidebar"] label,
-    [data-testid="stSidebar"] .stMarkdown p { font-size: 0.75rem !important; }
-    [data-testid="stSidebar"] [data-testid="stMultiSelect"] { font-size: 0.75rem; }
-    [data-testid="stSidebar"] button { font-size: 0.75rem !important; }
-    [data-testid="stSidebar"] .stCaption { font-size: 0.68rem !important; }
-    div[data-testid="stTabs"] button { font-size: 0.9rem; font-weight: 500; }
-    .stButton button p { white-space: nowrap; }
-    .stDataFrame { border-radius: 8px; overflow: hidden; }
-    footer { visibility: hidden; }
-</style>
-""", unsafe_allow_html=True)
-# --- 브랜드 컬러 ---
-PALETTE = ["#F4845F", "#7BAFD4", "#82C9A7", "#B5A8E0",
-           "#F7B97A", "#85C1B2", "#F49AC2", "#A8D5BA"]
-BAR_PALETTE = ["#F4845F", "#7BAFD4", "#F7B97A", "#82C9A7",
-               "#F49AC2", "#B5A8E0", "#E8A87C", "#85C1B2"]
-TOTAL_BG   = "#FFF0E6"
-TOTAL_FG   = "#B84A00"
-TOTAL_FONT = "bold"
-# --- 5P구성 기준일 ---
-PC_BEFORE_START = pd.Timestamp("2026-06-01")
-PC_BEFORE_END   = pd.Timestamp("2026-06-16")
-PC_AFTER_START  = pd.Timestamp("2026-06-17")
-PC_AFTER_END    = pd.Timestamp("2026-06-30")
-# --- 단쉐 스킴 기준일 ---
-SK_SCHEME1_START = pd.Timestamp("2026-06-24")
-SK_SCHEME1_END   = pd.Timestamp("2026-06-26")
-SK_SCHEME2_START = pd.Timestamp("2026-06-27")
-SK_SCHEME2_END   = pd.Timestamp("2026-06-30")
-SK_SCHEME3_START = pd.Timestamp("2026-07-01")
-SK_SCHEME3_END   = pd.Timestamp("2026-07-05")
-SK_SCHEME4_START = pd.Timestamp("2026-07-06")  # 4차 스킴: 종료일 미정 (이후 전체)
-# --- 블트하 노출 가중목 ---
-BT_GOAL_IMP   = 22_000_000
-BT_GOAL_START = pd.Timestamp("2026-07-15")
-BT_GOAL_END   = pd.Timestamp("2026-07-31")
-# --- 소재 유형 우선순위 ---
-CREATIVE_TYPES = [
-    "맛페인포인트.5P소구",
-    "메시지검증.5P소구",
-    "맛페인포인트",
-    "5P소구",
-]
-# =============================================================
-# 헬퍼 함수
-# =============================================================
-def _esc(v) -> str:
-    return _html.escape(str(v))
-def render_pinned_total_table(df: pd.DataFrame, compact: bool = False) -> None:
-    _tw = "100%"
-    if compact:
-        _hl_map  = {"광고비": "background:#FFF9F1;", "CPA": "background:#F2F6FC;"}
-        _hlh_map = {"광고비": "background:#FFF3E4;color:#9A5B1F;", "CPA": "background:#EAF1FB;color:#2D5586;"}
-        col_extra  = [_hl_map.get(str(c), "") for c in df.columns]
-        head_extra = [_hlh_map.get(str(c), "") for c in df.columns]
-        colgroup = "<colgroup><col>" + '<col style="width:8.5%">' * (len(df.columns) - 1) + "</colgroup>"
-    else:
-        col_extra  = ["" for _ in df.columns]
-        head_extra = ["" for _ in df.columns]
-        colgroup = ""
-    tid = "tbl_" + uuid.uuid4().hex[:8]
-    first_col = df.columns[0]
-    data  = df[df[first_col] != "총합계"].reset_index(drop=True)
-    total = df[df[first_col] == "총합계"]
-    th = ("padding:7px 10px; text-align:left; background:#f0f2f6;"
-          "border-bottom:2px solid #ddd; font-size:0.82rem;"
-          "white-space:nowrap; cursor:pointer; user-select:none;")
-    td = "padding:6px 10px; border-bottom:1px solid #eee; font-size:0.82rem; white-space:nowrap;"
-    tf = (f"padding:6px 10px; font-size:0.82rem; white-space:nowrap;"
-          f"background:{TOTAL_BG}; color:{TOTAL_FG}; font-weight:{TOTAL_FONT};"
-          f"border-top:2px solid #ddd;")
-    hdr = "".join(
-        f'<th style="{th}{head_extra[i]}" onclick="sortTbl(\'{tid}\',{i})" data-order="">'
-        f'{_esc(col)} <span style="color:#bbb;font-size:0.7rem">&#x21C5;</span></th>'
-        for i, col in enumerate(df.columns)
-    )
-    bdy = "".join(
-        "<tr>" + "".join(f'<td style="{td}{col_extra[j]}">{_esc(v)}</td>'
-                         for j, v in enumerate(row)) + "</tr>"
-        for _, row in data.iterrows()
-    )
-    ftr = ("".join(
-        "<tr>" + "".join(f'<td style="{tf}">{_esc(v)}</td>' for v in row) + "</tr>"
-        for _, row in total.iterrows()
-    ) if not total.empty else "")
-    js = (
-        "function sortTbl(tid,col){"
-        "var tbl=document.getElementById(tid);"
-        "var tbody=tbl.querySelector('tbody');"
-        "var ths=tbl.querySelectorAll('thead th');"
-        "var asc=ths[col].dataset.order!=='asc';"
-        "ths.forEach(function(h){h.dataset.order='';h.querySelector('span').innerHTML='&#x21C5;';});"
-        "ths[col].dataset.order=asc?'asc':'desc';"
-        "ths[col].querySelector('span').innerHTML=asc?'&#x2191;':'&#x2193;';"
-        "var rows=Array.from(tbody.querySelectorAll('tr'));"
-        "rows.sort(function(a,b){"
-        "var va=a.cells[col].textContent.replace(/[\\u20a9%,\\s]/g,'');"
-        "var vb=b.cells[col].textContent.replace(/[\\u20a9%,\\s]/g,'');"
-        "var na=parseFloat(va),nb=parseFloat(vb);"
-        "if(!isNaN(na)&&!isNaN(nb))return asc?na-nb:nb-na;"
-        "return asc?va.localeCompare(vb,'ko'):vb.localeCompare(va,'ko');"
-        "});"
-        "rows.forEach(function(r){tbody.appendChild(r);});"
-        "}"
-    )
-    html = (
-        '<div style="overflow-x:auto; border-radius:8px; border:1px solid #e0e0e0;">'
-        f'<table id="{tid}" style="width:{_tw}; border-collapse:collapse;">{colgroup}'
-        f'<thead><tr>{hdr}</tr></thead>'
-        f'<tbody>{bdy}</tbody>'
-        f'<tfoot>{ftr}</tfoot>'
-        f'</table></div>'
-        f'<script>{js}</script>'
-    )
-    height = max(150, 52 + len(data) * 34 + (38 if not total.empty else 0))
-    components.html(html, height=height, scrolling=False)
-def build_summary_table(data: pd.DataFrame, group_col: str, label_fn=None) -> pd.DataFrame:
-    grp = (
-        data.groupby(group_col)
-        .agg(광고비=("광고비 (KRW)", "sum"), 노출=("노출", "sum"),
-             링크클릭=("클릭", "sum"), 구매=("전환수", "sum"))
-        .reset_index()
-    )
-    grp["CTR"] = (grp["링크클릭"] / grp["노출"].replace(0, float("nan")) * 100).fillna(0)
-    grp["CPC"] = (grp["광고비"] / grp["링크클릭"].replace(0, float("nan"))).fillna(0)
-    grp["CVR"] = (grp["구매"] / grp["링크클릭"].replace(0, float("nan")) * 100).fillna(0)
-    grp["CPA"] = (grp["광고비"] / grp["구매"].replace(0, float("nan"))).fillna(0)
-    tot = grp[["광고비", "노출", "링크클릭", "구매"]].sum()
-    grp = pd.concat([grp, pd.DataFrame([{
-        group_col:  "총합계",
-        "광고비":   tot["광고비"],
-        "노출":     tot["노출"],
-        "링크클릭": tot["링크클릭"],
-        "구매":     tot["구매"],
-        "CTR": tot["링크클릭"] / tot["노출"] * 100 if tot["노출"] > 0 else 0,
-        "CPC": tot["광고비"] / tot["링크클릭"] if tot["링크클릭"] > 0 else 0,
-        "CVR": tot["구매"] / tot["링크클릭"] * 100 if tot["링크클릭"] > 0 else 0,
-        "CPA": tot["광고비"] / tot["구매"] if tot["구매"] > 0 else 0,
-    }])], ignore_index=True)
-    if label_fn:
-        grp[group_col] = grp[group_col].apply(lambda x: label_fn(x) if x != "총합계" else x)
-    return grp
-def style_summary(df: pd.DataFrame, first_col: str) -> pd.DataFrame:
-    s = df.copy()
-    s["광고비"]   = s["광고비"].apply(lambda x: f"₩{int(x):,}")
-    s["노출"]     = s["노출"].apply(lambda x: f"{int(x):,}")
-    s["링크클릭"] = s["링크클릭"].apply(lambda x: f"{int(x):,}")
-    s["구매"]     = s["구매"].apply(lambda x: f"{int(x):,}")
-    s["CTR"]     = s["CTR"].apply(lambda x: f"{x:.2f}%")
-    s["CPC"]     = s["CPC"].apply(lambda x: f"{int(x):,}")
-    s["CVR"]     = s["CVR"].apply(lambda x: f"{x:.2f}%")
-    s["CPA"]     = s["CPA"].apply(lambda x: f"{int(x):,}")
-    return s.rename(columns={"링크클릭": "링크 클릭"})
-def perf_row(label: str, d: pd.DataFrame, key_col: str = "구분") -> dict:
-    s = d["광고비 (KRW)"].sum()
-    i = d["노출"].sum()
-    c = d["클릭"].sum()
-    v = d["전환수"].sum()
-    return {
-        key_col:     label,
-        "광고비":    f"₩{int(s):,}",
-        "노출":      f"{int(i):,}",
-        "링크 클릭": f"{int(c):,}",
-        "구매":      f"{int(v):,}",
-        "CTR":      f"{c/i*100:.2f}%" if i > 0 else "0.00%",
-        "CPC":      f"{int(s/c):,}" if c > 0 else "0",
-        "CVR":      f"{v/c*100:.2f}%" if c > 0 else "0.00%",
-        "CPA":      f"{int(s/v):,}" if v > 0 else "0",
-    }
-def hr_perf_row(label: str, d: pd.DataFrame, key_col: str = "구분") -> dict:
-    """perf_row + CPM (시간대별 테이블용)"""
-    r = perf_row(label, d, key_col=key_col)
-    s = d["광고비 (KRW)"].sum()
-    i = d["노출"].sum()
-    r["CPM"] = f"{int(s / i * 1000):,}" if i > 0 else "0"
-    return r
-def render_tree_table(groups, total_row, cols) -> None:
-    """접기/펼치기 트리 테이블 (CSS 체크박스 방식, iframe 미사용).
-    페이지 흐름에 직접 렌더링되어 접힌 상태에선 공백이 없고,
-    펼치면 그만큼 아래 콘텐츠가 자연스럽게 밀려난다.
-    groups: [(부모라벨, 부모행dict, [(자식라벨, 자식행dict), ...]), ...]
-    total_row: 총합계 행 dict / cols: 컬럼 순서 (첫 컬럼 = 구분)
-    """
-    tid  = "tt" + uuid.uuid4().hex[:8]
-    th   = ("padding:7px 10px;text-align:left;background:#f0f2f6;"
-            "border-bottom:2px solid #ddd;font-size:0.82rem;white-space:nowrap;")
-    tdp  = "padding:6px 10px;border-bottom:1px solid #eee;font-size:0.82rem;white-space:nowrap;"
-    tdc1 = ("padding:5px 10px 5px 28px;border-bottom:1px solid #f5f5f5;"
-            "font-size:0.80rem;white-space:nowrap;color:#555;background:#fafcff;")
-    tdcn = ("padding:5px 10px;border-bottom:1px solid #f5f5f5;"
-            "font-size:0.80rem;white-space:nowrap;color:#555;background:#fafcff;")
-    tft  = (f"padding:6px 10px;font-size:0.82rem;white-space:nowrap;"
-            f"background:{TOTAL_BG};color:{TOTAL_FG};font-weight:{TOTAL_FONT};"
-            f"border-top:2px solid #ddd;")
-    css = (
-        f"<style>"
-        f"#{tid} tr.ttc{{display:none;}}"
-        f"#{tid} span.tti::before{{content:'▶';font-size:0.7rem;color:#888;}}"
-        f"#{tid} label{{cursor:pointer;display:block;margin:0;font-weight:inherit;}}"
-        + "".join(
-            f"#{tid} tr.ttp{i}:has(input:checked) ~ tr.ttc{i}{{display:table-row;}}"
-            f"#{tid} tr.ttp{i}:has(input:checked) span.tti::before{{content:'▼';}}"
-            for i in range(len(groups))
-        )
-        + "</style>"
-    )
-    hdr = "".join(f'<th style="{th}">{_esc(c)}</th>' for c in cols)
-    body = ""
-    for i, (plabel, prow, children) in enumerate(groups):
-        cb = f"{tid}cb{i}"
-        first = (f'<td style="{tdp}padding:0;">'
-                 f'<label for="{cb}" style="padding:6px 10px;">'
-                 f'<input type="checkbox" id="{cb}" style="display:none;">'
-                 f'<span class="tti" style="display:inline-block;width:14px;"></span>'
-                 f'{_esc(plabel)}</label></td>')
-        rest = "".join(f'<td style="{tdp}">{_esc(prow[c])}</td>' for c in cols[1:])
-        body += f'<tr class="ttp{i}">{first}{rest}</tr>'
-        for clabel, crow in children:
-            c1 = f'<td style="{tdc1}">{_esc(clabel)}</td>'
-            cr = "".join(f'<td style="{tdcn}">{_esc(crow[c])}</td>' for c in cols[1:])
-            body += f'<tr class="ttc ttc{i}">{c1}{cr}</tr>'
-    ftd = "".join(f'<td style="{tft}">{_esc(total_row[c])}</td>' for c in cols)
-    html = (
-        css
-        + '<div style="overflow-x:auto;border-radius:8px;border:1px solid #e0e0e0;">'
-        f'<table id="{tid}" style="width:100%;border-collapse:collapse;">'
-        f'<thead><tr>{hdr}</tr></thead>'
-        f'<tbody>{body}</tbody>'
-        f'<tfoot><tr>{ftd}</tr></tfoot>'
-        '</table></div>'
-    )
-    st.markdown(html, unsafe_allow_html=True)
-def render_tree_table3(groups, total_row, cols, compact: bool = False) -> None:
-    """3단계 접기/펼치기 트리 테이블 (부모 → 자식 → 손자, CSS 체크박스 방식).
-    groups: [(부모라벨, 부모행, [(자식라벨, 자식행, [(손자라벨, 손자행), ...]), ...]), ...]
-    """
-    tid  = "tt" + uuid.uuid4().hex[:8]
-    th   = ("padding:7px 10px;text-align:left;background:#f0f2f6;"
-            "border-bottom:2px solid #ddd;font-size:0.82rem;white-space:nowrap;")
-    tdp  = "padding:6px 10px;border-bottom:1px solid #eee;font-size:0.82rem;white-space:nowrap;"
-    tdc1 = ("border-bottom:1px solid #f5f5f5;"
-            "font-size:0.80rem;white-space:nowrap;color:#555;background:#fafcff;")
-    tdcn = ("padding:5px 10px;border-bottom:1px solid #f5f5f5;"
-            "font-size:0.80rem;white-space:nowrap;color:#555;background:#fafcff;")
-    tdg1 = ("padding:4px 10px 4px 46px;border-bottom:1px solid #f8f8f8;"
-            "font-size:0.78rem;white-space:nowrap;color:#777;background:#f4f8fd;")
-    tdgn = ("padding:4px 10px;border-bottom:1px solid #f8f8f8;"
-            "font-size:0.78rem;white-space:nowrap;color:#777;background:#f4f8fd;")
-    tft  = (f"padding:6px 10px;font-size:0.82rem;white-space:nowrap;"
-            f"background:{TOTAL_BG};color:{TOTAL_FG};font-weight:{TOTAL_FONT};"
-            f"border-top:2px solid #ddd;")
-    css_rules = [
-        f"#{tid} tr.ttc{{display:none;}}",
-        f"#{tid} span.tti::before{{content:'▶';font-size:0.7rem;color:#888;}}",
-        f"#{tid} label{{cursor:pointer;display:block;margin:0;font-weight:inherit;}}",
-    ]
-    for i, (_, _, children) in enumerate(groups):
-        css_rules.append(f"#{tid} tr.ttp{i}:has(input:checked) ~ tr.ttq{i}{{display:table-row;}}")
-        css_rules.append(f"#{tid} tr.ttp{i}:has(input:checked) span.tti::before{{content:'▼';}}")
-        for j in range(len(children)):
-            css_rules.append(
-                f"#{tid} tr.ttp{i}:has(input:checked) ~ tr.ttq{i}_{j}:has(input:checked)"
-                f" ~ tr.ttg{i}_{j}{{display:table-row;}}")
-            css_rules.append(f"#{tid} tr.ttq{i}_{j}:has(input:checked) span.tti::before{{content:'▼';}}")
-    css = "<style>" + "".join(css_rules) + "</style>"
-    hl  = {"광고비": "background:#FFF9F1;", "CPA": "background:#F2F6FC;"} if compact else {}
-    hlh = {"광고비": "background:#FFF3E4;color:#9A5B1F;", "CPA": "background:#EAF1FB;color:#2D5586;"} if compact else {}
-    colgr = ("<colgroup><col>" + '<col style="width:8.5%">' * (len(cols) - 1) + "</colgroup>") if compact else ""
-    hdr = "".join(f'<th style="{th}{hlh.get(c, "")}">{_esc(c)}</th>' for c in cols)
-    body = ""
-    for i, (plabel, prow, children) in enumerate(groups):
-        cbp = f"{tid}p{i}"
-        first = (f'<td style="{tdp}padding:0;">'
-                 f'<label for="{cbp}" style="padding:6px 10px;">'
-                 f'<input type="checkbox" id="{cbp}" style="display:none;">'
-                 f'<span class="tti" style="display:inline-block;width:14px;"></span>'
-                 f'{_esc(plabel)}</label></td>')
-        rest = "".join(f'<td style="{tdp}{hl.get(c, "")}">{_esc(prow[c])}</td>' for c in cols[1:])
-        body += f'<tr class="ttp{i}">{first}{rest}</tr>'
-        for j, (clabel, crow, grands) in enumerate(children):
-            cbq = f"{tid}q{i}_{j}"
-            cfirst = (f'<td style="{tdc1}padding:0;">'
-                      f'<label for="{cbq}" style="padding:5px 10px 5px 28px;">'
-                      f'<input type="checkbox" id="{cbq}" style="display:none;">'
-                      f'<span class="tti" style="display:inline-block;width:14px;"></span>'
-                      f'{_esc(clabel)}</label></td>')
-            crest = "".join(f'<td style="{tdcn}{hl.get(c, "")}">{_esc(crow[c])}</td>' for c in cols[1:])
-            body += f'<tr class="ttc ttq{i} ttq{i}_{j}">{cfirst}{crest}</tr>'
-            for glabel, grow in grands:
-                g1 = f'<td style="{tdg1}">{_esc(glabel)}</td>'
-                gr = "".join(f'<td style="{tdgn}{hl.get(c, "")}">{_esc(grow[c])}</td>' for c in cols[1:])
-                body += f'<tr class="ttc ttg{i}_{j}">{g1}{gr}</tr>'
-    ftd = "".join(f'<td style="{tft}">{_esc(total_row[c])}</td>' for c in cols)
-    html = (
-        css
-        + '<div style="overflow-x:auto;border-radius:8px;border:1px solid #e0e0e0;">'
-        f'<table id="{tid}" style="width:100%;border-collapse:collapse;">{colgr}'
-        f'<thead><tr>{hdr}</tr></thead>'
-        f'<tbody>{body}</tbody>'
-        f'<tfoot><tr>{ftd}</tr></tfoot>'
-        '</table></div>'
-    )
-    st.markdown(html, unsafe_allow_html=True)
-def daily_table(d: pd.DataFrame) -> pd.DataFrame:
-    grp = (
-        d.groupby(d["날짜"].dt.date)
-        .agg(spend=("광고비 (KRW)", "sum"), imp=("노출", "sum"),
-             clk=("클릭", "sum"), conv=("전환수", "sum"))
-        .reset_index().rename(columns={"날짜": "date"})
-        .sort_values("date")
-    )
-    grp["CTR"] = (grp["clk"] / grp["imp"].replace(0, float("nan")) * 100).fillna(0)
-    grp["CPC"] = (grp["spend"] / grp["clk"].replace(0, float("nan"))).fillna(0)
-    grp["CVR"] = (grp["conv"] / grp["clk"].replace(0, float("nan")) * 100).fillna(0)
-    grp["CPA"] = (grp["spend"] / grp["conv"].replace(0, float("nan"))).fillna(0)
-    tbl = pd.DataFrame({
-        "일":        grp["date"].astype(str),
-        "광고비":    grp["spend"].apply(lambda x: f"₩{int(x):,}"),
-        "노출":      grp["imp"].apply(lambda x: f"{int(x):,}"),
-        "링크 클릭": grp["clk"].apply(lambda x: f"{int(x):,}"),
-        "구매":      grp["conv"].apply(lambda x: f"{int(x):,}"),
-        "CTR":      grp["CTR"].apply(lambda x: f"{x:.2f}%"),
-        "CPC":      grp["CPC"].apply(lambda x: f"{int(x):,}"),
-        "CVR":      grp["CVR"].apply(lambda x: f"{x:.2f}%"),
-        "CPA":      grp["CPA"].apply(lambda x: f"{int(x):,}"),
-    })
-    ts, ti, tc, tv = grp["spend"].sum(), grp["imp"].sum(), grp["clk"].sum(), grp["conv"].sum()
-    total = pd.DataFrame([{
-        "일":        "총합계",
-        "광고비":    f"₩{int(ts):,}",
-        "노출":      f"{int(ti):,}",
-        "링크 클릭": f"{int(tc):,}",
-        "구매":      f"{int(tv):,}",
-        "CTR":      f"{tc/ti*100:.2f}%" if ti > 0 else "0.00%",
-        "CPC":      f"{int(ts/tc):,}" if tc > 0 else "0",
-        "CVR":      f"{tv/tc*100:.2f}%" if tc > 0 else "0.00%",
-        "CPA":      f"{int(ts/tv):,}" if tv > 0 else "0",
-    }])
-    return pd.concat([tbl, total], ignore_index=True)
-def valid_opts(df: pd.DataFrame, col: str) -> list:
-    grp = df.groupby(col)["노출"].sum()
-    return sorted([str(v) for v, imp in grp.items()
-                   if str(v).strip() != "" and imp > 0])
-def week_label(ws) -> str:
-    if ws == "총합계":
-        return ws
-    return f"{ws.strftime('%m/%d')}~{(ws + timedelta(days=6)).strftime('%m/%d')}"
-def classify_creative(ad_name: str):
-    for t in CREATIVE_TYPES:
-        if t in str(ad_name):
-            return t
-    return None
-def calc_kpi(d: pd.DataFrame) -> dict:
-    spend = d["광고비 (KRW)"].sum()
-    imp   = d["노출"].sum()
-    clk   = d["클릭"].sum()
-    conv  = d["전환수"].sum()
-    return dict(spend=spend, imp=imp, clk=clk, conv=conv,
-                ctr=clk / imp * 100 if imp > 0 else 0,
-                cpa=spend / conv if conv > 0 else 0)
-def fmt_krw(v: float) -> str:
-    return f"₩{int(v):,}"
-def fmt_num(v: float) -> str:
-    return f"{int(v):,}"
-def render_kpi(k: dict) -> None:
-    c1, c2, c3, c4, c5, c6 = st.columns(6)
-    c1.metric("💰 광고비", fmt_krw(k["spend"]))
-    c2.metric("👁 노출",   fmt_num(k["imp"]))
-    c3.metric("🖱 클릭",   fmt_num(k["clk"]))
-    c4.metric("🛒 전환수", fmt_num(k["conv"]))
-    c5.metric("📈 CTR",    f"{k['ctr']:.2f}%")
-    c6.metric("🎯 CPA",    fmt_krw(k["cpa"]))
-# =============================================================
-# 데이터 업데이트 (GitHub Actions 트리거)
-# =============================================================
-GH_OWNER         = "youngeun-yun"
-GH_REPO          = "lalasweet-ad-dashboard"
-REFRESH_WORKFLOW = "refresh.yml"
+const SimpleMetaService = require('../services/simpleMetaService');
+const cafe24Service = require('../services/cafe24Service');
+const tiktokService = require('../services/tiktokService');
+const { getDistribution, buildDistributionBlocks } = require('../services/orderDistributionService');
+const { getNow, getYesterdayKST, makeMessenger } = require('../utils');
+const { saveSnapshot, loadSnapshot, clearSnapshot } = require('../services/proteinSnapshotService');
 
-def _gh_headers():
-    return {
-        "Authorization": f"Bearer {st.secrets['github_token']}",
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
+const metaService = new SimpleMetaService();
+
+const TOKEN_URL = 'https://lalasweet17.cafe24api.com/api/v2/oauth/authorize?response_type=code&client_id=125DtymxJVUnP0KbGnXRtC&state=slack&redirect_uri=https%3A%2F%2Fcafe24-ad-bot-production.up.railway.app%2Foauth%2Fcallback&scope=mall.read_order%2Cmall.read_product';
+const TOKEN_ERROR_MSG = `❌ 카페24 토큰이 만료되었습니다.\n──────────────────────\n아래 링크로 접속하여 카페24 로그인 후 토큰 발급을 해주세요.\n<${TOKEN_URL}|👉 카페24 토큰 발급 링크>`;
+
+// 제과 전체 상품코드 (팝콘+990딜+웨하스+퍼프+아몬드스윗제과+꼬숩두유+블트깡) — 단백질쉐이크(226, 235, 238)만 제외
+// 239, 255: 신규 팝콘 상품 (2026-07 옵션 개편) / 236: 블트깡 (2026-07-15부터 제과 총 현황에 포함)
+const JEGWA_ALL_PRODUCT_NOS = [135, 161, 239, 255, 193, 156, 175, 178, 140, 167, 236];
+
+// 팝콘 상품번호 (구 135+161, 신 239+255)
+const POPCORN_PRODUCT_NOS = [135, 161, 239, 255];
+
+const PROFIT_RATES = {
+  팝콘: 0.45,
+  아몬드스윗: -0.374,
+  블트깡: 0.485, // 블트깡 주문 0건일 때 폴백 (평시에는 BLT_SET_RATES 가중평균 사용)
+};
+
+// ── 블랙트러플 하몽깡(236) 구성별 수익률 (묶음 선택 개입 수 기준) ──
+// 실제 판매비중으로 가중평균 자동 계산. 구성 추가/수익률 변경 시 여기만 수정
+const BLT_SET_RATES = {
+  10: 0.522,
+  15: 0.481,
+  20: 0.495,
+  30: 0.461,
+};
+
+// ── 단백질쉐이크 226 세트별 수익률 (신 포맷 기준: 1/2/3/4/6/8세트) ──
+const COUPON_RATIO = 0.45;
+const PROTEIN_SET_BASE_RATES = {
+  coupon:   { 1: 0.498, 2: 0.404, 3: 0.436, 4: 0.318, 6: 0.280, 8: 0.214 },
+  noCoupon: { 1: 0.498, 2: 0.444, 3: 0.462, 4: 0.346, 6: 0.302, 8: 0.234 },
+};
+const PROTEIN_SET_RATES = Object.fromEntries(
+  Object.keys(PROTEIN_SET_BASE_RATES.coupon).map(set => [
+    parseInt(set),
+    COUPON_RATIO * PROTEIN_SET_BASE_RATES.coupon[set] + (1 - COUPON_RATIO) * PROTEIN_SET_BASE_RATES.noCoupon[set],
+  ])
+);
+
+// 990딜(235)은 판매 종료로 손익 표시에서 완전 제거 (2026-07-15). 세트별 수익률 상수 필요 시 git 히스토리 참조
+const PROTEIN_CONFIG = {
+  미끼수익률: 0.49,
+  품절이후수익률: 0.3482,
+  단일수익률구간: [
+    { from: '2026-06-27', rate: 0.4534, label: '45.34%' },
+    { from: '2026-07-01', rate: 0.40,   label: '40%'    },
+    { from: '2026-07-02', rate: 0.2762, label: '27.62%' },
+    { from: '2026-07-06', rate: 0.3482, label: '34.82%' },
+  ],
+};
+
+// ─────────────────────────────────────────
+// 제품별 추가 비용 (알림톡 등) — 평소에는 0
+// ─────────────────────────────────────────
+const EXTRA_COST = {
+  팝콘: { amount: 850000, date: '2026-07-01' },
+};
+
+// ─────────────────────────────────────────
+// 세트별 가중평균 수익률 계산 헬퍼
+// ─────────────────────────────────────────
+function calcWeightedRate(setCounts, fallback, rates = PROTEIN_SET_RATES) {
+  const totalCount = Object.values(setCounts || {}).reduce((a, b) => a + b, 0);
+  if (totalCount === 0) return { rate: fallback, label: `${(fallback * 100).toFixed(2)}%`, totalCount: 0 };
+  const rate = Object.entries(setCounts).reduce((sum, [set, count]) => {
+    return sum + (rates[parseInt(set)] || 0) * count;
+  }, 0) / totalCount;
+  return { rate, label: `${(rate * 100).toFixed(2)}%`, totalCount };
+}
+
+const DASHBOARD_URL = 'https://lalasweet-ad-dashboard-l79nkrhnocw6pranabzy8v.streamlit.app/mobile';
+
+function cpaGapLabel(target, actual) {
+  if (!target || !actual) return '';
+  const diff = (actual - target) / target * 100;
+  const emoji = diff > 0 ? '🔴' : '🟢';
+  const sign = diff > 0 ? '+' : '';
+  return ` ${emoji} ${sign}${diff.toFixed(1)}%`;
+}
+
+// view: 'summary'(기존 /손익확인_제과) | '팝콘' | '단쉐' | '블트하' (상품별 명령어 — 본문에 해당 상품 상세, 나머지는 스레드)
+async function handleJegwaCheck(client, channel, threadTs, targetDate, view = 'summary') {
+  const { time } = getNow();
+  const threadBase = threadTs ? { thread_ts: threadTs } : {};
+  const loading = await client.chat.postMessage({ channel, ...threadBase, text: `⏳ 제과 손익 현황 조회 중... (${targetDate} ${time})` });
+  try {
+    // meta235(단쉐_990): 990딜 판매 종료 후에도 잔여 집행 대비 제과 총 현황 광고비 차감용으로만 유지
+    const [metaJegwa, metaA, meta226, tiktok226, meta235, meta236, tiktok236, salesAll, salesA, split226, split236] = await Promise.all([
+      metaService.getMetaStats('제과', targetDate),
+      metaService.getMetaStats('팝콘', targetDate, '990'),
+      metaService.getMetaStats('단백질쉐이크', targetDate, '990'),
+      tiktokService.getAdStats('단백질쉐이크', targetDate, targetDate),
+      metaService.getMetaStats('단쉐_990', targetDate),
+      metaService.getMetaStats('블트깡출시', targetDate),
+      tiktokService.getAdStats('블트깡출시', targetDate, targetDate),
+      cafe24Service.getSalesByProduct(JEGWA_ALL_PRODUCT_NOS, { startDate: targetDate, endDate: targetDate }),
+      cafe24Service.getSalesByProduct(POPCORN_PRODUCT_NOS, { startDate: targetDate, endDate: targetDate }),
+      cafe24Service.getProduct226Split({ startDate: targetDate, endDate: targetDate }),
+      cafe24Service.getProduct236Split({ startDate: targetDate, endDate: targetDate }),
+    ]);
+
+    const products = salesAll.products;
+    const getRev = (...nos) => nos.reduce((s, no) => s + (products.find(p => p.productNo == no)?.revenue || 0), 0);
+    const fmt = n => Math.round(n).toLocaleString('ko-KR');
+
+    // ── 제과 총 현황 (단쉐 226/235/238만 제외, 블트깡 포함) ──
+    const getExtraCost = (item) => {
+      if (!item.amount) return 0;
+      return (item.date === null || item.date === targetDate) ? item.amount : 0;
+    };
+    const totalRevenue = products.reduce((s, p) => s + p.revenue, 0);
+    const totalOrders = salesAll.totalOrders;
+    const FIXED_AD_SPEND = 500000;
+    const extraCostA = getExtraCost(EXTRA_COST.팝콘);
+    // 블트깡 캠페인('제과_블트깡출시')은 '제과' 집계에 포함되므로 차감하지 않음 (2026-07-15 블트깡 포함 개편)
+    const totalAdSpend = metaJegwa.totalSpend - meta226.totalSpend - meta235.totalSpend + FIXED_AD_SPEND + extraCostA;
+    const profit = Math.round(totalRevenue / 1.1 * 0.45) - totalAdSpend;
+    const avgOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
+
+    // ── 팝콘 (135+161+239+255) ──
+    const revA = getRev(...POPCORN_PRODUCT_NOS);
+    const totalAdSpendA = metaA.totalSpend + extraCostA;
+    const profitA = Math.round(revA / 1.1 * PROFIT_RATES.팝콘) - totalAdSpendA;
+    const avgOrderValueA = salesA.totalOrders > 0 ? Math.round(revA / salesA.totalOrders) : 0;
+    const matchRateA = metaA.totalPurchases > 0 ? (salesA.totalOrders / metaA.totalPurchases * 100).toFixed(1) : '0.0';
+    const targetCpaA = metaA.totalPurchases > 0 ? Math.round((revA / 1.1 * PROFIT_RATES.팝콘 - extraCostA) / metaA.totalPurchases) : 0;
+
+    // ── 블랙트러플 하몽깡 (236) ──
+    const rev236 = split236.revenue;
+    const orders236 = split236.totalOrders;
+    // 구성별(10/15/20/30개입) 판매비중 가중평균 수익률 — 주문 0건이면 PROFIT_RATES.블트깡 폴백
+    const { rate: rate236, label: rateLabel236 } = calcWeightedRate(
+      split236.setCounts,
+      PROFIT_RATES.블트깡,
+      BLT_SET_RATES
+    );
+    const adSpend236 = meta236.totalSpend + tiktok236.totalSpend;
+    const purchases236Meta = meta236.totalPurchases;
+    const purchases236Tiktok = tiktok236.totalPurchases;
+    const purchases236 = purchases236Meta + purchases236Tiktok;
+    const profit236 = Math.round(rev236 / 1.1 * rate236) - adSpend236;
+    const avgOrderValue236 = orders236 > 0 ? Math.round(rev236 / orders236) : 0;
+    const matchRate236 = purchases236 > 0 ? (orders236 / purchases236 * 100).toFixed(1) : '0.0';
+    const targetCpa236 = purchases236 > 0 ? Math.round((rev236 / 1.1 * rate236) / purchases236) : 0;
+    const cpa236Meta = purchases236Meta > 0 ? Math.round(meta236.totalSpend / purchases236Meta) : 0;
+    const cpa236Tiktok = purchases236Tiktok > 0 ? Math.round(tiktok236.totalSpend / purchases236Tiktok) : 0;
+
+    const bltkkang236Blocks = [
+      { type: 'section', text: { type: 'mrkdwn', text: `*▸ 블랙트러플 하몽깡 (236)*` } },
+      {
+        type: 'section',
+        text: { type: 'mrkdwn', text: `🏷️ 매출 *${fmt(rev236)}원* | 손익 *${fmt(profit236)}원* | 광고비 *${fmt(adSpend236)}원* | 구매 *${fmt(orders236)}건* | 객단가 *${fmt(avgOrderValue236)}원*` }
+      },
+      {
+        type: 'section',
+        text: { type: 'mrkdwn', text: `*🎯 매체 목표* 매칭율 *${matchRate236}%* | 수익률 *${rateLabel236}* / 목표 *${fmt(targetCpa236)}원*\n*🔵 META* 광고비 *${fmt(meta236.totalSpend)}원* / 구매수 *${fmt(purchases236Meta)}건* / CPA *${fmt(cpa236Meta)}원*\n*🎵 TikTok* 광고비 *${fmt(tiktok236.totalSpend)}원* / 구매수 *${fmt(purchases236Tiktok)}건* / CPA *${fmt(cpa236Tiktok)}원*` }
+      },
+    ];
+
+    // ── 단백질쉐이크 226+238 (getProduct226Split이 두 상품 합산 집계) ──
+    const snapshot226 = loadSnapshot(targetDate);
+    const rev226Total = split226.baseRevenue;
+    const adSpend226Total = meta226.totalSpend + tiktok226.totalSpend;
+    const purchases226Total = meta226.totalPurchases + tiktok226.totalPurchases;
+    const matchedSingle = [...PROTEIN_CONFIG.단일수익률구간].reverse().find(g => targetDate >= g.from);
+    const useSingleRate = !!matchedSingle;
+
+    let protein226Blocks;
+    let profit226Summary = 0;
+    let summary226;
+
+    if (snapshot226) {
+      const revBait = snapshot226.cafe24.baseRevenue;
+      const adBaitMeta = snapshot226.meta.totalSpend;
+      const adBaitTiktok = snapshot226.tiktok.totalSpend;
+      const adBait = adBaitMeta + adBaitTiktok;
+      const purchasesBaitMeta = snapshot226.meta.totalPurchases;
+      const purchasesBaitTiktok = snapshot226.tiktok.totalPurchases;
+      const purchasesBait = purchasesBaitMeta + purchasesBaitTiktok;
+      const ordersBait = snapshot226.cafe24.totalOrders;
+      const rateBait = snapshot226.beforeRate || PROTEIN_CONFIG.미끼수익률;
+      const rateLabelBait = `${(rateBait * 100).toFixed(2)}%`;
+      const profitBait = Math.round(revBait / 1.1 * rateBait) - adBait;
+      const avgBait = ordersBait > 0 ? Math.round(revBait / ordersBait) : 0;
+      const matchBait = purchasesBait > 0 ? (ordersBait / purchasesBait * 100).toFixed(1) : '0.0';
+      const targetCpaBait = purchasesBait > 0 ? Math.round((revBait / 1.1 * rateBait) / purchasesBait) : 0;
+      const cpaBaitMeta = purchasesBaitMeta > 0 ? Math.round(adBaitMeta / purchasesBaitMeta) : 0;
+      const cpaBaitTiktok = purchasesBaitTiktok > 0 ? Math.round(adBaitTiktok / purchasesBaitTiktok) : 0;
+
+      const revAfter = rev226Total - revBait;
+      const adAfterMeta = meta226.totalSpend - adBaitMeta;
+      const adAfterTiktok = tiktok226.totalSpend - adBaitTiktok;
+      const adAfter = adAfterMeta + adAfterTiktok;
+      const purchasesAfterMeta = meta226.totalPurchases - purchasesBaitMeta;
+      const purchasesAfterTiktok = tiktok226.totalPurchases - purchasesBaitTiktok;
+      const purchasesAfter = purchasesAfterMeta + purchasesAfterTiktok;
+      const ordersAfter = split226.totalOrders - ordersBait;
+      const snapSetCounts = snapshot226.cafe24.setCounts || {};
+      const afterSetCounts = {};
+      for (const [set, count] of Object.entries(split226.setCounts || {})) {
+        afterSetCounts[set] = Math.max(0, (count || 0) - (snapSetCounts[set] || 0));
+      }
+      const { rate: rateAfter, label: rateLabelAfter } = calcWeightedRate(afterSetCounts, PROTEIN_CONFIG.품절이후수익률);
+      const profitAfter = Math.round(revAfter / 1.1 * rateAfter) - adAfter;
+      const avgAfter = ordersAfter > 0 ? Math.round(revAfter / ordersAfter) : 0;
+      const matchAfter = purchasesAfter > 0 ? (ordersAfter / purchasesAfter * 100).toFixed(1) : '0.0';
+      const targetCpaAfter = purchasesAfter > 0 ? Math.round((revAfter / 1.1 * rateAfter) / purchasesAfter) : 0;
+      const cpaAfterMeta = purchasesAfterMeta > 0 ? Math.round(adAfterMeta / purchasesAfterMeta) : 0;
+      const cpaAfterTiktok = purchasesAfterTiktok > 0 ? Math.round(adAfterTiktok / purchasesAfterTiktok) : 0;
+
+      const totalProfit226 = profitBait + profitAfter;
+      profit226Summary = totalProfit226;
+
+      const totalOrders226 = split226.totalOrders;
+      const avgOrderValue226Total = totalOrders226 > 0 ? Math.round(rev226Total / totalOrders226) : 0;
+      const matchRateTotal = purchases226Total > 0 ? (totalOrders226 / purchases226Total * 100).toFixed(1) : '0.0';
+      const targetCpaTotal = purchases226Total > 0 ? Math.round((totalProfit226 + adSpend226Total) / purchases226Total) : 0;
+
+      summary226 = { label: '226 (변경 후 기준)', targetCpa: targetCpaAfter, metaCpa: cpaAfterMeta, tiktokSpend: adAfterTiktok, tiktokCpa: cpaAfterTiktok };
+
+      protein226Blocks = [
+        { type: 'section', text: { type: 'mrkdwn', text: `*▸ 전체 합산*` } },
+        { type: 'section', text: { type: 'mrkdwn', text: `🏷️ 매출 *${fmt(rev226Total * 0.8)}원* | 손익 *${fmt(totalProfit226)}원* | 광고비 *${fmt(adSpend226Total)}원* | 구매 *${fmt(totalOrders226)}건* | 객단가 *${fmt(avgOrderValue226Total)}원*` } },
+        { type: 'section', text: { type: 'mrkdwn', text: `*🎯 매체 목표* 매칭율 *${matchRateTotal}%* / 목표 *${fmt(targetCpaTotal)}원*\n*🔵 META* 광고비 *${fmt(meta226.totalSpend)}원* / 구매수 *${fmt(meta226.totalPurchases)}건* / CPA *${fmt(meta226.cpa)}원*\n*🎵 TikTok* 광고비 *${fmt(tiktok226.totalSpend)}원* / 구매수 *${fmt(tiktok226.totalPurchases)}건* / CPA *${fmt(tiktok226.cpa)}원*` } },
+        { type: 'divider' },
+        { type: 'section', text: { type: 'mrkdwn', text: `*▸ 변경 전 (00:00 ~ ${snapshot226.time})*` } },
+        { type: 'section', text: { type: 'mrkdwn', text: `🏷️ 매출 *${fmt(revBait * 0.8)}원* | 손익 *${fmt(profitBait)}원* | 광고비 *${fmt(adBait)}원* | 구매 *${fmt(ordersBait)}건* | 객단가 *${fmt(avgBait)}원* | 수익률 *${rateLabelBait}*` } },
+        { type: 'section', text: { type: 'mrkdwn', text: `*🎯 매체 목표* 매칭율 *${matchBait}%* | 수익률 *${rateLabelBait}* / 목표 *${fmt(targetCpaBait)}원*\n*🔵 META* 광고비 *${fmt(adBaitMeta)}원* / 구매수 *${fmt(purchasesBaitMeta)}건* / CPA *${fmt(cpaBaitMeta)}원*\n*🎵 TikTok* 광고비 *${fmt(adBaitTiktok)}원* / 구매수 *${fmt(purchasesBaitTiktok)}건* / CPA *${fmt(cpaBaitTiktok)}원*` } },
+        { type: 'section', text: { type: 'mrkdwn', text: `*▸ 변경 후 (${snapshot226.time} ~)*` } },
+        { type: 'section', text: { type: 'mrkdwn', text: `🏷️ 매출 *${fmt(revAfter * 0.8)}원* | 손익 *${fmt(profitAfter)}원* | 광고비 *${fmt(adAfter)}원* | 구매 *${fmt(ordersAfter)}건* | 객단가 *${fmt(avgAfter)}원* | 수익률 *${rateLabelAfter}*` } },
+        { type: 'section', text: { type: 'mrkdwn', text: `*🎯 매체 목표* 매칭율 *${matchAfter}%* | 수익률 *${rateLabelAfter}* / 목표 *${fmt(targetCpaAfter)}원*\n*🔵 META* 광고비 *${fmt(adAfterMeta)}원* / 구매수 *${fmt(purchasesAfterMeta)}건* / CPA *${fmt(cpaAfterMeta)}원*\n*🎵 TikTok* 광고비 *${fmt(adAfterTiktok)}원* / 구매수 *${fmt(purchasesAfterTiktok)}건* / CPA *${fmt(cpaAfterTiktok)}원*` } },
+      ];
+    } else {
+      const { rate: rate226, label: rateLabel226 } = calcWeightedRate(
+        split226.setCounts,
+        useSingleRate ? matchedSingle.rate : PROTEIN_CONFIG.미끼수익률
+      );
+      const profit226 = Math.round(rev226Total / 1.1 * rate226) - adSpend226Total;
+      profit226Summary = profit226;
+
+      const avgOrderValue226 = split226.totalOrders > 0 ? Math.round(rev226Total / split226.totalOrders) : 0;
+      const matchRate226 = purchases226Total > 0 ? (split226.totalOrders / purchases226Total * 100).toFixed(1) : '0.0';
+      const targetCpa226 = purchases226Total > 0 ? Math.round((rev226Total / 1.1 * rate226) / purchases226Total) : 0;
+
+      summary226 = { label: '226', targetCpa: targetCpa226, metaCpa: meta226.cpa, tiktokSpend: tiktok226.totalSpend, tiktokCpa: tiktok226.cpa };
+
+      protein226Blocks = [
+        { type: 'section', text: { type: 'mrkdwn', text: `🏷️ 매출 *${fmt(rev226Total * 0.8)}원* | 손익 *${fmt(profit226)}원* | 광고비 *${fmt(adSpend226Total)}원* | 구매 *${fmt(split226.totalOrders)}건* | 객단가 *${fmt(avgOrderValue226)}원*` } },
+        { type: 'section', text: { type: 'mrkdwn', text: `*🎯 매체 목표* 매칭율 *${matchRate226}%* | 수익률 *${rateLabel226}* / 목표 *${fmt(targetCpa226)}원*\n*🔵 META* 광고비 *${fmt(meta226.totalSpend)}원* / 구매수 *${fmt(meta226.totalPurchases)}건* / CPA *${fmt(meta226.cpa)}원*\n*🎵 TikTok* 광고비 *${fmt(tiktok226.totalSpend)}원* / 구매수 *${fmt(tiktok226.totalPurchases)}건* / CPA *${fmt(tiktok226.cpa)}원*` } },
+      ];
     }
 
-def trigger_refresh(mode):
-    """refresh.yml 워크플로우 실행 요청. 성공 시 (True, ''), 실패 시 (False, 사유)"""
-    url = (f"https://api.github.com/repos/{GH_OWNER}/{GH_REPO}"
-           f"/actions/workflows/{REFRESH_WORKFLOW}/dispatches")
-    try:
-        r = requests.post(url, headers=_gh_headers(),
-                          json={"ref": "main", "inputs": {"mode": mode}}, timeout=30)
-    except Exception as e:
-        return False, f"요청 실패: {e}"
-    if r.status_code == 204:
-        return True, ""
-    return False, f"HTTP {r.status_code}: {r.text[:300]}"
+    // ── 단쉐 요약용 공통 값 (226 단독 — 990딜(235)은 판매 종료로 제거) ──
+    const matchRate226All = purchases226Total > 0 ? (split226.totalOrders / purchases226Total * 100).toFixed(1) : '0.0';
 
-def latest_refresh_run():
-    """refresh.yml의 가장 최근 실행 정보 (없으면 None)"""
-    url = (f"https://api.github.com/repos/{GH_OWNER}/{GH_REPO}"
-           f"/actions/workflows/{REFRESH_WORKFLOW}/runs")
-    try:
-        r = requests.get(url, headers=_gh_headers(),
-                         params={"per_page": 1}, timeout=30)
-        runs = r.json().get("workflow_runs", [])
-        return runs[0] if runs else None
-    except Exception:
-        return None
+    // ── 메인 요약 메시지 ──
+    const linePopcorn = `▸ *팝콘* 목표 *${fmt(targetCpaA)}원* → META *${fmt(metaA.cpa)}원*${cpaGapLabel(targetCpaA, metaA.cpa)} | 매칭율 *${matchRateA}%*`;
+    const line226 = `▸ *${summary226.label}* 목표 *${fmt(summary226.targetCpa)}원* → META *${fmt(summary226.metaCpa)}원*${cpaGapLabel(summary226.targetCpa, summary226.metaCpa)}${summary226.tiktokSpend > 0 ? ` · TikTok *${fmt(summary226.tiktokCpa)}원*${cpaGapLabel(summary226.targetCpa, summary226.tiktokCpa)}` : ''}`;
+    const line236 = `▸ *블트깡(236)* 목표 *${fmt(targetCpa236)}원* → META *${fmt(cpa236Meta)}원*${cpaGapLabel(targetCpa236, cpa236Meta)}${purchases236Tiktok > 0 ? ` · TikTok *${fmt(cpa236Tiktok)}원*${cpaGapLabel(targetCpa236, cpa236Tiktok)}` : ''}`;
 
-@st.cache_data(ttl=300, show_spinner=False)
-def last_collection_time():
-    """가장 최근 수집 성공 시각 (정기 수집·버튼 업데이트·백필 포함, 5분 캐시)"""
-    if "github_token" not in st.secrets:
-        return None
-    latest = None
-    for wf in ["daily_report.yml", "refresh.yml", "backfill.yml"]:
-        try:
-            r = requests.get(
-                f"https://api.github.com/repos/{GH_OWNER}/{GH_REPO}"
-                f"/actions/workflows/{wf}/runs",
-                headers=_gh_headers(),
-                params={"status": "success", "per_page": 1}, timeout=15)
-            runs = r.json().get("workflow_runs", [])
-            if runs:
-                t = pd.to_datetime(runs[0]["updated_at"])
-                if latest is None or t > latest:
-                    latest = t
-        except Exception:
-            continue
-    return latest
+    const summaryBlocks = [
+      { type: 'header', text: { type: 'plain_text', text: `📊 제과 손익 요약 (${targetDate})` } },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `🔸 *제과 총 현황* 손익 *${fmt(profit)}원* _(단쉐 제외)_\n💰 매출 *${fmt(totalRevenue)}원* | 광고비 *${fmt(totalAdSpend)}원*${extraCostA > 0 ? ' (알림톡 비용 반영)' : ''} | 구매 *${fmt(totalOrders)}건* | 객단가 *${fmt(avgOrderValue)}원*\n${linePopcorn}`,
+        },
+      },
+      { type: 'divider' },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `🔹 *단백질쉐이크* 손익 *${fmt(profit226Summary)}원* _(매출 80% 반영)_\n🏷️ 매출 *${fmt(rev226Total * 0.8)}원* | 광고비 *${fmt(adSpend226Total)}원* | 구매 *${fmt(split226.totalOrders)}건* | 매칭율 *${matchRate226All}%*\n${line226}`,
+        },
+      },
+      { type: 'divider' },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `🥓 *블랙트러플 하몽깡* 손익 *${fmt(profit236)}원*\n💰 매출 *${fmt(rev236)}원* | 광고비 *${fmt(adSpend236)}원* | 구매 *${fmt(orders236)}건* | 매칭율 *${matchRate236}%*\n${line236}`,
+        },
+      },
+      { type: 'context', elements: [{ type: 'mrkdwn', text: '🧵 수익률 · 객단가 · 매체별 상세는 스레드 확인' }] },
+      {
+        type: 'actions',
+        elements: [
+          { type: 'button', text: { type: 'plain_text', text: '📱 모바일 대시보드', emoji: true }, url: DASHBOARD_URL, action_id: 'open_dashboard' },
+        ],
+      },
+    ];
 
-def _data_freshness_line():
-    """'데이터 기준일 · 마지막 수집' 표시 문자열"""
-    try:
-        d = df["날짜"].max().date()
-    except Exception:
-        return ""
-    today_kst = pd.Timestamp.now(tz="Asia/Seoul").date()
-    diff = (today_kst - d).days
-    if diff == 0:
-        base = f"{d.month}/{d.day} (오늘)"
-    elif diff == 1:
-        base = f"{d.month}/{d.day} (어제)"
-    else:
-        base = str(d)
-    line = f"🕐 데이터 기준일 **{base}**"
-    t = last_collection_time()
-    if t is not None:
-        t_kst = t.tz_convert("Asia/Seoul")
-        day = "오늘 " if t_kst.date() == today_kst else f"{t_kst.month}/{t_kst.day} "
-        line += f" · 마지막 수집 **{day}{t_kst.strftime('%H:%M')}**"
-    return line
+    // ── 상세 블록 그룹 (뷰별로 본문/스레드에 재조합) ──
+    const spacerBlocks = [
+      { type: 'section', text: { type: 'mrkdwn', text: ' ' } },
+      { type: 'divider' },
+      { type: 'section', text: { type: 'mrkdwn', text: ' ' } },
+    ];
+    const jegwaTotalDetailBlocks = [
+      { type: 'context', elements: [{ type: 'mrkdwn', text: '🔸 제과 전체 (단쉐 제외)' }] },
+      { type: 'header', text: { type: 'plain_text', text: `[제과 총 현황 (${targetDate})]` } },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `💰 실매출 *${fmt(totalRevenue)}원* | 손익 *${fmt(profit)}원* | 광고비 *${fmt(totalAdSpend)}원*\n🛒 구매 *${fmt(totalOrders)}건* | 객단가 *${fmt(avgOrderValue)}원* | 수익률 *45%*`
+        }
+      },
+      { type: 'divider' }, // 제과 총 현황과 각 제품 성과 사이 구분선
+    ];
+    const popcornDetailBlocks = [
+      { type: 'section', text: { type: 'mrkdwn', text: `*▸ 팝콘 (135+161+239+255)*` } },
+      {
+        type: 'section',
+        text: { type: 'mrkdwn', text: `🏷️ 매출 *${fmt(revA)}원* | 손익 *${fmt(profitA)}원* | 광고비 *${fmt(totalAdSpendA)}원*${extraCostA > 0 ? ' (알림톡 비용 반영)' : ''} | 구매 *${fmt(salesA.totalOrders)}건* | 객단가 *${fmt(avgOrderValueA)}원*` }
+      },
+      {
+        type: 'section',
+        text: { type: 'mrkdwn', text: `*🎯 META목표* 매칭율 *${matchRateA}%* | 수익률 *45%* / 목표 *${fmt(targetCpaA)}원*\n*🔵 META* 광고비 *${fmt(metaA.totalSpend)}원* / 구매수 *${fmt(metaA.totalPurchases)}건* / CPA *${fmt(metaA.cpa)}원*` }
+      },
+    ];
+    const proteinDetailBlocks = [
+      { type: 'context', elements: [{ type: 'mrkdwn', text: '🔹 단백질쉐이크 (매출의 80%만 반영)' }] },
+      { type: 'header', text: { type: 'plain_text', text: `[단백질쉐이크 (226) (${targetDate})]` } },
+      ...protein226Blocks,
+    ];
+    const bltDetailBlocks = [
+      { type: 'header', text: { type: 'plain_text', text: `[블랙트러플 하몽깡 (${targetDate})]` } },
+      ...bltkkang236Blocks,
+    ];
+    const threadNoticeBlock = { type: 'context', elements: [{ type: 'mrkdwn', text: '🧵 나머지 상품 상세는 스레드 확인' }] };
+    const dashboardBlock = {
+      type: 'actions',
+      elements: [
+        { type: 'button', text: { type: 'plain_text', text: '📱 모바일 대시보드', emoji: true }, url: DASHBOARD_URL, action_id: 'open_dashboard' },
+      ],
+    };
 
-def _start_refresh(mode, label):
-    ok, err = trigger_refresh(mode)
-    if ok:
-        st.session_state["refresh_active"] = True
-        st.session_state["refresh_started"] = time.time()
-        st.session_state["refresh_label"] = label
-        st.session_state.pop("refresh_msg", None)
-    else:
-        st.session_state["refresh_msg"] = f"❌ 실행 요청 실패: {err}"
-    st.rerun()
+    // ── 뷰별 본문/스레드 조합 ──
+    let mainText, mainBlocks, threadBlocks;
+    if (view === '팝콘') {
+      mainText = `팝콘 손익 현황 (${targetDate})`;
+      mainBlocks = [...jegwaTotalDetailBlocks, ...popcornDetailBlocks, threadNoticeBlock, dashboardBlock];
+      threadBlocks = [...proteinDetailBlocks, ...spacerBlocks, ...bltDetailBlocks];
+    } else if (view === '블트하') {
+      mainText = `블랙트러플 하몽깡 손익 현황 (${targetDate})`;
+      mainBlocks = [...jegwaTotalDetailBlocks, ...bltDetailBlocks, threadNoticeBlock, dashboardBlock];
+      threadBlocks = [...popcornDetailBlocks, ...spacerBlocks, ...proteinDetailBlocks];
+    } else if (view === '단쉐') {
+      mainText = `단백질쉐이크 손익 현황 (${targetDate})`;
+      mainBlocks = [...proteinDetailBlocks, threadNoticeBlock, dashboardBlock];
+      threadBlocks = [...jegwaTotalDetailBlocks, ...popcornDetailBlocks, ...spacerBlocks, ...bltDetailBlocks];
+    } else {
+      // 기존 /손익확인_제과: 요약 본문 + 전체 상세 스레드
+      mainText = `제과 손익 요약 (${targetDate})`;
+      mainBlocks = summaryBlocks;
+      threadBlocks = [...jegwaTotalDetailBlocks, ...popcornDetailBlocks, ...spacerBlocks, ...proteinDetailBlocks, ...spacerBlocks, ...bltDetailBlocks];
+    }
 
-def _render_refresh_status():
-    """진행 상태 표시. 진행 중이면 fragment로 10초마다 자동 갱신되고,
-    완료 감지 시 캐시를 지우고 전체 대시보드를 자동 반영한다."""
-    if not st.session_state.get("refresh_active"):
-        msg = st.session_state.get("refresh_msg")
-        if msg:
-            st.markdown(msg)
-        line = _data_freshness_line()
-        if line:
-            st.caption(line)
-        return
-    started = st.session_state.get("refresh_started", time.time())
-    label   = st.session_state.get("refresh_label", "")
-    elapsed = int(time.time() - started)
-    run = latest_refresh_run()
-    run_is_current = False
-    if run is not None:
-        try:
-            created = pd.to_datetime(run.get("created_at")).timestamp()
-            run_is_current = created >= started - 60
-        except Exception:
-            run_is_current = False
-    if run_is_current and run.get("status") == "completed":
-        st.session_state["refresh_active"] = False
-        if run.get("conclusion") == "success":
-            st.cache_data.clear()
-            done_at = pd.Timestamp.now(tz="Asia/Seoul").strftime("%H:%M")
-            st.session_state["refresh_msg"] = f"✅ {label} 업데이트 완료 — 대시보드에 반영됨 ({done_at})"
-        else:
-            st.session_state["refresh_msg"] = (f"❌ {label} 업데이트 실패 — "
-                                               f"[Actions 로그 확인]({run.get('html_url')})")
-        st.rerun(scope="app")
-    elif elapsed > 900:
-        st.session_state["refresh_active"] = False
-        st.session_state["refresh_msg"] = ("⏱ 15분이 지나도 완료되지 않아 자동 확인을 중단했어요. "
-                                           "GitHub Actions에서 상태를 확인해주세요.")
-        st.rerun(scope="app")
-    else:
-        st.markdown(f"⏳ **{label} 업데이트 진행 중** ({elapsed // 60}분 {elapsed % 60}초 경과) "
-                    f"— 완료되면 자동 반영됩니다")
+    await client.chat.update({ channel, ts: loading.ts, text: mainText, blocks: mainBlocks });
+    await client.chat.postMessage({ channel, thread_ts: threadTs || loading.ts, text: `손익 상세 (${targetDate})`, blocks: threadBlocks });
+  } catch (err) {
+    const detail = err.response?.data ? JSON.stringify(err.response.data) : err.message;
+    const isTokenError = detail.includes('invalid_grant') || detail.includes('invalid_token');
+    console.error('손익확인_제과 오류:', detail);
+    await client.chat.update({
+      channel,
+      ts: loading.ts,
+      text: isTokenError ? TOKEN_ERROR_MSG : `❌ 데이터 조회 중 오류가 발생했습니다: ${detail}`
+    });
+  }
+}
 
-def render_update_buttons():
-    if "github_token" not in st.secrets:
-        st.caption("⚙️ 업데이트 버튼을 사용하려면 Streamlit secrets에 `github_token`을 추가해주세요.")
-        return
-    active = st.session_state.get("refresh_active", False)
-    c1, c2, c3 = st.columns([1.3, 1.6, 5.1], gap="small", vertical_alignment="center")
-    if c1.button("📥 전일자 업데이트", disabled=active,
-                 help="어제 데이터를 다시 수집해 최신 수치로 교체합니다 (약 2~4분 소요)"):
-        _start_refresh("yesterday", "전일자")
-    if c2.button("⚡ 실시간 업데이트 (오늘)", disabled=active,
-                 help="오늘 데이터를 수집합니다. 당일 수치는 잠정치이며 계속 변합니다 (약 2~4분 소요)"):
-        _start_refresh("today", "실시간")
-    with c3:
-        if active:
-            st.fragment(_render_refresh_status, run_every=10)()
-        else:
-            _render_refresh_status()
-# =============================================================
-# 데이터 로드
-# =============================================================
-@st.cache_data(ttl=3600, show_spinner="데이터 불러오는 중...")
-def load_data() -> pd.DataFrame:
-    creds = Credentials.from_service_account_info(
-        dict(st.secrets["gcp_service_account"]),
-        scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"],
-    )
-    gc = gspread.authorize(creds)
-    ws = gc.open_by_key(st.secrets["spreadsheet_id"]).worksheet("통합RD_원본")
-    records = ws.get_all_records()
-    df = pd.DataFrame(records)
-    df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce")
-    for col in ["광고비 (KRW)", "노출", "클릭", "전환수", "CTR (%)", "CPA (KRW)",
-                "CPC (KRW)", "영상조회 3초+", "ThruPlay"]:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
-    df = df.dropna(subset=["날짜"])
-    df["연"] = df["날짜"].dt.year.astype(str)
-    df["월"] = df["날짜"].dt.month.astype(str).str.zfill(2)
-    df["일"] = df["날짜"].dt.day.astype(str).str.zfill(2)
-    return df.sort_values("날짜")
+function register(slackApp) {
+  slackApp.command('/손익확인_제과', async ({ ack, body, client }) => {
+    await ack();
+    const { date } = getNow();
+    await handleJegwaCheck(client, body.channel_id, body.thread_ts, date);
+  });
 
+  slackApp.command('/손익확인_제과_전일', async ({ ack, body, client }) => {
+    await ack();
+    await handleJegwaCheck(client, body.channel_id, body.thread_ts, getYesterdayKST());
+  });
 
-@st.cache_data(ttl=3600, show_spinner="카페24 데이터 불러오는 중...")
-def load_cafe24_data():
-    creds = Credentials.from_service_account_info(
-        dict(st.secrets["gcp_service_account"]),
-        scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"],
-    )
-    gc = gspread.authorize(creds)
-    ss = gc.open_by_key(st.secrets["spreadsheet_id"])
+  slackApp.action('open_dashboard', async ({ ack }) => {
+    await ack();
+  });
 
-    # 요약 시트
-    try:
-        ws_s = ss.worksheet("카페24_팝콘_요약")
-        df_s = pd.DataFrame(ws_s.get_all_records())
-        if not df_s.empty:
-            df_s["날짜"] = pd.to_datetime(df_s["날짜"], errors="coerce")
-            df_s["팝콘_주문수"] = pd.to_numeric(df_s["팝콘_주문수"], errors="coerce").fillna(0)
-            df_s["팝콘_실매출"] = pd.to_numeric(df_s["팝콘_실매출"], errors="coerce").fillna(0)
-            df_s = df_s.dropna(subset=["날짜"]).sort_values("날짜").reset_index(drop=True)
-    except Exception:
-        df_s = pd.DataFrame()
+  // ── 상품별 손익확인 (당일) — 본문에 해당 상품 상세, 나머지 상품은 스레드 ──
+  // ⚠️ Slack 앱 설정(api.slack.com > Slash Commands)에 아래 3개 커맨드를 등록해야 동작함
+  slackApp.command('/손익확인_팝콘', async ({ ack, body, client }) => {
+    await ack();
+    const { date } = getNow();
+    await handleJegwaCheck(client, body.channel_id, body.thread_ts, date, '팝콘');
+  });
 
-    # 옵션별 시트
-    try:
-        ws_o = ss.worksheet("카페24_팝콘_옵션별")
-        df_o = pd.DataFrame(ws_o.get_all_records())
-        if not df_o.empty:
-            df_o["날짜"] = pd.to_datetime(df_o["날짜"], errors="coerce")
-            # 개입 수 컬럼 숫자 변환
-            qty_cols = [c for c in df_o.columns if re.match(r'^\d+개$', c)]
-            for c in qty_cols:
-                df_o[c] = pd.to_numeric(df_o[c], errors="coerce").fillna(0)
-            df_o = df_o.dropna(subset=["날짜"]).sort_values("날짜").reset_index(drop=True)
-    except Exception:
-        df_o = pd.DataFrame()
+  slackApp.command('/손익확인_단쉐', async ({ ack, body, client }) => {
+    await ack();
+    const { date } = getNow();
+    await handleJegwaCheck(client, body.channel_id, body.thread_ts, date, '단쉐');
+  });
 
-    return df_s, df_o
+  slackApp.command('/손익확인_블트하', async ({ ack, body, client }) => {
+    await ack();
+    const { date } = getNow();
+    await handleJegwaCheck(client, body.channel_id, body.thread_ts, date, '블트하');
+  });
 
+  slackApp.command('/단백질쉐이크_품절해제', async ({ ack, body, client }) => {
+    await ack();
+    const messenger = makeMessenger(client, body.channel_id, body.thread_ts);
+    const success = clearSnapshot();
+    await messenger.post({
+      text: success ? '✅ 품절 해제 완료. 이후 손익확인 시 49% 단일 적용됩니다.' : '❌ 해제 실패 (저장된 스냅샷이 없거나 오류 발생)'
+    });
+  });
 
-@st.cache_data(ttl=300, show_spinner="시간대별 데이터 불러오는 중...")
-def load_hourly_data(sheet_name: str) -> pd.DataFrame:
-    """시간대별 시트 로드 (5분 캐시)"""
-    creds = Credentials.from_service_account_info(
-        dict(st.secrets["gcp_service_account"]),
-        scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"],
-    )
-    gc = gspread.authorize(creds)
-    try:
-        ws = gc.open_by_key(st.secrets["spreadsheet_id"]).worksheet(sheet_name)
-    except Exception:
-        return pd.DataFrame()
-    dfh = pd.DataFrame(ws.get_all_records())
-    if dfh.empty:
-        return dfh
-    dfh["날짜"] = pd.to_datetime(dfh["날짜"], errors="coerce")
-    dfh["시간"] = pd.to_numeric(dfh["시간"], errors="coerce")
-    for col in ["노출", "클릭", "광고비", "구매"]:
-        if col in dfh.columns:
-            dfh[col] = pd.to_numeric(dfh[col], errors="coerce").fillna(0)
-    dfh = dfh.dropna(subset=["날짜", "시간"])
-    if dfh.empty:
-        return dfh
-    dfh["시간"] = dfh["시간"].astype(int)
-    # 기존 헬퍼(perf_row, calc_kpi) 재사용을 위한 컬럼 별칭
-    dfh["광고비 (KRW)"] = dfh["광고비"]
-    dfh["전환수"] = dfh["구매"]
-    return dfh
+  slackApp.command('/단백질쉐이크_품절', async ({ ack, body, client }) => {
+    await ack();
+    const messenger = makeMessenger(client, body.channel_id, body.thread_ts);
+    const { date, time } = getNow();
+    await messenger.post({ text: '⏳ 품절 시점 스냅샷 저장 중...' });
+    try {
+      const [meta226, tiktok226, split226] = await Promise.all([
+        metaService.getMetaStats('단백질쉐이크', date, '990'),
+        tiktokService.getAdStats('단백질쉐이크', date, date),
+        cafe24Service.getProduct226Split({ startDate: date, endDate: date }),
+      ]);
+      const snapSetCounts = split226.setCounts || {};
+      const { rate: beforeRate } = calcWeightedRate(snapSetCounts, PROTEIN_CONFIG.미끼수익률);
+      const snapshot = {
+        date,
+        time,
+        beforeRate,
+        meta: { totalSpend: meta226.totalSpend, totalPurchases: meta226.totalPurchases, cpa: meta226.cpa },
+        tiktok: { totalSpend: tiktok226.totalSpend, totalPurchases: tiktok226.totalPurchases, cpa: tiktok226.cpa },
+        cafe24: {
+          baseRevenue: split226.baseRevenue,
+          totalOrders: split226.totalOrders,
+          almondRevenue: split226.almondRevenue,
+          almondOrders: split226.almondOrders,
+          setCounts: split226.setCounts,
+        },
+      };
+      saveSnapshot(snapshot);
+      const fmt = n => Math.round(n).toLocaleString('ko-KR');
+      await messenger.update({
+        text: `✅ 품절 스냅샷 저장 완료 (${date} ${time})\nMETA *${fmt(meta226.totalSpend)}원* / TikTok *${fmt(tiktok226.totalSpend)}원* / 매출 *${fmt(split226.baseRevenue)}원* / 주문 *${split226.totalOrders}건*`
+      });
+    } catch (err) {
+      const detail = err.response?.data ? JSON.stringify(err.response.data) : err.message;
+      await messenger.update({ text: `❌ 스냅샷 저장 실패: ${detail}` });
+    }
+  });
 
+  slackApp.command('/자사몰_주문수_제과_전일', async ({ ack, body, client }) => {
+    await ack();
+    const messenger = makeMessenger(client, body.channel_id, body.thread_ts);
+    const now = new Date();
+    const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+    const dayOfWeek = kst.getDay();
+    const DAY_NAMES = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
 
-try:
-    df = load_data()
-except Exception as e:
-    st.error(f"❌ 데이터를 불러오지 못했어요: `{e}`")
-    st.info("👉 `.streamlit/secrets.toml` 설정을 확인해주세요.")
-    st.stop()
+    let dates = [];
+    if (dayOfWeek === 1) {
+      for (let i = 3; i >= 1; i--) {
+        const d = new Date(kst);
+        d.setDate(d.getDate() - i);
+        dates.push(d.toISOString().slice(0, 10));
+      }
+    } else {
+      dates.push(getYesterdayKST());
+    }
 
-if df.empty:
-    st.warning("시트에 데이터가 없어요.")
-    st.stop()
+    await messenger.post({ text: `⏳ 주문 수량 현황 조회 중... (${dates.join(', ')})` });
+    try {
+      for (const date of dates) {
+        const DAY_EMOJIS = { '금요일': '🟡', '토요일': '🔵', '일요일': '🔴' };
+        const dayName = DAY_NAMES[new Date(date + 'T12:00:00').getDay()];
+        const emoji = DAY_EMOJIS[dayName] || '📅';
+        const results = await getDistribution(cafe24Service, date);
+        const blocks = buildDistributionBlocks(results, `${date} ${dayName}`);
+        await client.chat.postMessage({ channel: body.channel_id, text: `━━━━━━━━━━━━━━━━━━━━━━\n${emoji} 자사몰 주문 수량 현황 (${date} ${dayName})\n━━━━━━━━━━━━━━━━━━━━━━`, blocks });
+      }
+      await messenger.update({ text: `✅ 조회 완료 (${dates.join(', ')})` });
+    } catch (err) {
+      const detail = err.response?.data ? JSON.stringify(err.response.data) : err.message;
+      await messenger.update({ text: `❌ 오류가 발생했습니다: ${detail}` });
+    }
+  });
 
-max_date = df["날짜"].max().strftime("%Y-%m-%d")
-# =============================================================
-# 사이드바
-# =============================================================
-with st.sidebar:
-    st.markdown("## 🍬 라라스윗 제과 전환광고")
-    st.markdown("---")
-    _cur_year  = date.today().year
-    _cur_month = f"{date.today().month}월"
-    st.markdown("**📅 연도**")
-    year_opts = sorted(df["날짜"].dt.year.unique().tolist(), reverse=True)
-    sel_years = st.multiselect("연도", year_opts,
-                               default=[_cur_year] if _cur_year in year_opts else [],
-                               placeholder="전체", label_visibility="collapsed")
-    st.markdown("**📅 월**")
-    avail_months = sorted(df["날짜"].dt.month.unique().tolist())
-    month_labels = [f"{m}월" for m in avail_months]
-    sel_months = st.multiselect("월", month_labels,
-                                default=[_cur_month] if _cur_month in month_labels else [],
-                                placeholder="전체", label_visibility="collapsed")
-    st.markdown("**📅 일**")
-    avail_dates = sorted(df["날짜"].dt.strftime("%Y-%m-%d").unique().tolist())
-    sel_dates = st.multiselect("일", avail_dates, placeholder="전체",
-                               label_visibility="collapsed")
-    st.markdown("**📺 매체**")
-    sel_media = st.multiselect("매체", valid_opts(df, "매체"),
-                               placeholder="전체", label_visibility="collapsed")
-    st.markdown("**🎬 광고유형**")
-    sel_adtype = st.multiselect("광고유형", valid_opts(df, "영상/이미지 구분"),
-                                placeholder="전체", label_visibility="collapsed")
-    st.markdown("**📦 제품코드**")
-    sel_prodcode = st.multiselect("제품코드", valid_opts(df, "제품코드"),
-                                  placeholder="전체", label_visibility="collapsed")
-    st.markdown("**🎪 이벤트명**")
-    sel_event = st.multiselect("이벤트명", valid_opts(df, "스킴명"),
-                               placeholder="전체", label_visibility="collapsed")
-    st.markdown("---")
-    if st.button("🔄 데이터 새로고침"):
-        st.cache_data.clear()
-        st.rerun()
-    st.caption(f"최근 업데이트: {max_date}")
-# =============================================================
-# 필터 적용
-# =============================================================
-mask = pd.Series([True] * len(df), index=df.index)
-if sel_years:
-    mask &= df["날짜"].dt.year.isin(sel_years)
-if sel_months:
-    sel_month_nums = [int(m.replace("월", "")) for m in sel_months]
-    mask &= df["날짜"].dt.month.isin(sel_month_nums)
-if sel_dates:
-    mask &= df["날짜"].dt.strftime("%Y-%m-%d").isin(sel_dates)
-if sel_media:
-    mask &= df["매체"].astype(str).isin(sel_media)
-if sel_adtype:
-    mask &= df["영상/이미지 구분"].astype(str).isin(sel_adtype)
-if sel_prodcode:
-    mask &= df["제품코드"].astype(str).isin(sel_prodcode)
-if sel_event:
-    mask &= df["스킴명"].astype(str).isin(sel_event)
-fdf = df[mask].copy()
-# 월별 추이: 연도 필터만 적용
-mask_year_only = pd.Series([True] * len(df), index=df.index)
-if sel_years:
-    mask_year_only &= df["날짜"].dt.year.isin(sel_years)
-fdf_year_only = df[mask_year_only].copy()
-if fdf.empty:
-    st.warning("필터 조건에 맞는 데이터가 없어요. 필터를 조정해주세요.")
-    st.stop()
-kpi = calc_kpi(fdf)
-# =============================================================
-# 탭
-# =============================================================
-render_update_buttons()
-tab1, tab7, tab2, tab4, tab8, tab6, tab5 = st.tabs(["📊 전체 요약", "🫐 블트하 요약", "🍿 팝콘 요약", "🥐 단쉐 요약", "⏰ 블트하 시간대별", "⏰ 팝콘 시간대별", "⏰ 단쉐 시간대별"])
-# --- TAB 1: 전체 요약 ---
-with tab1:
-    render_kpi(kpi)
-    st.markdown("---")
-    daily_prod = (
-        fdf.groupby([fdf["날짜"].dt.date, "제품코드"])
-        .agg(spend=("광고비 (KRW)", "sum"))
-        .reset_index().rename(columns={"날짜": "date"})
-    )
-    daily_prod["spend_man"] = daily_prod["spend"] / 10000
-    daily_cpa = (
-        fdf.groupby(fdf["날짜"].dt.date)
-        .agg(spend=("광고비 (KRW)", "sum"), imp=("노출", "sum"),
-             clk=("클릭", "sum"), conv=("전환수", "sum"))
-        .reset_index().rename(columns={"날짜": "date"})
-    )
-    daily_cpa["CPA"] = (daily_cpa["spend"] / daily_cpa["conv"].replace(0, float("nan"))).fillna(0)
-    daily_cpa["CTR"] = (daily_cpa["clk"] / daily_cpa["imp"].replace(0, float("nan")) * 100).fillna(0)
-    daily_cpa["CPC"] = (daily_cpa["spend"] / daily_cpa["clk"].replace(0, float("nan"))).fillna(0)
-    daily_cpa["CVR"] = (daily_cpa["conv"] / daily_cpa["clk"].replace(0, float("nan")) * 100).fillna(0)
-    prod_codes_sorted = (
-        daily_prod.groupby("제품코드")["spend"].sum()
-        .sort_values(ascending=False).index.tolist()
-    )
-    hdr_col, btn_col = st.columns([6, 1])
-    with hdr_col:
-        st.markdown("**📊 일별 광고비 & CPA**")
-    with btn_col:
-        view_mode = st.radio("보기", ["테이블", "그래프"], horizontal=True,
-                             label_visibility="collapsed", key="daily_view_mode")
-    if view_mode == "그래프":
-        fig = go.Figure()
-        for i, pc in enumerate(prod_codes_sorted):
-            d = daily_prod[daily_prod["제품코드"] == pc]
-            fig.add_bar(x=d["date"], y=d["spend_man"], name=str(pc),
-                        marker_color=BAR_PALETTE[i % len(BAR_PALETTE)], yaxis="y1",
-                        hovertemplate=f"<b>{pc}</b><br>날짜: %{{x}}<br>광고비: %{{y:,.0f}}만원<extra></extra>")
-        fig.add_scatter(x=daily_cpa["date"], y=daily_cpa["CPA"],
-                        name="CPA", mode="lines+markers",
-                        line=dict(color="#9B8EC4", width=2.5), marker=dict(size=6), yaxis="y2",
-                        hovertemplate="날짜: %{x}<br>CPA: %{y:,.0f}원<extra></extra>")
-        fig.update_layout(
-            barmode="stack",
-            xaxis=dict(title=""),
-            yaxis=dict(title="광고비", ticksuffix="만원", tickformat=",",
-                       showgrid=True, gridcolor="#f0f0f0"),
-            yaxis2=dict(title="CPA (원)", overlaying="y", side="right",
-                        showgrid=False, tickformat=",", ticksuffix="원"),
-            legend=dict(orientation="h", y=1.10, font=dict(size=11)),
-            plot_bgcolor="white", paper_bgcolor="white",
-            margin=dict(t=50, b=40), height=400,
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        render_pinned_total_table(daily_table(fdf))
-    col_a, col_b = st.columns(2)
-    with col_a:
-        by_adtype = fdf.groupby("영상/이미지 구분")["광고비 (KRW)"].sum().reset_index()
-        fig2 = px.pie(by_adtype, names="영상/이미지 구분", values="광고비 (KRW)",
-                      title="소재유형별 광고비 비중 (V/I)", color_discrete_sequence=PALETTE)
-        fig2.update_layout(height=300, margin=dict(t=50, b=20),
-                           paper_bgcolor="white", plot_bgcolor="white")
-        st.plotly_chart(fig2, use_container_width=True)
-    with col_b:
-        by_media_pie = fdf.groupby("매체")["광고비 (KRW)"].sum().reset_index()
-        fig3 = px.pie(by_media_pie, names="매체", values="광고비 (KRW)",
-                      title="매체별 광고비 비중", color_discrete_sequence=PALETTE)
-        fig3.update_layout(height=300, margin=dict(t=50, b=20),
-                           paper_bgcolor="white", plot_bgcolor="white")
-        st.plotly_chart(fig3, use_container_width=True)
-    st.markdown("---")
-    fdf_m = fdf_year_only.copy()
-    fdf_m["월"] = fdf_m["날짜"].dt.month
-    monthly_tbl = build_summary_table(fdf_m, "월", label_fn=lambda x: f"{int(x):02d}")
-    st.markdown("**📅 월별 데이터 추이**")
-    render_pinned_total_table(style_summary(monthly_tbl, "월"))
-    fdf_w = fdf.copy()
-    fdf_w["week_start"] = fdf_w["날짜"].dt.to_period("W").apply(lambda p: p.start_time.date())
-    recent_weeks = sorted(fdf_w["week_start"].unique())[-4:]
-    fdf_w4 = fdf_w[fdf_w["week_start"].isin(recent_weeks)]
-    weekly_tbl = build_summary_table(fdf_w4, "week_start", label_fn=week_label)
-    weekly_tbl = weekly_tbl.rename(columns={"week_start": "주차"})
-    st.markdown("**📆 주차별 성과 (최근 4주)**")
-    render_pinned_total_table(style_summary(weekly_tbl, "주차"))
-# --- TAB 2: 팝콘 요약 ---
-with tab2:
-    fdf_pc = fdf[fdf["제품코드"].astype(str).str.contains("PC", na=False)].copy()
-    if fdf_pc.empty:
-        st.warning("팝콘(PC) 데이터가 없어요. 사이드바 필터를 확인해주세요.")
-    else:
-        render_kpi(calc_kpi(fdf_pc))
-        st.markdown("---")
-        # 1. 일별 광고비 테이블
-        st.markdown("**📊 일별 광고비 & CPA**")
-        render_pinned_total_table(daily_table(fdf_pc))
-        st.markdown("---")
-        # 2. 5P구성 성과
-        st.markdown("**📋 5P구성 성과**")
-        before = fdf_pc[
-            (fdf_pc["날짜"] >= PC_BEFORE_START) & (fdf_pc["날짜"] <= PC_BEFORE_END)
-        ]
-        after = fdf_pc[
-            (fdf_pc["날짜"] >= PC_AFTER_START) & (fdf_pc["날짜"] <= PC_AFTER_END)
-        ]
-        period_total = pd.concat([before, after])
-        b_label = f"5p구성 이전({PC_BEFORE_START.strftime('%m/%d')}~{PC_BEFORE_END.strftime('%m/%d')})"
-        a_label = f"5p구성 적용({PC_AFTER_START.strftime('%m/%d')}~{PC_AFTER_END.strftime('%m/%d')})"
-        period_df = pd.DataFrame([
-            perf_row(b_label, before),
-            perf_row(a_label, after),
-            perf_row("총합계", period_total),
-        ])
-        render_pinned_total_table(period_df)
-        st.markdown("---")
-        # 3. 이벤트별 성과
-        st.markdown("**🎪 이벤트별 성과**")
-        event_tbl = build_summary_table(fdf_pc, "스킴명")
-        event_tbl = event_tbl.rename(columns={"스킴명": "이벤트명"})
-        _ev_total = event_tbl[event_tbl["이벤트명"] == "총합계"]
-        _ev_data  = event_tbl[event_tbl["이벤트명"] != "총합계"].sort_values("광고비", ascending=False)
-        event_tbl = pd.concat([_ev_data, _ev_total], ignore_index=True)
-        render_pinned_total_table(style_summary(event_tbl, "이벤트명"))
-        st.markdown("---")
-        # 4. 소재 유형별 성과 (접기/펼치기 트리 테이블)
-        st.markdown("**🎨 소재 유형별 성과**")
-        fdf_pc_c = fdf_pc.copy()
-        fdf_pc_c["_유형"] = fdf_pc_c["소재명"].apply(classify_creative)
-        _ct_cols = ["소재 유형", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
-        _ct_groups = []
-        for _t in CREATIVE_TYPES:
-            _sub = fdf_pc_c[fdf_pc_c["_유형"] == _t]
-            if _sub.empty:
-                continue
-            _ads = [
-                (_an,
-                 perf_row(_an, _sub[_sub["소재명"] == _an], key_col="소재 유형"),
-                 _sub[_sub["소재명"] == _an]["광고비 (KRW)"].sum())
-                for _an in _sub["소재명"].unique()
-            ]
-            _ads.sort(key=lambda x: x[2], reverse=True)
-            _ct_groups.append((
-                _t,
-                perf_row(_t, _sub, key_col="소재 유형"),
-                [(_a, _r) for _a, _r, _ in _ads],
-                _sub["광고비 (KRW)"].sum(),
-            ))
-        if _ct_groups:
-            _ct_groups.sort(key=lambda x: x[3], reverse=True)
-            typed_total = fdf_pc_c[fdf_pc_c["_유형"].notna()]
-            render_tree_table(
-                [(_g[0], _g[1], _g[2]) for _g in _ct_groups],
-                perf_row("총합계", typed_total, key_col="소재 유형"),
-                _ct_cols,
-            )
-        else:
-            st.info("현재 필터 조건에서 해당 소재 유형 데이터가 없습니다.")
+  slackApp.command('/자사몰_주문수_제과_당일', async ({ ack, body, client }) => {
+    await ack();
+    const messenger = makeMessenger(client, body.channel_id, body.thread_ts);
+    const { date } = getNow();
+    const DAY_NAMES = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+    const DAY_EMOJIS = { '금요일': '🟡', '토요일': '🔵', '일요일': '🔴' };
+    const dayName = DAY_NAMES[new Date(date + 'T12:00:00').getDay()];
+    const emoji = DAY_EMOJIS[dayName] || '📅';
 
-# --- TAB 4: 단쉐 요약 ---
-with tab4:
-    fdf_sk = fdf[fdf["캠페인명"].astype(str).str.contains("단백질|단쉐", na=False)].copy()
-    if fdf_sk.empty:
-        st.warning("단쉐(캠페인명에 단백질/단쉐 포함) 데이터가 없어요. 사이드바 필터를 확인해주세요.")
-    else:
-        render_kpi(calc_kpi(fdf_sk))
-        st.markdown("---")
+    await messenger.post({ text: `⏳ 주문 수량 현황 조회 중... (${date})` });
+    try {
+      const results = await getDistribution(cafe24Service, date);
+      const blocks = buildDistributionBlocks(results, `${date} ${dayName}`);
+      await client.chat.postMessage({
+        channel: body.channel_id,
+        text: `━━━━━━━━━━━━━━━━━━━━━━\n${emoji} 자사몰 주문 수량 현황 (${date} ${dayName})\n━━━━━━━━━━━━━━━━━━━━━━`,
+        blocks,
+      });
+      await messenger.update({ text: `✅ 조회 완료 (${date})` });
+    } catch (err) {
+      const detail = err.response?.data ? JSON.stringify(err.response.data) : err.message;
+      await messenger.update({ text: `❌ 오류가 발생했습니다: ${detail}` });
+    }
+  });
 
-        # 1. 일별 광고비 & CPA
-        st.markdown("**📊 일별 광고비 & CPA**")
-        render_pinned_total_table(daily_table(fdf_sk))
-        st.markdown("---")
+  slackApp.command('/자사몰_주문수_빙과_전일', async ({ ack, body, client }) => {
+    await ack();
+    const messenger = makeMessenger(client, body.channel_id, body.thread_ts);
+    const yesterday = getYesterdayKST();
+    await messenger.post({ text: `⏳ 빙과 주문 수량 현황 조회 중... (${yesterday})` });
+    try {
+      const results = await getDistribution(cafe24Service, yesterday, [195, 210]);
+      const blocks = buildDistributionBlocks(results, yesterday);
+      await messenger.update({ text: `빙과 주문 수량 현황 (${yesterday})`, blocks });
+    } catch (err) {
+      const detail = err.response?.data ? JSON.stringify(err.response.data) : err.message;
+      await messenger.update({ text: `❌ 오류가 발생했습니다: ${detail}` });
+    }
+  });
+}
 
-        # 2. 스킴별 성과 (사이드바 필터와 무관하게 전체 기간 기준)
-        st.markdown("**📋 스킴별 성과**")
-        st.caption("사이드바 필터와 무관하게 전체 기간 데이터 기준입니다.")
-        df_sk_all = df[df["캠페인명"].astype(str).str.contains("단백질|단쉐", na=False)].copy()
-        sk_s1 = df_sk_all[(df_sk_all["날짜"] >= SK_SCHEME1_START) & (df_sk_all["날짜"] <= SK_SCHEME1_END)]
-        sk_s2 = df_sk_all[(df_sk_all["날짜"] >= SK_SCHEME2_START) & (df_sk_all["날짜"] <= SK_SCHEME2_END)]
-        sk_s3 = df_sk_all[(df_sk_all["날짜"] >= SK_SCHEME3_START) & (df_sk_all["날짜"] <= SK_SCHEME3_END)]
-        sk_s4 = df_sk_all[df_sk_all["날짜"] >= SK_SCHEME4_START]
-        sk_total = pd.concat([sk_s1, sk_s2, sk_s3, sk_s4])
-        sk1_label = f"1차 스킴({SK_SCHEME1_START.strftime('%m/%d')}~{SK_SCHEME1_END.strftime('%m/%d')})"
-        sk2_label = f"2차 스킴({SK_SCHEME2_START.strftime('%m/%d')}~{SK_SCHEME2_END.strftime('%m/%d')})"
-        sk3_label = f"3차 스킴({SK_SCHEME3_START.strftime('%m/%d')}~{SK_SCHEME3_END.strftime('%m/%d')})"
-        sk4_label = f"4차 스킴({SK_SCHEME4_START.strftime('%m/%d')}~)"
-        sk_period_df = pd.DataFrame([
-            perf_row(sk1_label, sk_s1),
-            perf_row(sk2_label, sk_s2),
-            perf_row(sk3_label, sk_s3),
-            perf_row(sk4_label, sk_s4),
-            perf_row("총합계", sk_total),
-        ])
-        render_pinned_total_table(sk_period_df)
-        st.markdown("---")
-
-        # 3. 제품코드별 성과
-        st.markdown("**📦 제품코드별 성과**")
-        prodcode_tbl = build_summary_table(fdf_sk, "제품코드")
-        _pc_total = prodcode_tbl[prodcode_tbl["제품코드"] == "총합계"]
-        _pc_data  = prodcode_tbl[prodcode_tbl["제품코드"] != "총합계"].sort_values("광고비", ascending=False)
-        prodcode_tbl = pd.concat([_pc_data, _pc_total], ignore_index=True)
-        render_pinned_total_table(style_summary(prodcode_tbl, "제품코드"))
-        st.markdown("---")
-
-        # 3. 프로모션별 성과 (이벤트명 기준)
-        st.markdown("**🎪 프로모션별 성과**")
-        promo_tbl = build_summary_table(fdf_sk, "스킴명")
-        promo_tbl = promo_tbl.rename(columns={"스킴명": "이벤트명"})
-        _pr_total = promo_tbl[promo_tbl["이벤트명"] == "총합계"]
-        _pr_data  = promo_tbl[promo_tbl["이벤트명"] != "총합계"].sort_values("광고비", ascending=False)
-        promo_tbl = pd.concat([_pr_data, _pr_total], ignore_index=True)
-        render_pinned_total_table(style_summary(promo_tbl, "이벤트명"))
-
-        st.markdown("---")
-
-        # 4. 영상 포맷별 성과 (광고유형 V, 대분류 포맷 → 소분류 연출 → 소재명)
-        st.markdown("**🎞 영상 포맷별 성과**")
-        fdf_vf = fdf_sk[fdf_sk["영상/이미지 구분"].astype(str).str.strip().str.upper() == "V"].copy()
-        fdf_vf = fdf_vf[fdf_vf["대분류 포맷"].astype(str).str.strip() != ""]
-        if fdf_vf.empty:
-            st.info("영상(V) 소재 데이터가 없습니다.")
-        else:
-            _vf_cols = ["영상 포맷", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
-            _vf_groups = []
-            for _vf_fmt, _vf_sub in fdf_vf.groupby("대분류 포맷"):
-                if not str(_vf_fmt).strip():
-                    continue
-                _vf_kids = []
-                for _vf_dt, _vf_ssub in _vf_sub.groupby("소분류 연출"):
-                    _vf_label = str(_vf_dt).strip() or "(미분류)"
-                    _vf_ads = [
-                        (_an,
-                         perf_row(_an, _vf_ssub[_vf_ssub["소재명"] == _an], key_col="영상 포맷"),
-                         _vf_ssub[_vf_ssub["소재명"] == _an]["광고비 (KRW)"].sum())
-                        for _an in _vf_ssub["소재명"].unique()
-                    ]
-                    _vf_ads.sort(key=lambda x: x[2], reverse=True)
-                    _vf_kids.append((
-                        _vf_label,
-                        perf_row(_vf_label, _vf_ssub, key_col="영상 포맷"),
-                        [(_a, _r) for _a, _r, _ in _vf_ads],
-                        _vf_ssub["광고비 (KRW)"].sum(),
-                    ))
-                _vf_kids.sort(key=lambda x: x[3], reverse=True)
-                _vf_groups.append((
-                    str(_vf_fmt),
-                    perf_row(str(_vf_fmt), _vf_sub, key_col="영상 포맷"),
-                    [(_a, _r, _k) for _a, _r, _k, _ in _vf_kids],
-                    _vf_sub["광고비 (KRW)"].sum(),
-                ))
-            _vf_groups.sort(key=lambda x: x[3], reverse=True)
-            render_tree_table3(
-                [(_g[0], _g[1], _g[2]) for _g in _vf_groups],
-                perf_row("총합계", fdf_vf, key_col="영상 포맷"),
-                _vf_cols,
-            )
-
-        st.markdown("---")
-
-        # 5. 신규 소재 성과 (집행시작일 260706 이후, 시작일 → 소재명 펼침)
-        st.markdown("**🗓 신규 소재 성과 (집행시작일 260706~)**")
-        NEW_START_DATE = "260706"
-        fdf_ns = fdf_sk.copy()
-        if "집행시작일" in fdf_ns.columns:
-            fdf_ns = fdf_ns[
-                fdf_ns["집행시작일"].astype(str).str.match(r"^\d{6}$") &
-                (fdf_ns["집행시작일"].astype(str) >= NEW_START_DATE)
-            ]
-        else:
-            fdf_ns = fdf_ns.iloc[0:0]
-        if fdf_ns.empty:
-            st.info(f"집행시작일 {NEW_START_DATE} 이후 소재 데이터가 없습니다.")
-        else:
-            _ns_cols = ["집행시작일", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
-            _ns_groups = []
-            for _sd in sorted(fdf_ns["집행시작일"].astype(str).unique()):
-                _sd_sub = fdf_ns[fdf_ns["집행시작일"].astype(str) == _sd]
-                _ns_ads = [
-                    (_an,
-                     perf_row(_an, _sd_sub[_sd_sub["소재명"] == _an], key_col="집행시작일"),
-                     _sd_sub[_sd_sub["소재명"] == _an]["광고비 (KRW)"].sum())
-                    for _an in _sd_sub["소재명"].unique()
-                ]
-                _ns_ads.sort(key=lambda x: x[2], reverse=True)
-                _ns_groups.append((
-                    _sd,
-                    perf_row(_sd, _sd_sub, key_col="집행시작일"),
-                    [(_a, _r) for _a, _r, _ in _ns_ads],
-                ))
-            render_tree_table(_ns_groups,
-                              perf_row("총합계", fdf_ns, key_col="집행시작일"),
-                              _ns_cols)
-
-# =============================================================
-# 시간대별 탭 공통 렌더링
-# =============================================================
-def render_hourly_tab(sheet_name: str, kp: str) -> None:
-    dfh = load_hourly_data(sheet_name)
-    if dfh.empty:
-        st.info(f"시간대별 데이터가 아직 없습니다. 1시간마다 자동 수집되며, "
-                f"첫 수집 후 시트({sheet_name})가 생성되면 표시됩니다.")
-        return
-    _h_dates = sorted(dfh["날짜"].dt.strftime("%Y-%m-%d").unique().tolist(), reverse=True)
-    c_hd, _c_sp = st.columns([2, 3], vertical_alignment="center")
-    with c_hd:
-        sel_h_dates = st.multiselect(
-            "날짜 선택 (복수 선택 시 시간대별 합산 — 요일 패턴 비교용)",
-            _h_dates, default=[_h_dates[0]], key=f"{kp}_dates")
-    _dh = dfh if not sel_h_dates else dfh[dfh["날짜"].dt.strftime("%Y-%m-%d").isin(sel_h_dates)]
-    if _dh.empty:
-        st.warning("선택한 날짜에 데이터가 없습니다.")
-        return
-    render_kpi(calc_kpi(_dh))
-    st.markdown("---")
-
-    # 1. 시간대 → 캠페인 → 광고세트 트리
-    st.markdown("**⏰ 시간대별 성과** (시간대 클릭 → 캠페인 → 광고세트)")
-    if "수집시각" in dfh.columns:
-        _h_last = dfh["수집시각"].astype(str).max()
-        st.caption(f"🕐 마지막 수집: {_h_last} · 1시간마다 자동 갱신 · "
-                   f"Meta 리포팅 특성상 최근 1시간 안팎 지연 가능")
-    _hr_cols = ["시간대", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CPM", "CVR", "CPA"]
-    _hr_groups = []
-    for _hr in sorted(_dh["시간"].unique()):
-        _hr_sub = _dh[_dh["시간"] == _hr]
-        _hr_camps = []
-        for _cp, _cp_sub in _hr_sub.groupby("캠페인명"):
-            _cp_sets = []
-            for _as, _as_sub in _cp_sub.groupby("광고그룹명"):
-                _cp_sets.append((str(_as),
-                                 hr_perf_row(str(_as), _as_sub, key_col="시간대"),
-                                 _as_sub["광고비 (KRW)"].sum()))
-            _cp_sets.sort(key=lambda x: x[2], reverse=True)
-            _hr_camps.append((str(_cp),
-                              hr_perf_row(str(_cp), _cp_sub, key_col="시간대"),
-                              [(_a, _r) for _a, _r, _ in _cp_sets],
-                              _cp_sub["광고비 (KRW)"].sum()))
-        _hr_camps.sort(key=lambda x: x[3], reverse=True)
-        _hr_groups.append((f"{int(_hr):02d}시",
-                           hr_perf_row(f"{int(_hr):02d}시", _hr_sub, key_col="시간대"),
-                           [(_a, _r, _k) for _a, _r, _k, _ in _hr_camps]))
-    render_tree_table3(_hr_groups, hr_perf_row("총합계", _dh, key_col="시간대"),
-                       _hr_cols, compact=True)
-    st.markdown("---")
-
-    # 2. 캠페인/세트/소재별 시간대 추이 (3단 연쇄 멀티셀렉트)
-    st.markdown("**📈 캠페인·세트·소재별 시간대 추이**")
-    st.caption("각 단계 복수 선택 가능, 비우면 전체 · 박스 클릭 후 타이핑하면 검색 · "
-               "상위 선택을 바꾸면 범위 밖 하위 선택은 자동 해제")
-
-    def _spend_order(d, col):
-        return (d.groupby(col)["광고비 (KRW)"].sum()
-                .sort_values(ascending=False).index.astype(str).tolist())
-
-    c_cp, c_as, c_ad = st.columns(3)
-    _k_cp, _k_as, _k_ad = f"{kp}_hr_camps", f"{kp}_hr_sets", f"{kp}_hr_ads"
-    _cp_opts = _spend_order(_dh, "캠페인명")
-    if _k_cp in st.session_state:
-        st.session_state[_k_cp] = [v for v in st.session_state[_k_cp] if v in _cp_opts]
-    with c_cp:
-        _sel_cp = st.multiselect("캠페인", _cp_opts, placeholder="전체", key=_k_cp)
-    _d1 = _dh if not _sel_cp else _dh[_dh["캠페인명"].astype(str).isin(_sel_cp)]
-
-    _as_opts = _spend_order(_d1, "광고그룹명")
-    if _k_as in st.session_state:
-        st.session_state[_k_as] = [v for v in st.session_state[_k_as] if v in _as_opts]
-    with c_as:
-        _sel_as = st.multiselect("광고세트", _as_opts, placeholder="전체", key=_k_as)
-    _d2 = _d1 if not _sel_as else _d1[_d1["광고그룹명"].astype(str).isin(_sel_as)]
-
-    _ad_opts = _spend_order(_d2, "소재명")
-    if _k_ad in st.session_state:
-        st.session_state[_k_ad] = [v for v in st.session_state[_k_ad] if v in _ad_opts]
-    with c_ad:
-        _sel_ad = st.multiselect("소재", _ad_opts, placeholder="전체", key=_k_ad)
-    _de = _d2 if not _sel_ad else _d2[_d2["소재명"].astype(str).isin(_sel_ad)]
-
-    if _de.empty:
-        st.info("선택 조건에 데이터가 없습니다.")
-    else:
-        _tr_cols = ["시간", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CPM", "CVR", "CPA"]
-        _tr_rows = [hr_perf_row(f"{int(_hr):02d}시", _de[_de["시간"] == _hr], key_col="시간")
-                    for _hr in sorted(_de["시간"].unique())]
-        _tr_rows.append(hr_perf_row("총합계", _de, key_col="시간"))
-        render_pinned_total_table(pd.DataFrame(_tr_rows)[_tr_cols], compact=True)
-
-# --- TAB 5: 단쉐 시간대별 ---
-with tab5:
-    render_hourly_tab("단쉐_시간대별_원본", "sk")
-
-# --- TAB 6: 팝콘 시간대별 ---
-with tab6:
-    render_hourly_tab("팝콘_시간대별_원본", "pc")
-
-# --- TAB 7: 블트하 요약 ---
-with tab7:
-    fdf_bt = fdf[fdf["제품코드"].astype(str).str.contains("BT", na=False)].copy()
-    if fdf_bt.empty:
-        st.warning("블트하(제품코드 BT) 데이터가 없어요. 사이드바 필터를 확인해주세요.")
-    else:
-        render_kpi(calc_kpi(fdf_bt))
-        st.markdown("---")
-
-        # 0. 가중목 현황 (블트하 노출 목표 트래킹)
-        st.markdown(f"**🎯 가중목 현황** ({BT_GOAL_START.strftime('%m/%d')}~{BT_GOAL_END.strftime('%m/%d')} · 노출 목표 {BT_GOAL_IMP:,})")
-        st.caption("사이드바 필터와 무관하게 전체 데이터 기준 · 당일 수치는 실시간 업데이트 후 반영됩니다.")
-        _g = df[df["제품코드"].astype(str).str.contains("BT", na=False)]
-        _g = _g[(_g["날짜"] >= BT_GOAL_START) & (_g["날짜"] <= BT_GOAL_END)]
-        _g_imp  = int(_g["노출"].sum())
-        _g_rate = _g_imp / BT_GOAL_IMP * 100
-        _g_days_total  = (BT_GOAL_END - BT_GOAL_START).days + 1
-        _g_daily_goal  = round(BT_GOAL_IMP / _g_days_total)
-        _g_today = pd.Timestamp(pd.Timestamp.now(tz="Asia/Seoul").strftime("%Y-%m-%d"))
-        _g_days_passed = min(max((_g_today - BT_GOAL_START).days + 1, 0), _g_days_total)
-        _g_pace = _g_days_passed / _g_days_total * 100
-        gc1, gc2, gc3, gc4, gc5 = st.columns(5)
-        gc1.metric("🎯 목표 노출", f"{BT_GOAL_IMP:,}")
-        gc2.metric("📆 목표 일별 노출", f"{_g_daily_goal:,}")
-        gc3.metric("👁 누적 노출", f"{_g_imp:,}")
-        gc4.metric("📈 달성률", f"{_g_rate:.1f}%", f"{_g_rate - _g_pace:+.1f}%p (일자 진척률 대비)")
-        gc5.metric("📅 일자 진척률", f"{_g_pace:.1f}%", f"{_g_days_passed}일차 / {_g_days_total}일", delta_color="off")
-        if 0 < _g_days_passed < _g_days_total:
-            _g_proj = int(_g_imp / _g_days_passed * _g_days_total)
-            _g_need = int((BT_GOAL_IMP - _g_imp) / (_g_days_total - _g_days_passed)) if BT_GOAL_IMP > _g_imp else 0
-            st.caption(f"이 추세면 기간 말 약 {_g_proj:,} 노출 예상 · 목표 달성까지 남은 기간 일평균 {_g_need:,} 노출 필요")
-        elif _g_days_passed >= _g_days_total:
-            st.caption(f"기간 종료 — 최종 노출 {_g_imp:,} (달성률 {_g_rate:.1f}%)")
-        st.markdown("---")
-
-        # 1. 일별 광고비 & CPA
-        st.markdown("**📊 일별 광고비 & CPA**")
-        render_pinned_total_table(daily_table(fdf_bt))
-        st.markdown("---")
-
-        # 2. 제품코드별 성과
-        st.markdown("**📦 제품코드별 성과**")
-        bt_pc_tbl = build_summary_table(fdf_bt, "제품코드")
-        _btpc_total = bt_pc_tbl[bt_pc_tbl["제품코드"] == "총합계"]
-        _btpc_data  = bt_pc_tbl[bt_pc_tbl["제품코드"] != "총합계"].sort_values("광고비", ascending=False)
-        bt_pc_tbl = pd.concat([_btpc_data, _btpc_total], ignore_index=True)
-        render_pinned_total_table(style_summary(bt_pc_tbl, "제품코드"))
-        st.markdown("---")
-
-        # 3. KR별 성과 (I: 소분류 연출 그대로 / V: 소분류 연출의 온점 이후 텍스트)
-        st.markdown("**🔤 KR별 성과** (클릭하면 소재별 상세)")
-        fdf_kr = fdf_bt.copy()
-
-        def _kr_label(_row):
-            _dt = str(_row["소분류 연출"]).strip()
-            if not _dt or _dt == "nan":
-                return ""
-            _vi = str(_row["영상/이미지 구분"]).strip().upper()
-            if _vi == "V" and "." in _dt:
-                return _dt.rsplit(".", 1)[-1].strip()
-            return _dt
-
-        fdf_kr["_KR"] = fdf_kr.apply(_kr_label, axis=1)
-        fdf_kr = fdf_kr[fdf_kr["_KR"] != ""]
-        if fdf_kr.empty:
-            st.info("KR 구분이 있는 소재 데이터가 없습니다.")
-        else:
-            _kr_cols = ["KR 구분", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
-            _kr_groups = []
-            for _kr, _kr_sub in fdf_kr.groupby("_KR"):
-                _kr_ads = [
-                    (_an,
-                     perf_row(_an, _kr_sub[_kr_sub["소재명"] == _an], key_col="KR 구분"),
-                     _kr_sub[_kr_sub["소재명"] == _an]["광고비 (KRW)"].sum())
-                    for _an in _kr_sub["소재명"].unique()
-                ]
-                _kr_ads.sort(key=lambda x: x[2], reverse=True)
-                _kr_groups.append((
-                    str(_kr),
-                    perf_row(str(_kr), _kr_sub, key_col="KR 구분"),
-                    [(_a, _r) for _a, _r, _ in _kr_ads],
-                    _kr_sub["광고비 (KRW)"].sum(),
-                ))
-            _kr_groups.sort(key=lambda x: x[3], reverse=True)
-            render_tree_table(
-                [(_g2[0], _g2[1], _g2[2]) for _g2 in _kr_groups],
-                perf_row("총합계", fdf_kr, key_col="KR 구분"),
-                _kr_cols,
-            )
-        st.markdown("---")
-
-        # 4. 영상 포맷별 성과 (광고유형 V, 대분류 포맷 → 소분류 연출 → 소재명)
-        st.markdown("**🎞 영상 포맷별 성과**")
-        fdf_btv = fdf_bt[fdf_bt["영상/이미지 구분"].astype(str).str.strip().str.upper() == "V"].copy()
-        fdf_btv = fdf_btv[fdf_btv["대분류 포맷"].astype(str).str.strip() != ""]
-        if fdf_btv.empty:
-            st.info("영상(V) 소재 데이터가 없습니다.")
-        else:
-            _btv_cols = ["영상 포맷", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
-            _btv_groups = []
-            for _btv_fmt, _btv_sub in fdf_btv.groupby("대분류 포맷"):
-                if not str(_btv_fmt).strip():
-                    continue
-                _btv_kids = []
-                for _btv_dt, _btv_ssub in _btv_sub.groupby("소분류 연출"):
-                    _btv_label = str(_btv_dt).strip() or "(미분류)"
-                    _btv_ads = [
-                        (_an,
-                         perf_row(_an, _btv_ssub[_btv_ssub["소재명"] == _an], key_col="영상 포맷"),
-                         _btv_ssub[_btv_ssub["소재명"] == _an]["광고비 (KRW)"].sum())
-                        for _an in _btv_ssub["소재명"].unique()
-                    ]
-                    _btv_ads.sort(key=lambda x: x[2], reverse=True)
-                    _btv_kids.append((
-                        _btv_label,
-                        perf_row(_btv_label, _btv_ssub, key_col="영상 포맷"),
-                        [(_a, _r) for _a, _r, _ in _btv_ads],
-                        _btv_ssub["광고비 (KRW)"].sum(),
-                    ))
-                _btv_kids.sort(key=lambda x: x[3], reverse=True)
-                _btv_groups.append((
-                    str(_btv_fmt),
-                    perf_row(str(_btv_fmt), _btv_sub, key_col="영상 포맷"),
-                    [(_a, _r, _k) for _a, _r, _k, _ in _btv_kids],
-                    _btv_sub["광고비 (KRW)"].sum(),
-                ))
-            _btv_groups.sort(key=lambda x: x[3], reverse=True)
-            render_tree_table3(
-                [(_g2[0], _g2[1], _g2[2]) for _g2 in _btv_groups],
-                perf_row("총합계", fdf_btv, key_col="영상 포맷"),
-                _btv_cols,
-            )
-
-# --- TAB 8: 블트하 시간대별 ---
-with tab8:
-    render_hourly_tab("블트하_시간대별_원본", "bt")
+module.exports = { register, PROFIT_RATES, PROTEIN_CONFIG };
