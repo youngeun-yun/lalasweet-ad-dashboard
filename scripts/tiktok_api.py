@@ -5,10 +5,11 @@ TikTok 광고 데이터 수집 (GitHub Actions 전용)
 - 자격증명: 환경 변수 (GitHub Secrets)
 - 캠페인 제외: 캠페인명에 '인지' 포함 시 제외
 - 지출(spend) = 0인 행 제외
+- 소재명 정리: 자산 파일명(_해시.mp4...) 자동 생성 문자열 제거 후 동일 키 합산
 - 출력: data/tiktok_raw_{since}_{until}.csv
 - 상태 파일: data/tiktok_last_success.txt
 """
-import os, sys, time, json, datetime, csv
+import os, re, sys, time, json, datetime, csv
 import requests
 
 ACCESS_TOKEN    = os.environ["TIKTOK_ACCESS_TOKEN"]
@@ -85,6 +86,18 @@ def tt_get(endpoint, params):
         log(f"   TikTok API 오류 code={code}: {data.get('message')} -> 재시도")
         time.sleep(min(10 * (2 ** attempt), 300))
     die("TikTok API 재시도 모두 소진")
+
+# ── 소재명 정리 ────────────────────────────────────────────────
+# 자산 파일명 기반 자동 생성 이름 정리
+# 예: "정상소재명_ZYAjc9Gv.mp4_정상소재명..." → "정상소재명"
+_ASSET_SUFFIX_RE = re.compile(r"_[A-Za-z0-9]{4,16}\.(?:mp4|mov|gif|jpe?g|png).*$", re.IGNORECASE)
+
+def clean_ad_name(name):
+    if not name:
+        return name
+    name = re.sub(r"\s*-\s*사본(\s+\d+)?$", "", str(name)).strip()
+    name = _ASSET_SUFFIX_RE.sub("", name).strip()
+    return name
 
 # ── 날짜 범위 ──────────────────────────────────────────────────
 today = datetime.date.today()
@@ -179,25 +192,33 @@ while current <= until:
     all_rows.extend(filtered)
     current += datetime.timedelta(days=1)
 
-# ── spend = 0 행 제외 후 CSV 저장 ─────────────────────────────
-out = []
+# ── spend = 0 제외 + 소재명 정리 후 동일 키 합산 ───────────────
+_agg = {}
+_raw_n = 0
 for r in all_rows:
     m     = r.get("metrics", {})
     d     = r.get("dimensions", {})
     spend = float(m.get("spend", 0) or 0)
     if spend == 0:
         continue
-    out.append({
-        "date":          d.get("stat_time_day", "")[:10],
-        "campaign_name": m.get("campaign_name", ""),
-        "adset_name":    m.get("adgroup_name", ""),
-        "ad_name":       m.get("ad_name", ""),
-        "impressions":   int(float(m.get("impressions", 0) or 0)),
-        "clicks":        int(float(m.get("clicks", 0) or 0)),
-        "spend":         spend,
-        "conversions":   int(float(m.get("conversion", 0) or 0)),
-    })
+    _raw_n += 1
+    _key = (d.get("stat_time_day", "")[:10],
+            m.get("campaign_name", ""),
+            m.get("adgroup_name", ""),
+            clean_ad_name(m.get("ad_name", "")))
+    _v = _agg.setdefault(_key, {"impressions": 0, "clicks": 0, "spend": 0.0, "conversions": 0})
+    _v["impressions"] += int(float(m.get("impressions", 0) or 0))
+    _v["clicks"]      += int(float(m.get("clicks", 0) or 0))
+    _v["spend"]       += spend
+    _v["conversions"] += int(float(m.get("conversion", 0) or 0))
 
+out = [{"date": k[0], "campaign_name": k[1], "adset_name": k[2], "ad_name": k[3],
+        "impressions": v["impressions"], "clicks": v["clicks"],
+        "spend": round(v["spend"], 2), "conversions": v["conversions"]}
+       for k, v in _agg.items()]
+
+if _raw_n > len(out):
+    log(f"자산 하위 광고 병합: {_raw_n - len(out)}행 합산")
 log(f"spend > 0 행: {len(out)}개")
 
 out_path = os.path.join(DATA_DIR, f"tiktok_raw_{since}_{until}.csv")
