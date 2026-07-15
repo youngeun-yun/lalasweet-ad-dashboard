@@ -66,10 +66,10 @@ SK_SCHEME2_END   = pd.Timestamp("2026-06-30")
 SK_SCHEME3_START = pd.Timestamp("2026-07-01")
 SK_SCHEME3_END   = pd.Timestamp("2026-07-05")
 SK_SCHEME4_START = pd.Timestamp("2026-07-06")  # 4차 스킴: 종료일 미정 (이후 전체)
-# --- 단쉐 노출 가중목 ---
-SK_GOAL_IMP   = 22_000_000
-SK_GOAL_START = pd.Timestamp("2026-07-15")
-SK_GOAL_END   = pd.Timestamp("2026-07-31")
+# --- 블트하 노출 가중목 ---
+BT_GOAL_IMP   = 22_000_000
+BT_GOAL_START = pd.Timestamp("2026-07-15")
+BT_GOAL_END   = pd.Timestamp("2026-07-31")
 # --- 소재 유형 우선순위 ---
 CREATIVE_TYPES = [
     "맛페인포인트.5P소구",
@@ -903,33 +903,6 @@ with tab4:
         render_kpi(calc_kpi(fdf_sk))
         st.markdown("---")
 
-        # 0. 가중목 현황 (노출 목표 트래킹)
-        st.markdown(f"**🎯 가중목 현황** ({SK_GOAL_START.strftime('%m/%d')}~{SK_GOAL_END.strftime('%m/%d')} · 노출 목표 {SK_GOAL_IMP:,})")
-        st.caption("사이드바 필터와 무관하게 전체 데이터 기준 · 당일 수치는 실시간 업데이트 후 반영됩니다.")
-        _g = df[df["캠페인명"].astype(str).str.contains("단백질|단쉐", na=False)]
-        _g = _g[(_g["날짜"] >= SK_GOAL_START) & (_g["날짜"] <= SK_GOAL_END)]
-        _g_imp  = int(_g["노출"].sum())
-        _g_rate = _g_imp / SK_GOAL_IMP * 100
-        _g_days_total  = (SK_GOAL_END - SK_GOAL_START).days + 1
-        _g_today = pd.Timestamp(pd.Timestamp.now(tz="Asia/Seoul").strftime("%Y-%m-%d"))
-        _g_days_passed = min(max((_g_today - SK_GOAL_START).days + 1, 0), _g_days_total)
-        _g_pace = _g_days_passed / _g_days_total * 100
-        gc1, gc2, gc3, gc4 = st.columns(4)
-        gc1.metric("🎯 목표 노출", f"{SK_GOAL_IMP:,}")
-        gc2.metric("👁 누적 노출", f"{_g_imp:,}")
-        gc3.metric("📈 달성률", f"{_g_rate:.1f}%")
-        gc4.metric("📅 일자 진척률", f"{_g_pace:.1f}%", f"{_g_days_passed}일차 / {_g_days_total}일", delta_color="off")
-        st.progress(min(_g_rate / 100, 1.0), text=f"노출 달성률 {_g_rate:.1f}%")
-        st.progress(min(_g_pace / 100, 1.0), text=f"일자 진척률 {_g_pace:.1f}% ({_g_days_passed}일차 / {_g_days_total}일)")
-        if _g_days_passed > 0:
-            _g_diff = _g_rate - _g_pace
-            _g_proj = int(_g_imp / _g_days_passed * _g_days_total)
-            if _g_diff >= 0:
-                st.caption(f"✅ 일자 진척률보다 {_g_diff:.1f}%p 앞서고 있어요 · 이 추세면 기간 말 약 {_g_proj:,} 노출 예상")
-            else:
-                st.caption(f"⚠️ 일자 진척률보다 {abs(_g_diff):.1f}%p 뒤처져 있어요 · 이 추세면 기간 말 약 {_g_proj:,} 노출 예상")
-        st.markdown("---")
-
         # 1. 일별 광고비 & CPA
         st.markdown("**📊 일별 광고비 & CPA**")
         render_pinned_total_table(daily_table(fdf_sk))
@@ -1164,6 +1137,32 @@ with tab7:
         st.warning("블트하(제품코드 BT) 데이터가 없어요. 사이드바 필터를 확인해주세요.")
     else:
         render_kpi(calc_kpi(fdf_bt))
+        st.markdown("---")
+
+        # 0. 가중목 현황 (블트하 노출 목표 트래킹)
+        st.markdown(f"**🎯 가중목 현황** ({BT_GOAL_START.strftime('%m/%d')}~{BT_GOAL_END.strftime('%m/%d')} · 노출 목표 {BT_GOAL_IMP:,})")
+        st.caption("사이드바 필터와 무관하게 전체 데이터 기준 · 당일 수치는 실시간 업데이트 후 반영됩니다.")
+        _g = df[df["제품코드"].astype(str).str.contains("BT", na=False)]
+        _g = _g[(_g["날짜"] >= BT_GOAL_START) & (_g["날짜"] <= BT_GOAL_END)]
+        _g_imp  = int(_g["노출"].sum())
+        _g_rate = _g_imp / BT_GOAL_IMP * 100
+        _g_days_total  = (BT_GOAL_END - BT_GOAL_START).days + 1
+        _g_daily_goal  = round(BT_GOAL_IMP / _g_days_total)
+        _g_today = pd.Timestamp(pd.Timestamp.now(tz="Asia/Seoul").strftime("%Y-%m-%d"))
+        _g_days_passed = min(max((_g_today - BT_GOAL_START).days + 1, 0), _g_days_total)
+        _g_pace = _g_days_passed / _g_days_total * 100
+        gc1, gc2, gc3, gc4, gc5 = st.columns(5)
+        gc1.metric("🎯 목표 노출", f"{BT_GOAL_IMP:,}")
+        gc2.metric("📆 목표 일별 노출", f"{_g_daily_goal:,}")
+        gc3.metric("👁 누적 노출", f"{_g_imp:,}")
+        gc4.metric("📈 달성률", f"{_g_rate:.1f}%", f"{_g_rate - _g_pace:+.1f}%p (일자 진척률 대비)")
+        gc5.metric("📅 일자 진척률", f"{_g_pace:.1f}%", f"{_g_days_passed}일차 / {_g_days_total}일", delta_color="off")
+        if 0 < _g_days_passed < _g_days_total:
+            _g_proj = int(_g_imp / _g_days_passed * _g_days_total)
+            _g_need = int((BT_GOAL_IMP - _g_imp) / (_g_days_total - _g_days_passed)) if BT_GOAL_IMP > _g_imp else 0
+            st.caption(f"이 추세면 기간 말 약 {_g_proj:,} 노출 예상 · 목표 달성까지 남은 기간 일평균 {_g_need:,} 노출 필요")
+        elif _g_days_passed >= _g_days_total:
+            st.caption(f"기간 종료 — 최종 노출 {_g_imp:,} (달성률 {_g_rate:.1f}%)")
         st.markdown("---")
 
         # 1. 일별 광고비 & CPA
