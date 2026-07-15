@@ -373,9 +373,11 @@ def daily_table(d: pd.DataFrame) -> pd.DataFrame:
         "CPA":      f"{int(ts/tv):,}" if tv > 0 else "0",
     }])
     return pd.concat([tbl, total], ignore_index=True)
-def daily_tree_table(d: pd.DataFrame) -> None:
+def daily_tree_table(d: pd.DataFrame, with_cpm: bool = False) -> None:
     """일별 광고비 테이블 — 일자 클릭 시 광고 유형별(V/I) 성과 펼침"""
-    _cols = ["일", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
+    _pr = hr_perf_row if with_cpm else perf_row
+    _cols = (["일", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC"]
+             + (["CPM"] if with_cpm else []) + ["CVR", "CPA"])
     _vi_label = {"V": "V (영상)", "I": "I (이미지)"}
     groups = []
     for _dt in sorted(d["날짜"].dt.date.unique()):
@@ -383,12 +385,24 @@ def daily_tree_table(d: pd.DataFrame) -> None:
         _kids = []
         for _vi, _vi_sub in _sub.groupby(_sub["영상/이미지 구분"].astype(str).str.strip().str.upper()):
             _lb = _vi_label.get(_vi, _vi if _vi else "(미분류)")
-            _kids.append((_lb, perf_row(_lb, _vi_sub, key_col="일"),
+            _kids.append((_lb, _pr(_lb, _vi_sub, key_col="일"),
                           _vi_sub["광고비 (KRW)"].sum()))
         _kids.sort(key=lambda x: x[2], reverse=True)
-        groups.append((str(_dt), perf_row(str(_dt), _sub, key_col="일"),
+        groups.append((str(_dt), _pr(str(_dt), _sub, key_col="일"),
                        [(_a, _r) for _a, _r, _ in _kids]))
-    render_tree_table(groups, perf_row("총합계", d, key_col="일"), _cols)
+    render_tree_table(groups, _pr("총합계", d, key_col="일"), _cols)
+
+def cpm_summary_table(d: pd.DataFrame, group_col: str, first_col: str) -> None:
+    """CPM 포함 그룹별 요약 테이블 (광고비 내림차순 + 총합계 고정)"""
+    _cols = [first_col, "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CPM", "CVR", "CPA"]
+    rows = []
+    for _g, _sub in d.groupby(group_col):
+        if not str(_g).strip():
+            continue
+        rows.append((hr_perf_row(str(_g), _sub, key_col=first_col), _sub["광고비 (KRW)"].sum()))
+    rows.sort(key=lambda x: x[1], reverse=True)
+    out = [r for r, _ in rows] + [hr_perf_row("총합계", d, key_col=first_col)]
+    render_pinned_total_table(pd.DataFrame(out)[_cols])
 def valid_opts(df: pd.DataFrame, col: str) -> list:
     grp = df.groupby(col)["노출"].sum()
     return sorted([str(v) for v, imp in grp.items()
@@ -1183,16 +1197,12 @@ with tab7:
 
         # 1. 일별 광고비 & CPA
         st.markdown("**📊 일별 광고비 & CPA**")
-        daily_tree_table(fdf_bt)
+        daily_tree_table(fdf_bt, with_cpm=True)
         st.markdown("---")
 
         # 2. 제품코드별 성과
         st.markdown("**📦 제품코드별 성과**")
-        bt_pc_tbl = build_summary_table(fdf_bt, "제품코드")
-        _btpc_total = bt_pc_tbl[bt_pc_tbl["제품코드"] == "총합계"]
-        _btpc_data  = bt_pc_tbl[bt_pc_tbl["제품코드"] != "총합계"].sort_values("광고비", ascending=False)
-        bt_pc_tbl = pd.concat([_btpc_data, _btpc_total], ignore_index=True)
-        render_pinned_total_table(style_summary(bt_pc_tbl, "제품코드"))
+        cpm_summary_table(fdf_bt, "제품코드", "제품코드")
         st.markdown("---")
 
         # 3. KR별 성과 (I: 소분류 연출 그대로 / V: 소분류 연출의 온점 이후 텍스트)
@@ -1213,26 +1223,26 @@ with tab7:
         if fdf_kr.empty:
             st.info("KR 구분이 있는 소재 데이터가 없습니다.")
         else:
-            _kr_cols = ["KR 구분", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
+            _kr_cols = ["KR 구분", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CPM", "CVR", "CPA"]
             _kr_groups = []
             for _kr, _kr_sub in fdf_kr.groupby("_KR"):
                 _kr_ads = [
                     (_an,
-                     perf_row(_an, _kr_sub[_kr_sub["소재명"] == _an], key_col="KR 구분"),
+                     hr_perf_row(_an, _kr_sub[_kr_sub["소재명"] == _an], key_col="KR 구분"),
                      _kr_sub[_kr_sub["소재명"] == _an]["광고비 (KRW)"].sum())
                     for _an in _kr_sub["소재명"].unique()
                 ]
                 _kr_ads.sort(key=lambda x: x[2], reverse=True)
                 _kr_groups.append((
                     str(_kr),
-                    perf_row(str(_kr), _kr_sub, key_col="KR 구분"),
+                    hr_perf_row(str(_kr), _kr_sub, key_col="KR 구분"),
                     [(_a, _r) for _a, _r, _ in _kr_ads],
                     _kr_sub["광고비 (KRW)"].sum(),
                 ))
             _kr_groups.sort(key=lambda x: x[3], reverse=True)
             render_tree_table(
                 [(_g2[0], _g2[1], _g2[2]) for _g2 in _kr_groups],
-                perf_row("총합계", fdf_kr, key_col="KR 구분"),
+                hr_perf_row("총합계", fdf_kr, key_col="KR 구분"),
                 _kr_cols,
             )
         st.markdown("---")
@@ -1244,7 +1254,7 @@ with tab7:
         if fdf_btv.empty:
             st.info("영상(V) 소재 데이터가 없습니다.")
         else:
-            _btv_cols = ["영상 포맷", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
+            _btv_cols = ["영상 포맷", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CPM", "CVR", "CPA"]
             _btv_groups = []
             for _btv_fmt, _btv_sub in fdf_btv.groupby("대분류 포맷"):
                 if not str(_btv_fmt).strip():
@@ -1254,28 +1264,28 @@ with tab7:
                     _btv_label = str(_btv_dt).strip() or "(미분류)"
                     _btv_ads = [
                         (_an,
-                         perf_row(_an, _btv_ssub[_btv_ssub["소재명"] == _an], key_col="영상 포맷"),
+                         hr_perf_row(_an, _btv_ssub[_btv_ssub["소재명"] == _an], key_col="영상 포맷"),
                          _btv_ssub[_btv_ssub["소재명"] == _an]["광고비 (KRW)"].sum())
                         for _an in _btv_ssub["소재명"].unique()
                     ]
                     _btv_ads.sort(key=lambda x: x[2], reverse=True)
                     _btv_kids.append((
                         _btv_label,
-                        perf_row(_btv_label, _btv_ssub, key_col="영상 포맷"),
+                        hr_perf_row(_btv_label, _btv_ssub, key_col="영상 포맷"),
                         [(_a, _r) for _a, _r, _ in _btv_ads],
                         _btv_ssub["광고비 (KRW)"].sum(),
                     ))
                 _btv_kids.sort(key=lambda x: x[3], reverse=True)
                 _btv_groups.append((
                     str(_btv_fmt),
-                    perf_row(str(_btv_fmt), _btv_sub, key_col="영상 포맷"),
+                    hr_perf_row(str(_btv_fmt), _btv_sub, key_col="영상 포맷"),
                     [(_a, _r, _k) for _a, _r, _k, _ in _btv_kids],
                     _btv_sub["광고비 (KRW)"].sum(),
                 ))
             _btv_groups.sort(key=lambda x: x[3], reverse=True)
             render_tree_table3(
                 [(_g2[0], _g2[1], _g2[2]) for _g2 in _btv_groups],
-                perf_row("총합계", fdf_btv, key_col="영상 포맷"),
+                hr_perf_row("총합계", fdf_btv, key_col="영상 포맷"),
                 _btv_cols,
             )
 
