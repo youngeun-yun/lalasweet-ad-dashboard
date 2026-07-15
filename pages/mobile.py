@@ -137,7 +137,7 @@ def hour_metrics(d: pd.DataFrame) -> dict:
 # =============================================================
 st.markdown("### 🍬 라라스윗 실시간")
 
-PRODUCTS = {"🥐 단쉐": "단쉐_시간대별_원본", "🍿 팝콘": "팝콘_시간대별_원본"}
+PRODUCTS = {"🥐 단쉐": "단쉐_시간대별_원본", "🍿 팝콘": "팝콘_시간대별_원본", "🫐 블트하": "블트하_시간대별_원본"}
 prod = st.radio("제품", list(PRODUCTS.keys()), horizontal=True,
                 label_visibility="collapsed", key="mb_prod")
 
