@@ -7,7 +7,7 @@
 - 수집 범위에 해당하는 날짜 행만 교체, 다른 날짜는 보존
 - 저장소 커밋 없음 (시트에 직접 기록)
 """
-import os, sys, time, json, datetime
+import os, re, sys, time, json, datetime
 import requests
 import gspread
 from google.oauth2.service_account import Credentials
@@ -103,6 +103,17 @@ def purchase_val(actions):
                 return 0
     return 0
 
+# 유연한 광고/ASC가 자산 파일명 기반으로 자동 생성한 하위 광고명 정리
+# 예: "정상소재명_ZYAjc9Gv.mp4_정상소재명..." → "정상소재명"
+_ASSET_SUFFIX_RE = re.compile(r"_[A-Za-z0-9]{4,16}\.(?:mp4|mov|gif|jpe?g|png).*$", re.IGNORECASE)
+
+def clean_ad_name(name):
+    if not name:
+        return name
+    name = re.sub(r"\s*-\s*사본(\s+\d+)?$", "", str(name)).strip()
+    name = _ASSET_SUFFIX_RE.sub("", name).strip()
+    return name
+
 def collect(keyword):
     """소재명에 keyword가 포함된 광고의 시간대별 성과 수집"""
     log(f"[{keyword}] 수집 범위: {since} ~ {until} (시간대별)")
@@ -150,25 +161,29 @@ def collect(keyword):
         log(f"  페이지 {page}: +{len(batch)}행 (누적 {len(rows)}행)")
 
     collected_at = datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M")
-    out = []
+    # 소재명 정리 후 동일 키(날짜·시간·캠페인·세트·소재)는 합산
+    agg = {}
+    raw_n = 0
     for r in rows:
         hour_raw = str(r.get("hourly_stats_aggregated_by_advertiser_time_zone", ""))
         try:
             hour = int(hour_raw[:2])
         except ValueError:
             continue
-        out.append([
-            r.get("date_start", ""),
-            hour,
-            r.get("campaign_name", ""),
-            r.get("adset_name", ""),
-            r.get("ad_name", ""),
-            int(float(r.get("impressions", 0) or 0)),
-            int(float(r.get("inline_link_clicks", 0) or 0)),
-            float(r.get("spend", 0) or 0),
-            purchase_val(r.get("actions")),
-            collected_at,
-        ])
+        raw_n += 1
+        key = (r.get("date_start", ""), hour,
+               r.get("campaign_name", ""), r.get("adset_name", ""),
+               clean_ad_name(r.get("ad_name", "")))
+        v = agg.setdefault(key, [0, 0, 0.0, 0])
+        v[0] += int(float(r.get("impressions", 0) or 0))
+        v[1] += int(float(r.get("inline_link_clicks", 0) or 0))
+        v[2] += float(r.get("spend", 0) or 0)
+        v[3] += purchase_val(r.get("actions"))
+    out = [[k[0], k[1], k[2], k[3], k[4],
+            v[0], v[1], round(v[2], 2), v[3], collected_at]
+           for k, v in agg.items()]
+    if raw_n > len(out):
+        log(f"[{keyword}] 자산 하위 광고 병합: {raw_n - len(out)}행 합산")
     log(f"[{keyword}] 변환 완료: {len(out)}행")
     return out
 
