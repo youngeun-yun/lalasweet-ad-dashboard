@@ -736,7 +736,7 @@ kpi = calc_kpi(fdf)
 # 탭
 # =============================================================
 render_update_buttons()
-tab1, tab4, tab7, tab2, tab5, tab6 = st.tabs(["📊 전체 요약", "🥐 단쉐 요약", "🫐 블트하 요약", "🍿 팝콘 요약", "⏰ 단쉐 시간대별", "⏰ 팝콘 시간대별"])
+tab1, tab7, tab2, tab4, tab8, tab6, tab5 = st.tabs(["📊 전체 요약", "🫐 블트하 요약", "🍿 팝콘 요약", "🥐 단쉐 요약", "⏰ 블트하 시간대별", "⏰ 팝콘 시간대별", "⏰ 단쉐 시간대별"])
 # --- TAB 1: 전체 요약 ---
 with tab1:
     render_kpi(kpi)
@@ -1263,3 +1263,7 @@ with tab7:
                 perf_row("총합계", fdf_btv, key_col="영상 포맷"),
                 _btv_cols,
             )
+
+# --- TAB 8: 블트하 시간대별 ---
+with tab8:
+    render_hourly_tab("블트하_시간대별_원본", "bt")
