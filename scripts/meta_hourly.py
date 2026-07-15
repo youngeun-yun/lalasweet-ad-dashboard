@@ -28,6 +28,7 @@ HEADER      = ["날짜", "시간", "캠페인명", "광고그룹명", "소재명
 TARGETS = [
     ("SK", "단쉐_시간대별_원본"),
     ("PC", "팝콘_시간대별_원본"),
+    ("BT", "블트하_시간대별_원본"),
 ]
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
