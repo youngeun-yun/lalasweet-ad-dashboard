@@ -5,7 +5,8 @@ Meta 광고 데이터 수집 (GitHub Actions 전용)
 - 자격증명: 환경 변수 (GitHub Secrets)
 - 캠페인 제외: 파인트/스틱바/얼리썸머/패밀리세일/빙과
 - 소재명 제품코드 제외: BA망/CO바/P혼/ZB귤/ZB파
-- 소재명 정리: ' - 사본' / ' - 사본 N' 패턴 제거
+- 소재명 정리: ' - 사본' 패턴 + 자산 파일명(_해시.mp4...) 자동 생성 문자열 제거
+  (유연한 광고/ASC 하위 광고 → 정상 소재명으로 정리 후 동일 키 합산)
 - 출력: data/meta_raw_{since}_{until}.csv
 - 상태 파일: data/meta_last_success.txt
 """
@@ -83,10 +84,17 @@ def api_call(method, url, **kw):
             die(f"영구 API 오류: {err}")
     die(f"재시도 모두 소진: {last}")
 
+# 유연한 광고/ASC가 자산 파일명 기반으로 자동 생성한 하위 광고명 정리
+# 예: "정상소재명_ZYAjc9Gv.mp4_정상소재명..." → "정상소재명"
+_ASSET_SUFFIX_RE = re.compile(r"_[A-Za-z0-9]{4,16}\.(?:mp4|mov|gif|jpe?g|png).*$", re.IGNORECASE)
+
 def clean_ad_name(name: str) -> str:
+    """' - 사본' 패턴 및 자산 파일명 이후 자동 생성 문자열 제거"""
     if not name:
         return name
-    return re.sub(r'\s*-\s*사본(\s+\d+)?$', '', name).strip()
+    name = re.sub(r'\s*-\s*사본(\s+\d+)?$', '', name).strip()
+    name = _ASSET_SUFFIX_RE.sub("", name).strip()
+    return name
 
 # 백필 모드: 환경변수 BACKFILL_SINCE / BACKFILL_UNTIL 우선
 _backfill_since = os.environ.get("BACKFILL_SINCE", "").strip()
@@ -283,13 +291,33 @@ for r in rows:
     })
 
 if sbon_count > 0:
-    log(f"소재명 ' - 사본' 정리 완료: {sbon_count}건")
+    log(f"소재명 정리 완료 (사본/자산 파일명): {sbon_count}건")
 
 # C혼 소재 제외 (PC혼은 팝콘 코드이므로 유지)
 out = [r for r in out if not (
     "C혼" in (r.get("ad_name") or "") and
     "PC혼" not in (r.get("ad_name") or "")
 )]
+
+# 소재명 정리로 동일 키(날짜·캠페인·세트·소재)가 된 행 합산
+# (유연한 광고/ASC의 자산 조합 하위 행 병합 — 그냥 두면 중복 제거 단계에서 광고비 유실)
+_agg = {}
+for r0 in out:
+    _key = (r0["date"], r0["campaign_name"], r0["adset_name"], r0["ad_name"])
+    _v = _agg.setdefault(_key, {"impressions": 0, "clicks": 0, "spend": 0.0, "conversions": 0})
+    _v["impressions"] += int(float(r0.get("impressions") or 0))
+    _v["clicks"]      += int(float(r0.get("clicks") or 0))
+    _v["spend"]       += float(r0.get("spend") or 0)
+    try:
+        _v["conversions"] += int(float(r0.get("conversions") or 0))
+    except (TypeError, ValueError):
+        pass
+if len(out) > len(_agg):
+    log(f"자산 하위 광고 병합: {len(out) - len(_agg)}행 합산")
+out = [{"date": k[0], "campaign_name": k[1], "adset_name": k[2], "ad_name": k[3],
+        "impressions": v["impressions"], "clicks": v["clicks"],
+        "spend": round(v["spend"], 2), "conversions": v["conversions"]}
+       for k, v in _agg.items()]
 
 if len(out) == 0:
     die("수집된 행이 0개 -> 파일 생성 안 함")
