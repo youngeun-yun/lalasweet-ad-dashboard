@@ -70,6 +70,8 @@ SK_SCHEME4_START = pd.Timestamp("2026-07-06")  # 4차 스킴: 종료일 미정 (
 BT_GOAL_IMP   = 22_000_000
 BT_GOAL_START = pd.Timestamp("2026-07-15")
 BT_GOAL_END   = pd.Timestamp("2026-07-31")
+# --- 신규소재 집행일자별 성과 기준일 (블트하·팝콘 공통) ---
+NEW_CREATIVE_START = "260720"
 # --- 소재 유형 우선순위 ---
 CREATIVE_TYPES = [
     "맛페인포인트.5P소구",
@@ -403,6 +405,38 @@ def cpm_summary_table(d: pd.DataFrame, group_col: str, first_col: str) -> None:
     rows.sort(key=lambda x: x[1], reverse=True)
     out = [r for r, _ in rows] + [hr_perf_row("총합계", d, key_col=first_col)]
     render_pinned_total_table(pd.DataFrame(out)[_cols])
+def render_new_creative_table(d: pd.DataFrame) -> None:
+    """신규소재 집행일자별 성과 (집행시작일 ≥ NEW_CREATIVE_START, CPM 포함).
+    집행시작일별 그룹 → 집행일 클릭 시 소재명별 성과 펼침 (2단 트리).
+    전달받은 d의 사이드바 필터가 그대로 반영된다."""
+    _cols = ["집행시작일", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CPM", "CVR", "CPA"]
+    dd = d.copy()
+    if "집행시작일" in dd.columns:
+        dd = dd[
+            dd["집행시작일"].astype(str).str.match(r"^\d{6}$") &
+            (dd["집행시작일"].astype(str) >= NEW_CREATIVE_START)
+        ]
+    else:
+        dd = dd.iloc[0:0]
+    if dd.empty:
+        st.info(f"집행시작일 {NEW_CREATIVE_START} 이후 소재 데이터가 없습니다.")
+        return
+    _groups = []
+    for _sd in sorted(dd["집행시작일"].astype(str).unique()):
+        _sub = dd[dd["집행시작일"].astype(str) == _sd]
+        _ads = [
+            (_an,
+             hr_perf_row(_an, _sub[_sub["소재명"] == _an], key_col="집행시작일"),
+             _sub[_sub["소재명"] == _an]["광고비 (KRW)"].sum())
+            for _an in _sub["소재명"].unique()
+        ]
+        _ads.sort(key=lambda x: x[2], reverse=True)
+        _groups.append((
+            _sd,
+            hr_perf_row(_sd, _sub, key_col="집행시작일"),
+            [(_a, _r) for _a, _r, _ in _ads],
+        ))
+    render_tree_table(_groups, hr_perf_row("총합계", dd, key_col="집행시작일"), _cols)
 def valid_opts(df: pd.DataFrame, col: str) -> list:
     grp = df.groupby(col)["노출"].sum()
     return sorted([str(v) for v, imp in grp.items()
@@ -766,7 +800,7 @@ kpi = calc_kpi(fdf)
 # 탭
 # =============================================================
 render_update_buttons()
-tab1, tab7, tab2, tab4, tab8, tab6, tab5 = st.tabs(["📊 전체 요약", "🫐 블트하 요약", "🍿 팝콘 요약", "🥐 단쉐 요약", "⏰ 블트하 시간대별", "⏰ 팝콘 시간대별", "⏰ 단쉐 시간대별"])
+tab1, tab7, tab2, tab8, tab6 = st.tabs(["📊 전체 요약", "🖤 블트하 요약", "🍿 팝콘 요약", "⏰ 블트하 시간대별", "⏰ 팝콘 시간대별"])
 # --- TAB 1: 전체 요약 ---
 with tab1:
     render_kpi(kpi)
@@ -913,9 +947,13 @@ with tab2:
                 hr_perf_row("총합계", fdf_pcv, key_col="영상 포맷"),
                 _pcv_cols,
             )
+        st.markdown("---")
+        # 4. 신규소재 집행일자별 성과 (집행시작일 260720~, 집행일 클릭 시 소재명 펼침)
+        st.markdown(f"**🗓 신규소재 집행일자별 성과 (집행시작일 {NEW_CREATIVE_START}~)**")
+        render_new_creative_table(fdf_pc)
 
-# --- TAB 4: 단쉐 요약 ---
-with tab4:
+# --- TAB 4: 단쉐 요약 (2026-07-24 숨김: st.tabs에서 제외, 데이터·코드 보존. 복원 시 이 줄을 'with tab4:'로 되돌리고 st.tabs에 재추가) ---
+if False:  # 단쉐 요약 탭 숨김
     fdf_sk = fdf[fdf["캠페인명"].astype(str).str.contains("단백질|단쉐", na=False)].copy()
     if fdf_sk.empty:
         st.warning("단쉐(캠페인명에 단백질/단쉐 포함) 데이터가 없어요. 사이드바 필터를 확인해주세요.")
@@ -1142,8 +1180,8 @@ def render_hourly_tab(sheet_name: str, kp: str) -> None:
         _tr_rows.append(hr_perf_row("총합계", _de, key_col="시간"))
         render_pinned_total_table(pd.DataFrame(_tr_rows)[_tr_cols], compact=True)
 
-# --- TAB 5: 단쉐 시간대별 ---
-with tab5:
+# --- TAB 5: 단쉐 시간대별 (2026-07-24 숨김: st.tabs에서 제외, 데이터·코드 보존. 복원 시 이 줄을 'with tab5:'로 되돌리고 st.tabs에 재추가) ---
+if False:  # 단쉐 시간대별 탭 숨김
     render_hourly_tab("단쉐_시간대별_원본", "sk")
 
 # --- TAB 6: 팝콘 시간대별 ---
@@ -1278,6 +1316,10 @@ with tab7:
                 hr_perf_row("총합계", fdf_btv, key_col="영상 포맷"),
                 _btv_cols,
             )
+        st.markdown("---")
+        # 5. 신규소재 집행일자별 성과 (집행시작일 260720~, 집행일 클릭 시 소재명 펼침)
+        st.markdown(f"**🗓 신규소재 집행일자별 성과 (집행시작일 {NEW_CREATIVE_START}~)**")
+        render_new_creative_table(fdf_bt)
 
 # --- TAB 8: 블트하 시간대별 ---
 with tab8:
