@@ -872,41 +872,7 @@ with tab2:
         event_tbl = pd.concat([_ev_data, _ev_total], ignore_index=True)
         render_pinned_total_table(style_summary(event_tbl, "이벤트명"))
         st.markdown("---")
-        # 3. 소재 유형별 성과 (접기/펼치기 트리 테이블)
-        st.markdown("**🎨 소재 유형별 성과**")
-        fdf_pc_c = fdf_pc.copy()
-        fdf_pc_c["_유형"] = fdf_pc_c["소재명"].apply(classify_creative)
-        _ct_cols = ["소재 유형", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
-        _ct_groups = []
-        for _t in CREATIVE_TYPES:
-            _sub = fdf_pc_c[fdf_pc_c["_유형"] == _t]
-            if _sub.empty:
-                continue
-            _ads = [
-                (_an,
-                 perf_row(_an, _sub[_sub["소재명"] == _an], key_col="소재 유형"),
-                 _sub[_sub["소재명"] == _an]["광고비 (KRW)"].sum())
-                for _an in _sub["소재명"].unique()
-            ]
-            _ads.sort(key=lambda x: x[2], reverse=True)
-            _ct_groups.append((
-                _t,
-                perf_row(_t, _sub, key_col="소재 유형"),
-                [(_a, _r) for _a, _r, _ in _ads],
-                _sub["광고비 (KRW)"].sum(),
-            ))
-        if _ct_groups:
-            _ct_groups.sort(key=lambda x: x[3], reverse=True)
-            typed_total = fdf_pc_c[fdf_pc_c["_유형"].notna()]
-            render_tree_table(
-                [(_g[0], _g[1], _g[2]) for _g in _ct_groups],
-                perf_row("총합계", typed_total, key_col="소재 유형"),
-                _ct_cols,
-            )
-        else:
-            st.info("현재 필터 조건에서 해당 소재 유형 데이터가 없습니다.")
-        st.markdown("---")
-        # 4. 영상 포맷별 성과 (광고유형 V, 대분류 포맷 → 소분류 연출 → 소재명)
+        # 3. 영상 포맷별 성과 (광고유형 V, 대분류 포맷 → 소분류 연출 → 소재명)
         st.markdown("**🎞 영상 포맷별 성과**")
         fdf_pcv = fdf_pc[fdf_pc["영상/이미지 구분"].astype(str).str.strip().str.upper() == "V"].copy()
         fdf_pcv = fdf_pcv[fdf_pcv["대분류 포맷"].astype(str).str.strip() != ""]
