@@ -863,25 +863,7 @@ with tab2:
         st.markdown("**📊 일별 광고비 & CPA**")
         daily_tree_table(fdf_pc)
         st.markdown("---")
-        # 2. 5P구성 성과
-        st.markdown("**📋 5P구성 성과**")
-        before = fdf_pc[
-            (fdf_pc["날짜"] >= PC_BEFORE_START) & (fdf_pc["날짜"] <= PC_BEFORE_END)
-        ]
-        after = fdf_pc[
-            (fdf_pc["날짜"] >= PC_AFTER_START) & (fdf_pc["날짜"] <= PC_AFTER_END)
-        ]
-        period_total = pd.concat([before, after])
-        b_label = f"5p구성 이전({PC_BEFORE_START.strftime('%m/%d')}~{PC_BEFORE_END.strftime('%m/%d')})"
-        a_label = f"5p구성 적용({PC_AFTER_START.strftime('%m/%d')}~{PC_AFTER_END.strftime('%m/%d')})"
-        period_df = pd.DataFrame([
-            perf_row(b_label, before),
-            perf_row(a_label, after),
-            perf_row("총합계", period_total),
-        ])
-        render_pinned_total_table(period_df)
-        st.markdown("---")
-        # 3. 이벤트별 성과
+        # 2. 이벤트별 성과
         st.markdown("**🎪 이벤트별 성과**")
         event_tbl = build_summary_table(fdf_pc, "스킴명")
         event_tbl = event_tbl.rename(columns={"스킴명": "이벤트명"})
@@ -890,7 +872,7 @@ with tab2:
         event_tbl = pd.concat([_ev_data, _ev_total], ignore_index=True)
         render_pinned_total_table(style_summary(event_tbl, "이벤트명"))
         st.markdown("---")
-        # 4. 소재 유형별 성과 (접기/펼치기 트리 테이블)
+        # 3. 소재 유형별 성과 (접기/펼치기 트리 테이블)
         st.markdown("**🎨 소재 유형별 성과**")
         fdf_pc_c = fdf_pc.copy()
         fdf_pc_c["_유형"] = fdf_pc_c["소재명"].apply(classify_creative)
@@ -923,6 +905,48 @@ with tab2:
             )
         else:
             st.info("현재 필터 조건에서 해당 소재 유형 데이터가 없습니다.")
+        st.markdown("---")
+        # 4. 영상 포맷별 성과 (광고유형 V, 대분류 포맷 → 소분류 연출 → 소재명)
+        st.markdown("**🎞 영상 포맷별 성과**")
+        fdf_pcv = fdf_pc[fdf_pc["영상/이미지 구분"].astype(str).str.strip().str.upper() == "V"].copy()
+        fdf_pcv = fdf_pcv[fdf_pcv["대분류 포맷"].astype(str).str.strip() != ""]
+        if fdf_pcv.empty:
+            st.info("영상(V) 소재 데이터가 없습니다.")
+        else:
+            _pcv_cols = ["영상 포맷", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CPM", "CVR", "CPA"]
+            _pcv_groups = []
+            for _pcv_fmt, _pcv_sub in fdf_pcv.groupby("대분류 포맷"):
+                if not str(_pcv_fmt).strip():
+                    continue
+                _pcv_kids = []
+                for _pcv_dt, _pcv_ssub in _pcv_sub.groupby("소분류 연출"):
+                    _pcv_label = str(_pcv_dt).strip() or "(미분류)"
+                    _pcv_ads = [
+                        (_an,
+                         hr_perf_row(_an, _pcv_ssub[_pcv_ssub["소재명"] == _an], key_col="영상 포맷"),
+                         _pcv_ssub[_pcv_ssub["소재명"] == _an]["광고비 (KRW)"].sum())
+                        for _an in _pcv_ssub["소재명"].unique()
+                    ]
+                    _pcv_ads.sort(key=lambda x: x[2], reverse=True)
+                    _pcv_kids.append((
+                        _pcv_label,
+                        hr_perf_row(_pcv_label, _pcv_ssub, key_col="영상 포맷"),
+                        [(_a, _r) for _a, _r, _ in _pcv_ads],
+                        _pcv_ssub["광고비 (KRW)"].sum(),
+                    ))
+                _pcv_kids.sort(key=lambda x: x[3], reverse=True)
+                _pcv_groups.append((
+                    str(_pcv_fmt),
+                    hr_perf_row(str(_pcv_fmt), _pcv_sub, key_col="영상 포맷"),
+                    [(_a, _r, _k) for _a, _r, _k, _ in _pcv_kids],
+                    _pcv_sub["광고비 (KRW)"].sum(),
+                ))
+            _pcv_groups.sort(key=lambda x: x[3], reverse=True)
+            render_tree_table3(
+                [(_g2[0], _g2[1], _g2[2]) for _g2 in _pcv_groups],
+                hr_perf_row("총합계", fdf_pcv, key_col="영상 포맷"),
+                _pcv_cols,
+            )
 
 # --- TAB 4: 단쉐 요약 ---
 with tab4:
