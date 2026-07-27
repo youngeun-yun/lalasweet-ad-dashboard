@@ -759,6 +759,10 @@ with st.sidebar:
     st.markdown("**📦 제품코드**")
     sel_prodcode = st.multiselect("제품코드", valid_opts(df, "제품코드"),
                                   placeholder="전체", label_visibility="collapsed")
+    st.markdown("**🗓 집행시작일**")
+    _startdate_opts = valid_opts(df, "집행시작일") if "집행시작일" in df.columns else []
+    sel_startdate = st.multiselect("집행시작일", _startdate_opts,
+                                   placeholder="전체", label_visibility="collapsed")
     st.markdown("**🎪 이벤트명**")
     sel_event = st.multiselect("이벤트명", valid_opts(df, "스킴명"),
                                placeholder="전체", label_visibility="collapsed")
@@ -784,6 +788,8 @@ if sel_adtype:
     mask &= df["영상/이미지 구분"].astype(str).isin(sel_adtype)
 if sel_prodcode:
     mask &= df["제품코드"].astype(str).isin(sel_prodcode)
+if sel_startdate and "집행시작일" in df.columns:
+    mask &= df["집행시작일"].astype(str).isin(sel_startdate)
 if sel_event:
     mask &= df["스킴명"].astype(str).isin(sel_event)
 fdf = df[mask].copy()
@@ -1320,6 +1326,10 @@ with tab7:
         # 5. 신규소재 집행일자별 성과 (집행시작일 260720~, 집행일 클릭 시 소재명 펼침)
         st.markdown(f"**🗓 신규소재 집행일자별 성과 (집행시작일 {NEW_CREATIVE_START}~)**")
         render_new_creative_table(fdf_bt)
+        st.markdown("---")
+        # 6. 소재별 성과 (항상 블트하 탭 최하단 고정 · 사이드바 필터 반영 · 헤더 클릭 정렬)
+        st.markdown("**🎬 소재별 성과**")
+        cpm_summary_table(fdf_bt, "소재명", "소재")
 
 # --- TAB 8: 블트하 시간대별 ---
 with tab8:
