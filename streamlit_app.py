@@ -893,7 +893,10 @@ with tab1:
     render_pinned_total_table(style_summary(weekly_tbl, "주차"))
 # --- TAB 2: 팝콘 요약 ---
 with tab2:
-    fdf_pc = fdf[fdf["제품코드"].astype(str).str.contains("PC", na=False)].copy()
+    fdf_pc = fdf[
+        fdf["제품코드"].astype(str).str.contains("PC", na=False)
+        | fdf["캠페인명"].astype(str).str.contains("팝콘", na=False)
+    ].copy()
     if fdf_pc.empty:
         st.warning("팝콘(PC) 데이터가 없어요. 사이드바 필터를 확인해주세요.")
     else:
@@ -1196,7 +1199,10 @@ with tab6:
 
 # --- TAB 7: 블트하 요약 ---
 with tab7:
-    fdf_bt = fdf[fdf["제품코드"].astype(str).str.contains("BT", na=False)].copy()
+    fdf_bt = fdf[
+        fdf["제품코드"].astype(str).str.contains("BT", na=False)
+        | fdf["캠페인명"].astype(str).str.contains("블트하", na=False)
+    ].copy()
     if fdf_bt.empty:
         st.warning("블트하(제품코드 BT) 데이터가 없어요. 사이드바 필터를 확인해주세요.")
     else:
@@ -1206,7 +1212,10 @@ with tab7:
         # 0. 가중목 현황 (블트하 노출 목표 트래킹)
         st.markdown(f"**🎯 가중목 현황** ({BT_GOAL_START.strftime('%m/%d')}~{BT_GOAL_END.strftime('%m/%d')} · 노출 목표 {BT_GOAL_IMP:,})")
         st.caption("사이드바 필터와 무관하게 전체 데이터 기준 · 당일 수치는 실시간 업데이트 후 반영됩니다.")
-        _g = df[df["제품코드"].astype(str).str.contains("BT", na=False)]
+        _g = df[
+            df["제품코드"].astype(str).str.contains("BT", na=False)
+            | df["캠페인명"].astype(str).str.contains("블트하", na=False)
+        ]
         _g = _g[(_g["날짜"] >= BT_GOAL_START) & (_g["날짜"] <= BT_GOAL_END)]
         _g_imp  = int(_g["노출"].sum())
         _g_rate = _g_imp / BT_GOAL_IMP * 100
