@@ -97,6 +97,14 @@ def clean_ad_name(name):
         return name
     name = re.sub(r"\s*-\s*사본(\s+\d+)?$", "", str(name)).strip()
     name = _ASSET_SUFFIX_RE.sub("", name).strip()
+    # TikTok이 소재 편집/내보내기 시 진짜 파일명 앞에 붙이는 자동 라벨 제거
+    # 예: "AI Generated Video-5_[26.07]F_V_BT깡_..." → "[26.07]F_V_BT깡_..."
+    #     "Lala Sweet Protein Shake-Music_Refresh-1-8_LOqedx_3_[26.07]F_..." → "[26.07]F_..."
+    # '[YY.MM]' 제작월 대괄호부터가 실제 파일명이므로 그 앞을 잘라낸다.
+    # (접두사가 다른 편집 변형본들은 정리 후 동일 소재명이 되어 아래 '동일 키 합산'에서 합쳐짐)
+    m = re.search(r"\[\d{2}\.\d{2}\]", name)
+    if m and m.start() > 0:
+        name = name[m.start():].strip()
     return name
 
 # ── 날짜 범위 ──────────────────────────────────────────────────
