@@ -1243,12 +1243,17 @@ with tab7:
         daily_tree_table(fdf_bt, with_cpm=True)
         st.markdown("---")
 
-        # 2. 제품코드별 성과
+        # 2. 매체별 성과 (Meta/TikTok)
+        st.markdown("**📺 매체별 성과**")
+        cpm_summary_table(fdf_bt, "매체", "매체")
+        st.markdown("---")
+
+        # 3. 제품코드별 성과
         st.markdown("**📦 제품코드별 성과**")
         cpm_summary_table(fdf_bt, "제품코드", "제품코드")
         st.markdown("---")
 
-        # 3. KR별 성과 (I: 소분류 연출 그대로 / V: 소분류 연출의 온점 이후 텍스트)
+        # 4. KR별 성과 (I: 소분류 연출 그대로 / V: 소분류 연출의 온점 이후 텍스트)
         st.markdown("**🔤 KR별 성과** (클릭하면 소재별 상세)")
         fdf_kr = fdf_bt.copy()
 
@@ -1290,7 +1295,7 @@ with tab7:
             )
         st.markdown("---")
 
-        # 4. 영상 포맷별 성과 (광고유형 V, 대분류 포맷 → 소분류 연출 → 소재명)
+        # 5. 영상 포맷별 성과 (광고유형 V, 대분류 포맷 → 소분류 연출 → 소재명)
         st.markdown("**🎞 영상 포맷별 성과**")
         fdf_btv = fdf_bt[fdf_bt["영상/이미지 구분"].astype(str).str.strip().str.upper() == "V"].copy()
         fdf_btv = fdf_btv[fdf_btv["대분류 포맷"].astype(str).str.strip() != ""]
@@ -1332,11 +1337,11 @@ with tab7:
                 _btv_cols,
             )
         st.markdown("---")
-        # 5. 신규소재 집행일자별 성과 (집행시작일 260720~, 집행일 클릭 시 소재명 펼침)
+        # 6. 신규소재 집행일자별 성과 (집행시작일 260720~, 집행일 클릭 시 소재명 펼침)
         st.markdown(f"**🗓 신규소재 집행일자별 성과 (집행시작일 {NEW_CREATIVE_START}~)**")
         render_new_creative_table(fdf_bt)
         st.markdown("---")
-        # 6. 소재별 성과 (항상 블트하 탭 최하단 고정 · 사이드바 필터 반영 · 헤더 클릭 정렬)
+        # 7. 소재별 성과 (항상 블트하 탭 최하단 고정 · 사이드바 필터 반영 · 헤더 클릭 정렬)
         st.markdown("**🎬 소재별 성과**")
         cpm_summary_table(fdf_bt, "소재명", "소재")
 
