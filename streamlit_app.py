@@ -915,7 +915,42 @@ with tab2:
         event_tbl = pd.concat([_ev_data, _ev_total], ignore_index=True)
         render_pinned_total_table(style_summary(event_tbl, "이벤트명"))
         st.markdown("---")
-        # 3. 영상 포맷별 성과 (광고유형 V, 대분류 포맷 → 소분류 연출 → 소재명)
+        # 3. 치즈팝콘 KR별 성과 (제품코드 PC치, 광고세트명 KR1/KR2 → 클릭 시 소재별)
+        st.markdown("**🧀 치즈팝콘 KR별 성과**")
+        fdf_cheese = fdf_pc[fdf_pc["제품코드"].astype(str).str.contains("PC치", na=False)].copy()
+        if fdf_cheese.empty:
+            st.info("치즈팝콘(제품코드 PC치) 데이터가 없습니다.")
+        else:
+            def _cheese_kr(_adset):
+                _m = re.search(r"KR\d+", str(_adset))
+                return _m.group(0) if _m else "(기타)"
+            fdf_cheese["_KR"] = fdf_cheese["광고그룹명"].apply(_cheese_kr)
+            _crk_cols = ["KR 구분", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CPM", "CVR", "CPA"]
+            _crk_groups = []
+            for _crk, _crk_sub in fdf_cheese.groupby("_KR"):
+                _crk_ads = [
+                    (_an,
+                     hr_perf_row(_an, _crk_sub[_crk_sub["소재명"] == _an], key_col="KR 구분"),
+                     _crk_sub[_crk_sub["소재명"] == _an]["광고비 (KRW)"].sum())
+                    for _an in _crk_sub["소재명"].unique()
+                ]
+                _crk_ads.sort(key=lambda x: x[2], reverse=True)
+                _crk_groups.append((
+                    str(_crk),
+                    hr_perf_row(str(_crk), _crk_sub, key_col="KR 구분"),
+                    [(_a, _r) for _a, _r, _ in _crk_ads],
+                ))
+            def _crk_sort_key(_lbl):
+                _mm = re.match(r"KR(\d+)", _lbl)
+                return (0, int(_mm.group(1))) if _mm else (1, 0)
+            _crk_groups.sort(key=lambda g: _crk_sort_key(g[0]))
+            render_tree_table(
+                _crk_groups,
+                hr_perf_row("총합계", fdf_cheese, key_col="KR 구분"),
+                _crk_cols,
+            )
+        st.markdown("---")
+        # 4. 영상 포맷별 성과 (광고유형 V, 대분류 포맷 → 소분류 연출 → 소재명)
         st.markdown("**🎞 영상 포맷별 성과**")
         fdf_pcv = fdf_pc[fdf_pc["영상/이미지 구분"].astype(str).str.strip().str.upper() == "V"].copy()
         fdf_pcv = fdf_pcv[fdf_pcv["대분류 포맷"].astype(str).str.strip() != ""]
@@ -957,7 +992,7 @@ with tab2:
                 _pcv_cols,
             )
         st.markdown("---")
-        # 4. 신규소재 집행일자별 성과 (집행시작일 260720~, 집행일 클릭 시 소재명 펼침)
+        # 5. 신규소재 집행일자별 성과 (집행시작일 260720~, 집행일 클릭 시 소재명 펼침)
         st.markdown(f"**🗓 신규소재 집행일자별 성과 (집행시작일 {NEW_CREATIVE_START}~)**")
         render_new_creative_table(fdf_pc)
 
