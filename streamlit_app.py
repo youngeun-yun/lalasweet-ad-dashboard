@@ -924,7 +924,23 @@ with tab2:
             def _cheese_kr(_adset):
                 _m = re.search(r"KR\d+", str(_adset))
                 return _m.group(0) if _m else "(기타)"
+            # 1차: 광고세트명에서 KR 추출
             fdf_cheese["_KR"] = fdf_cheese["광고그룹명"].apply(_cheese_kr)
+            # 2차 보정: 동일 소재를 수동+ASC에 더블세팅하면 ASC 광고세트명엔 KR 표기가 없어
+            #   (기타)로 빠짐. 광고세트명으로 KR이 잡힌 소재들에서 (소재명 → KR) 매핑을 만들고,
+            #   같은 소재명이 (기타)에 있으면 그 KR로 채운다.
+            #   (같은 소재명이 KR1·KR2 양쪽에 걸친 모호한 경우엔 (기타) 유지)
+            _known = fdf_cheese[fdf_cheese["_KR"] != "(기타)"]
+            _creative_kr = {}
+            for _cn, _grp in _known.groupby("소재명"):
+                _krs = set(_grp["_KR"].unique())
+                if len(_krs) == 1:
+                    _creative_kr[_cn] = next(iter(_krs))
+            _etc = fdf_cheese["_KR"] == "(기타)"
+            if _etc.any() and _creative_kr:
+                fdf_cheese.loc[_etc, "_KR"] = fdf_cheese.loc[_etc, "소재명"].map(
+                    lambda _n: _creative_kr.get(_n, "(기타)")
+                )
             _crk_cols = ["KR 구분", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CPM", "CVR", "CPA"]
             _crk_groups = []
             for _crk, _crk_sub in fdf_cheese.groupby("_KR"):
