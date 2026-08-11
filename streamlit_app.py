@@ -1571,68 +1571,87 @@ with tab7:
         st.markdown("**🎬 소재별 성과**")
         cpm_summary_table(fdf_bt, "소재명", "소재")
 
-# --- TAB 9: GFA 요약 (매출·ROAS 포함) ---
+# --- TAB 9: GFA 요약 (네이버 성과형 DA) ---
 with tab9:
     fdf_gfa = fdf[fdf["매체"].astype(str) == "GFA"].copy()
     if fdf_gfa.empty:
         st.warning("GFA 데이터가 없어요. 구글시트 `GFA_원본` 탭에 리포트를 붙여넣고 "
                    "사이드바의 🔄 데이터 새로고침을 눌러주세요. (사이드바 필터도 확인)")
     else:
-        _gk = calc_kpi(fdf_gfa)
-        _g_rev = fdf_gfa["매출 (KRW)"].sum()
-        _g_roas = _g_rev / _gk["spend"] * 100 if _gk["spend"] > 0 else 0
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("💰 광고비", fmt_krw(_gk["spend"]))
-        c2.metric("👁 노출", fmt_num(_gk["imp"]))
-        c3.metric("🖱 클릭", fmt_num(_gk["clk"]))
-        c4.metric("📈 CTR", f"{_gk['ctr']:.2f}%")
-        c5, c6, c7, c8 = st.columns(4)
-        c5.metric("🛒 구매", fmt_num(_gk["conv"]))
-        c6.metric("🎯 CPA", fmt_krw(_gk["cpa"]))
-        c7.metric("💵 매출", fmt_krw(_g_rev))
-        c8.metric("📊 ROAS", f"{_g_roas:.1f}%")
-        st.caption("전환수는 **구매완료 수** 기준(메타/틱톡의 구매 기준과 통일) · "
-                   "광고비는 총비용(VAT 제외) · ROAS = 매출 ÷ 광고비")
+        render_kpi(calc_kpi(fdf_gfa))
+        st.caption("전환수는 **구매완료 수** 기준(메타/틱톡의 구매 기준과 통일) · 광고비는 총비용(VAT 제외)")
         st.markdown("---")
-        # 일별 광고비 & CPA (+ 매출·ROAS)
+        # 1. 일별 광고비 & CPA (블트하 탭과 동일 형식, CPM 포함)
         st.markdown("**📊 일별 광고비 & CPA**")
-        _gd = (
-            fdf_gfa.groupby(fdf_gfa["날짜"].dt.date)
-            .agg(광고비=("광고비 (KRW)", "sum"), 노출=("노출", "sum"),
-                 클릭=("클릭", "sum"), 구매=("전환수", "sum"), 매출=("매출 (KRW)", "sum"))
-            .reset_index().rename(columns={"날짜": "일"}).sort_values("일")
+        daily_tree_table(fdf_gfa, with_cpm=True)
+        st.markdown("---")
+
+        # 지면 = 캠페인명 마지막 '_' 뒤 (피드/서비스/스채/메인/네트워크)
+        # 타겟 = 광고그룹명(세트명) 마지막 '_' 뒤 (all4054/all3039)
+        fdf_gfa["_지면"] = (fdf_gfa["캠페인명"].astype(str).str.rsplit("_", n=1).str[-1]
+                          .str.strip().replace("", "(미분류)"))
+        fdf_gfa["_타겟"] = (fdf_gfa["광고그룹명"].astype(str).str.rsplit("_", n=1).str[-1]
+                          .str.strip().replace("", "(미분류)"))
+        _gfa_cols_pl = ["지면", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CPM", "CVR", "CPA"]
+        _gfa_cols_tg = ["타겟", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CPM", "CVR", "CPA"]
+
+        # 2. 지면별 성과 (지면 → 타겟 → 소재명 3단 트리)
+        st.markdown("**🗂 지면별 성과** (지면 클릭 → 타겟 → 소재)")
+        _pl_groups = []
+        for _pl, _pl_sub in fdf_gfa.groupby("_지면"):
+            _pl_kids = []
+            for _tg, _tg_sub in _pl_sub.groupby("_타겟"):
+                _tg_ads = [
+                    (_an,
+                     hr_perf_row(_an, _tg_sub[_tg_sub["소재명"] == _an], key_col="지면"),
+                     _tg_sub[_tg_sub["소재명"] == _an]["광고비 (KRW)"].sum())
+                    for _an in _tg_sub["소재명"].unique()
+                ]
+                _tg_ads.sort(key=lambda x: x[2], reverse=True)
+                _pl_kids.append((
+                    str(_tg),
+                    hr_perf_row(str(_tg), _tg_sub, key_col="지면"),
+                    [(_a, _r) for _a, _r, _ in _tg_ads],
+                    _tg_sub["광고비 (KRW)"].sum(),
+                ))
+            _pl_kids.sort(key=lambda x: x[3], reverse=True)
+            _pl_groups.append((
+                str(_pl),
+                hr_perf_row(str(_pl), _pl_sub, key_col="지면"),
+                [(_a, _r, _k) for _a, _r, _k, _ in _pl_kids],
+                _pl_sub["광고비 (KRW)"].sum(),
+            ))
+        _pl_groups.sort(key=lambda x: x[3], reverse=True)
+        render_tree_table3(
+            [(_g2[0], _g2[1], _g2[2]) for _g2 in _pl_groups],
+            hr_perf_row("총합계", fdf_gfa, key_col="지면"),
+            _gfa_cols_pl,
         )
-        def _grow(r):
-            _s, _i, _c, _v, _rv = r["광고비"], r["노출"], r["클릭"], r["구매"], r["매출"]
-            return {
-                "일": str(r["일"]),
-                "광고비": f"₩{int(_s):,}",
-                "노출": f"{int(_i):,}",
-                "링크 클릭": f"{int(_c):,}",
-                "구매": f"{int(_v):,}",
-                "CTR": f"{_c/_i*100:.2f}%" if _i > 0 else "0.00%",
-                "CPC": f"{int(_s/_c):,}" if _c > 0 else "0",
-                "CPA": f"{int(_s/_v):,}" if _v > 0 else "0",
-                "매출": f"₩{int(_rv):,}",
-                "ROAS": f"{_rv/_s*100:.1f}%" if _s > 0 else "0.0%",
-            }
-        _grows = [_grow(r) for _, r in _gd.iterrows()]
-        _gt = _gd[["광고비", "노출", "클릭", "구매", "매출"]].sum()
-        _grows.append({
-            "일": "총합계",
-            "광고비": f"₩{int(_gt['광고비']):,}",
-            "노출": f"{int(_gt['노출']):,}",
-            "링크 클릭": f"{int(_gt['클릭']):,}",
-            "구매": f"{int(_gt['구매']):,}",
-            "CTR": f"{_gt['클릭']/_gt['노출']*100:.2f}%" if _gt["노출"] > 0 else "0.00%",
-            "CPC": f"{int(_gt['광고비']/_gt['클릭']):,}" if _gt["클릭"] > 0 else "0",
-            "CPA": f"{int(_gt['광고비']/_gt['구매']):,}" if _gt["구매"] > 0 else "0",
-            "매출": f"₩{int(_gt['매출']):,}",
-            "ROAS": f"{_gt['매출']/_gt['광고비']*100:.1f}%" if _gt["광고비"] > 0 else "0.0%",
-        })
-        render_pinned_total_table(pd.DataFrame(_grows)[
-            ["일", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CPA", "매출", "ROAS"]
-        ])
+        st.markdown("---")
+
+        # 3. 타겟별 성과 (타겟 → 소재명 2단 트리)
+        st.markdown("**🎯 타겟별 성과** (타겟 클릭 → 소재)")
+        _tg_groups = []
+        for _tg, _tg_sub in fdf_gfa.groupby("_타겟"):
+            _tg_ads = [
+                (_an,
+                 hr_perf_row(_an, _tg_sub[_tg_sub["소재명"] == _an], key_col="타겟"),
+                 _tg_sub[_tg_sub["소재명"] == _an]["광고비 (KRW)"].sum())
+                for _an in _tg_sub["소재명"].unique()
+            ]
+            _tg_ads.sort(key=lambda x: x[2], reverse=True)
+            _tg_groups.append((
+                str(_tg),
+                hr_perf_row(str(_tg), _tg_sub, key_col="타겟"),
+                [(_a, _r) for _a, _r, _ in _tg_ads],
+                _tg_sub["광고비 (KRW)"].sum(),
+            ))
+        _tg_groups.sort(key=lambda x: x[3], reverse=True)
+        render_tree_table(
+            [(_g2[0], _g2[1], _g2[2]) for _g2 in _tg_groups],
+            hr_perf_row("총합계", fdf_gfa, key_col="타겟"),
+            _gfa_cols_tg,
+        )
 
 # --- TAB 8: 블트하 시간대별 ---
 with tab8:
