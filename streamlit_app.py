@@ -693,6 +693,113 @@ def load_data() -> pd.DataFrame:
     return df.sort_values("날짜")
 
 
+GFA_PARSE_COLS = [
+    "제작월", "채널구분", "영상/이미지 구분", "제품코드", "광고종류",
+    "스킴명", "대분류 포맷", "소분류 연출",
+    "배리에이션 여부", "지면 유형", "상세연출(소재구분)", "프로젝트",
+    "파트 구분", "마케터", "집행시작일", "본부 구분", "PD/디자이너",
+]
+def parse_ad_name_gfa(ad_name: str) -> dict:
+    """파일명 생성기 규칙 파싱 (build_rd.py parse_ad_name과 동일 로직).
+    GFA는 시트 원본을 대시보드가 직접 읽으므로 여기서 파싱한다.
+    예: [26.08]GF_I_BT칩_전환_블트칩출시_혜택강조형_크래커_.배너_트러플풍미부터.1250_560__최나영_260806_제과_김수정
+    """
+    result = {c: "" for c in GFA_PARSE_COLS}
+    if not isinstance(ad_name, str) or not ad_name.startswith("["):
+        return result
+    parts = ad_name.split("_")
+    if len(parts) < 3:
+        return result
+    try:
+        m = re.match(r"(\[.+?\])(.*)", parts[0])
+        if m:
+            result["제작월"] = m.group(1)
+            result["채널구분"] = m.group(2)   # GFA는 'GF'
+        if len(parts) > 1: result["영상/이미지 구분"] = parts[1]
+        if len(parts) > 2: result["제품코드"] = parts[2]
+        if len(parts) > 3: result["광고종류"] = parts[3]
+        if len(parts) > 4: result["스킴명"] = parts[4]
+        if len(parts) > 5: result["대분류 포맷"] = parts[5]
+        if len(parts) > 6: result["소분류 연출"] = parts[6]
+        if len(parts) > 7:
+            kl = parts[7].split(".", 1)
+            result["배리에이션 여부"] = kl[0]
+            result["지면 유형"] = kl[1] if len(kl) > 1 else ""
+        if len(parts) > 8:
+            mn = parts[8].split(".", 1)
+            result["상세연출(소재구분)"] = mn[0]
+            result["프로젝트"] = mn[1] if len(mn) > 1 else ""
+        if len(parts) > 9:  result["파트 구분"] = parts[9]
+        if len(parts) > 10: result["마케터"] = parts[10]
+        if len(parts) > 11: result["집행시작일"] = parts[11]
+        if len(parts) > 12: result["본부 구분"] = parts[12]
+        if len(parts) > 13: result["PD/디자이너"] = "_".join(parts[13:])
+    except Exception:
+        pass
+    return result
+@st.cache_data(ttl=3600, show_spinner="GFA 데이터 불러오는 중...")
+def load_gfa_data() -> pd.DataFrame:
+    """구글시트 'GFA_원본' 탭(네이버 GFA 리포트 붙여넣기)을 통합RD 스키마로 변환.
+    - 전환수 = '구매완료 수' (메타/틱톡의 purchase 기준과 통일. GFA 기본 '결과'는 장바구니 포함)
+    - 매출 (KRW) = '총 전환매출액' (= 구매완료 전환매출액)
+    - 광고비 = '총비용' (VAT 제외 기준)
+    - 매일 누적 붙여넣기 대비: 날짜+캠페인+광고그룹+소재 키로 중복 제거(keep="last")
+    """
+    try:
+        creds = Credentials.from_service_account_info(
+            dict(st.secrets["gcp_service_account"]),
+            scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"],
+        )
+        gc = gspread.authorize(creds)
+        ws = gc.open_by_key(st.secrets["spreadsheet_id"]).worksheet("GFA_원본")
+        raw = pd.DataFrame(ws.get_all_records())
+    except Exception:
+        return pd.DataFrame()
+    if raw.empty:
+        return pd.DataFrame()
+
+    def _num(col):
+        if col not in raw.columns:
+            return pd.Series([0] * len(raw))
+        return pd.to_numeric(
+            raw[col].astype(str).str.replace(",", "").str.replace("%", "").str.strip(),
+            errors="coerce",
+        ).fillna(0)
+
+    g = pd.DataFrame({
+        "날짜": pd.to_datetime(
+            raw.get("기간", pd.Series([""] * len(raw))).astype(str)
+               .str.strip().str.rstrip(".").str.replace(".", "-", regex=False),
+            errors="coerce",
+        ),
+        "매체": "GFA",
+        "캠페인명": raw.get("캠페인 이름", ""),
+        "광고그룹명": raw.get("광고 그룹 이름", ""),
+        "소재명": raw.get("광고 소재 이름", ""),
+        "노출": _num("노출수"),
+        "클릭": _num("클릭수"),
+        "광고비 (KRW)": _num("총비용"),
+        "전환수": _num("구매완료 수"),
+        "매출 (KRW)": _num("총 전환매출액"),
+    })
+    g = g.dropna(subset=["날짜"])
+    if g.empty:
+        return pd.DataFrame()
+    # 누적 붙여넣기로 같은 행이 반복될 수 있어 최신 것만 남김
+    g = g.drop_duplicates(subset=["날짜", "캠페인명", "광고그룹명", "소재명"], keep="last")
+    # 소재명 파싱 (메타와 동일 규칙: [26.08]GF_I_BT칩_...)
+    parsed = pd.DataFrame([parse_ad_name_gfa(n) for n in g["소재명"]], index=g.index)
+    g = pd.concat([g, parsed], axis=1)
+    # 파생 지표
+    g["CTR (%)"]   = (g["클릭"] / g["노출"].replace(0, float("nan")) * 100).fillna(0).round(4)
+    g["CPC (KRW)"] = (g["광고비 (KRW)"] / g["클릭"].replace(0, float("nan"))).fillna(0).round()
+    g["CPA (KRW)"] = (g["광고비 (KRW)"] / g["전환수"].replace(0, float("nan"))).fillna(0).round()
+    g["연"] = g["날짜"].dt.year.astype(str)
+    g["월"] = g["날짜"].dt.month.astype(str).str.zfill(2)
+    g["일"] = g["날짜"].dt.day.astype(str).str.zfill(2)
+    return g.sort_values("날짜")
+
+
 @st.cache_data(ttl=3600, show_spinner="카페24 데이터 불러오는 중...")
 def load_cafe24_data():
     creds = Credentials.from_service_account_info(
@@ -771,6 +878,18 @@ except Exception as e:
 if df.empty:
     st.warning("시트에 데이터가 없어요.")
     st.stop()
+
+# --- GFA(네이버 성과형 DA) 합산: GFA_원본 시트를 직접 읽어 매체 하나로 추가 ---
+# 시트에 붙여넣으면 캐시 만료(1시간) 또는 사이드바 🔄 새로고침 시 즉시 반영됨
+if "매출 (KRW)" not in df.columns:
+    df["매출 (KRW)"] = 0
+try:
+    _gfa = load_gfa_data()
+except Exception:
+    _gfa = pd.DataFrame()
+if not _gfa.empty:
+    df = pd.concat([df, _gfa], ignore_index=True).sort_values("날짜")
+df["매출 (KRW)"] = pd.to_numeric(df["매출 (KRW)"], errors="coerce").fillna(0)
 
 max_date = df["날짜"].max().strftime("%Y-%m-%d")
 # =============================================================
@@ -852,7 +971,7 @@ kpi = calc_kpi(fdf)
 # 탭
 # =============================================================
 render_update_buttons()
-tab1, tab7, tab2, tab8, tab6 = st.tabs(["📊 전체 요약", "🖤 블트하 요약", "🍿 팝콘 요약", "⏰ 블트하 시간대별", "⏰ 팝콘 시간대별"])
+tab1, tab7, tab2, tab9, tab8, tab6 = st.tabs(["📊 전체 요약", "🖤 블트하 요약", "🍿 팝콘 요약", "🟩 GFA 요약", "⏰ 블트하 시간대별", "⏰ 팝콘 시간대별"])
 # --- TAB 1: 전체 요약 ---
 with tab1:
     render_kpi(kpi)
@@ -1451,6 +1570,69 @@ with tab7:
         # 7. 소재별 성과 (항상 블트하 탭 최하단 고정 · 사이드바 필터 반영 · 헤더 클릭 정렬)
         st.markdown("**🎬 소재별 성과**")
         cpm_summary_table(fdf_bt, "소재명", "소재")
+
+# --- TAB 9: GFA 요약 (매출·ROAS 포함) ---
+with tab9:
+    fdf_gfa = fdf[fdf["매체"].astype(str) == "GFA"].copy()
+    if fdf_gfa.empty:
+        st.warning("GFA 데이터가 없어요. 구글시트 `GFA_원본` 탭에 리포트를 붙여넣고 "
+                   "사이드바의 🔄 데이터 새로고침을 눌러주세요. (사이드바 필터도 확인)")
+    else:
+        _gk = calc_kpi(fdf_gfa)
+        _g_rev = fdf_gfa["매출 (KRW)"].sum()
+        _g_roas = _g_rev / _gk["spend"] * 100 if _gk["spend"] > 0 else 0
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("💰 광고비", fmt_krw(_gk["spend"]))
+        c2.metric("👁 노출", fmt_num(_gk["imp"]))
+        c3.metric("🖱 클릭", fmt_num(_gk["clk"]))
+        c4.metric("📈 CTR", f"{_gk['ctr']:.2f}%")
+        c5, c6, c7, c8 = st.columns(4)
+        c5.metric("🛒 구매", fmt_num(_gk["conv"]))
+        c6.metric("🎯 CPA", fmt_krw(_gk["cpa"]))
+        c7.metric("💵 매출", fmt_krw(_g_rev))
+        c8.metric("📊 ROAS", f"{_g_roas:.1f}%")
+        st.caption("전환수는 **구매완료 수** 기준(메타/틱톡의 구매 기준과 통일) · "
+                   "광고비는 총비용(VAT 제외) · ROAS = 매출 ÷ 광고비")
+        st.markdown("---")
+        # 일별 광고비 & CPA (+ 매출·ROAS)
+        st.markdown("**📊 일별 광고비 & CPA**")
+        _gd = (
+            fdf_gfa.groupby(fdf_gfa["날짜"].dt.date)
+            .agg(광고비=("광고비 (KRW)", "sum"), 노출=("노출", "sum"),
+                 클릭=("클릭", "sum"), 구매=("전환수", "sum"), 매출=("매출 (KRW)", "sum"))
+            .reset_index().rename(columns={"날짜": "일"}).sort_values("일")
+        )
+        def _grow(r):
+            _s, _i, _c, _v, _rv = r["광고비"], r["노출"], r["클릭"], r["구매"], r["매출"]
+            return {
+                "일": str(r["일"]),
+                "광고비": f"₩{int(_s):,}",
+                "노출": f"{int(_i):,}",
+                "링크 클릭": f"{int(_c):,}",
+                "구매": f"{int(_v):,}",
+                "CTR": f"{_c/_i*100:.2f}%" if _i > 0 else "0.00%",
+                "CPC": f"{int(_s/_c):,}" if _c > 0 else "0",
+                "CPA": f"{int(_s/_v):,}" if _v > 0 else "0",
+                "매출": f"₩{int(_rv):,}",
+                "ROAS": f"{_rv/_s*100:.1f}%" if _s > 0 else "0.0%",
+            }
+        _grows = [_grow(r) for _, r in _gd.iterrows()]
+        _gt = _gd[["광고비", "노출", "클릭", "구매", "매출"]].sum()
+        _grows.append({
+            "일": "총합계",
+            "광고비": f"₩{int(_gt['광고비']):,}",
+            "노출": f"{int(_gt['노출']):,}",
+            "링크 클릭": f"{int(_gt['클릭']):,}",
+            "구매": f"{int(_gt['구매']):,}",
+            "CTR": f"{_gt['클릭']/_gt['노출']*100:.2f}%" if _gt["노출"] > 0 else "0.00%",
+            "CPC": f"{int(_gt['광고비']/_gt['클릭']):,}" if _gt["클릭"] > 0 else "0",
+            "CPA": f"{int(_gt['광고비']/_gt['구매']):,}" if _gt["구매"] > 0 else "0",
+            "매출": f"₩{int(_gt['매출']):,}",
+            "ROAS": f"{_gt['매출']/_gt['광고비']*100:.1f}%" if _gt["광고비"] > 0 else "0.0%",
+        })
+        render_pinned_total_table(pd.DataFrame(_grows)[
+            ["일", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CPA", "매출", "ROAS"]
+        ])
 
 # --- TAB 8: 블트하 시간대별 ---
 with tab8:
