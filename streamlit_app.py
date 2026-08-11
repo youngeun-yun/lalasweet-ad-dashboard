@@ -437,6 +437,52 @@ def render_new_creative_table(d: pd.DataFrame) -> None:
             [(_a, _r) for _a, _r, _ in _ads],
         ))
     render_tree_table(_groups, hr_perf_row("총합계", dd, key_col="집행시작일"), _cols)
+def banner_segments(ad_name: str) -> list:
+    """소재명 9번째 토큰(parts[8])을 온점 분해해 배너 세부 조각 반환.
+    예: '[26.07]F_I_PC치_..._.피드_이니1.맛강조.스토리형.__권미정_...'
+        → parts[8]='이니1.맛강조.스토리형.' → ['이니1', '맛강조', '스토리형']
+    마지막 조각 = 배너 포맷(스토리형/댓글형), 마지막-1 = 소구점(맛강조/페포/대세감)
+    """
+    parts = str(ad_name).split("_")
+    if len(parts) < 9:
+        return []
+    return [s for s in parts[8].split(".") if s.strip()]
+def render_banner_table(d: pd.DataFrame, kind: str) -> None:
+    """배너(I) 소재의 포맷별/소구점별 성과 (그룹 클릭 → 소재별 펼침, CPM 포함).
+    kind: 'format' = 마지막 조각(스토리형/댓글형) / 'appeal' = 마지막-1 조각(맛강조/페포/대세감)
+    """
+    _label = "배너 포맷" if kind == "format" else "소구점"
+    _cols = [_label, "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CPM", "CVR", "CPA"]
+    dd = d[d["영상/이미지 구분"].astype(str).str.strip().str.upper() == "I"].copy()
+    if dd.empty:
+        st.info("배너(I) 소재 데이터가 없습니다.")
+        return
+    _need = 1 if kind == "format" else 2
+    def _pick(_n):
+        _segs = banner_segments(_n)
+        return _segs[-_need] if len(_segs) >= _need + 1 else "(미분류)"
+    dd["_SEG"] = dd["소재명"].apply(_pick)
+    _groups = []
+    for _g, _sub in dd.groupby("_SEG"):
+        _ads = [
+            (_an,
+             hr_perf_row(_an, _sub[_sub["소재명"] == _an], key_col=_label),
+             _sub[_sub["소재명"] == _an]["광고비 (KRW)"].sum())
+            for _an in _sub["소재명"].unique()
+        ]
+        _ads.sort(key=lambda x: x[2], reverse=True)
+        _groups.append((
+            str(_g),
+            hr_perf_row(str(_g), _sub, key_col=_label),
+            [(_a, _r) for _a, _r, _ in _ads],
+            _sub["광고비 (KRW)"].sum(),
+        ))
+    _groups.sort(key=lambda x: x[3], reverse=True)
+    render_tree_table(
+        [(_g2[0], _g2[1], _g2[2]) for _g2 in _groups],
+        hr_perf_row("총합계", dd, key_col=_label),
+        _cols,
+    )
 def valid_opts(df: pd.DataFrame, col: str) -> list:
     grp = df.groupby(col)["노출"].sum()
     return sorted([str(v) for v, imp in grp.items()
@@ -900,6 +946,8 @@ with tab2:
     if fdf_pc.empty:
         st.warning("팝콘(PC) 데이터가 없어요. 사이드바 필터를 확인해주세요.")
     else:
+        # 치즈팝콘(제품코드 PC치) — KR별·배너 포맷별·소구점별 테이블 공용
+        fdf_cheese_all = fdf_pc[fdf_pc["제품코드"].astype(str).str.contains("PC치", na=False)].copy()
         render_kpi(calc_kpi(fdf_pc))
         st.markdown("---")
         # 1. 일별 광고비 테이블
@@ -917,7 +965,7 @@ with tab2:
         st.markdown("---")
         # 3. 치즈팝콘 KR별 성과 (제품코드 PC치, 광고세트명 KR1/KR2 → 클릭 시 소재별)
         st.markdown("**🧀 치즈팝콘 KR별 성과**")
-        fdf_cheese = fdf_pc[fdf_pc["제품코드"].astype(str).str.contains("PC치", na=False)].copy()
+        fdf_cheese = fdf_cheese_all.copy()
         if fdf_cheese.empty:
             st.info("치즈팝콘(제품코드 PC치) 데이터가 없습니다.")
         else:
@@ -1008,7 +1056,15 @@ with tab2:
                 _pcv_cols,
             )
         st.markdown("---")
-        # 5. 신규소재 집행일자별 성과 (집행시작일 260720~, 집행일 클릭 시 소재명 펼침)
+        # 5. 치즈팝콘 배너 포맷별 성과 (PC치 I 소재, 소재명 parts[8] 마지막 조각 = 스토리형/댓글형)
+        st.markdown("**🖼 치즈팝콘 배너 포맷별 성과**")
+        render_banner_table(fdf_cheese_all, "format")
+        st.markdown("---")
+        # 6. 치즈팝콘 소구점별 성과 (PC치 I 소재, 소재명 parts[8] 마지막-1 조각 = 맛강조/페포/대세감)
+        st.markdown("**💬 치즈팝콘 소구점별 성과**")
+        render_banner_table(fdf_cheese_all, "appeal")
+        st.markdown("---")
+        # 7. 신규소재 집행일자별 성과 (집행시작일 260720~, 집행일 클릭 시 소재명 펼침)
         st.markdown(f"**🗓 신규소재 집행일자별 성과 (집행시작일 {NEW_CREATIVE_START}~)**")
         render_new_creative_table(fdf_pc)
 
