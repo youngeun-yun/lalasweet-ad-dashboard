@@ -10,6 +10,11 @@ on:
         description: '종료일 (YYYY-MM-DD, 예: 2026-05-31)'
         required: true
 
+# 데이터를 커밋하는 워크플로우끼리 순차 실행 (서로 겹쳐서 push 충돌나는 것 방지)
+concurrency:
+  group: lalasweet-git
+  cancel-in-progress: false
+
 jobs:
   backfill:
     runs-on: ubuntu-latest
@@ -63,5 +68,20 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/
-          git diff --cached --quiet || git commit -m "백필: ${{ github.event.inputs.since }} ~ ${{ github.event.inputs.until }}"
-          git push
+          git diff --cached --quiet && echo "변경 없음 -> 푸시 생략" && exit 0
+          git commit -m "백필: ${{ github.event.inputs.since }} ~ ${{ github.event.inputs.until }}"
+
+          # 푸시 중 원격에 다른 커밋이 올라오면(다른 워크플로우/웹 수정) rebase 후 재시도
+          for i in 1 2 3 4 5; do
+            if git push; then
+              echo "푸시 성공 (시도 $i)"
+              exit 0
+            fi
+            echo "푸시 거부됨 -> 원격 변경 반영 후 재시도 ($i/5)"
+            git pull --rebase --autostash origin main || {
+              echo "rebase 실패"; exit 1;
+            }
+            sleep $((i * 5))
+          done
+          echo "5회 재시도 후에도 푸시 실패"
+          exit 1
