@@ -115,19 +115,28 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/
           git diff --cached --quiet && echo "변경 없음 -> 푸시 생략" && exit 0
-          git commit -m "새로고침(${{ github.event.inputs.mode }}): ${{ steps.target.outputs.date }}"
+          MSG="새로고침(${{ github.event.inputs.mode }}): ${{ steps.target.outputs.date }}"
+          git commit -m "$MSG"
 
-          # 푸시 중 원격에 다른 커밋이 올라오면(다른 워크플로우/웹 수정) rebase 후 재시도
+          # 푸시 중 원격에 다른 커밋이 올라오면(다른 워크플로우/웹 수정) 재시도.
+          # data/ 는 매 실행마다 새로 생성되는 산출물이라 rebase 병합이 불가능하므로
+          # (같은 파일을 한쪽은 삭제, 한쪽은 수정 -> modify/delete 충돌)
+          # 원격 최신 커밋 위에 이번 실행 결과를 그대로 다시 얹는다.
           for i in 1 2 3 4 5; do
             if git push; then
               echo "푸시 성공 (시도 $i)"
               exit 0
             fi
-            echo "푸시 거부됨 -> 원격 변경 반영 후 재시도 ($i/5)"
-            git pull --rebase --autostash origin main || {
-              echo "rebase 실패"; exit 1;
-            }
-            sleep $((i * 5))
+            echo "푸시 거부됨 -> 원격 최신 위에 결과 재적용 ($i/5)"
+            git fetch origin || { echo "fetch 실패"; exit 1; }
+            git reset --soft origin/main
+            git add -A data/
+            if git diff --cached --quiet; then
+              echo "원격과 동일 -> 푸시 불필요"
+              exit 0
+            fi
+            git commit -m "$MSG"
+            sleep $((i * 3))
           done
           echo "5회 재시도 후에도 푸시 실패"
           exit 1
