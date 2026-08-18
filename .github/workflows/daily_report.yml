@@ -3,16 +3,12 @@ name: 라라스윗 일일 광고 데이터 수집
 on:
   schedule:
     - cron: '0 23 * * *'  # 매일 08:00 KST (= 전날 23:00 UTC)
-  workflow_dispatch:
-    inputs:
-      start_date:
-        description: '시작일 (YYYY-MM-DD, 비우면 어제)'
-        required: false
-        default: ''
-      end_date:
-        description: '종료일 (YYYY-MM-DD, 비우면 어제)'
-        required: false
-        default: ''
+  workflow_dispatch:       # 수동 실행 가능
+
+# 데이터를 커밋하는 워크플로우끼리 순차 실행 (서로 겹쳐서 push 충돌나는 것 방지)
+concurrency:
+  group: lalasweet-git
+  cancel-in-progress: false
 
 jobs:
   collect-and-build:
@@ -30,7 +26,7 @@ jobs:
           python-version: '3.11'
 
       - name: 패키지 설치
-        run: pip install requests pandas gspread google-auth PyNaCl
+        run: pip install requests pandas
 
       - name: 메타 데이터 수집
         env:
@@ -55,30 +51,27 @@ jobs:
         env:
           SHEETS_WEBAPP_URL: ${{ secrets.SHEETS_WEBAPP_URL }}
           SHEETS_SECRET_KEY: ${{ secrets.SHEETS_SECRET_KEY }}
-          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
-          GCP_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
         run: python scripts/sync_to_sheets.py
-
-      - name: 카페24 팝콘 데이터 수집
-        env:
-          CAFE24_API_KEY: ${{ secrets.CAFE24_API_KEY }}
-          CAFE24_API_SECRET: ${{ secrets.CAFE24_API_SECRET }}
-          CAFE24_ACCESS_TOKEN: ${{ secrets.CAFE24_ACCESS_TOKEN }}
-          CAFE24_REFRESH_TOKEN: ${{ secrets.CAFE24_REFRESH_TOKEN }}
-          GH_PAT: ${{ secrets.GH_PAT }}
-          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
-          GCP_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          SLACK_USER_ID: ${{ secrets.SLACK_USER_ID }}
-        run: |
-          python scripts/cafe24_api.py \
-            ${{ inputs.start_date && format('--start {0}', inputs.start_date) || '' }} \
-            ${{ inputs.end_date && format('--end {0}', inputs.end_date) || '' }}
 
       - name: 데이터 커밋 & 푸시
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/
-          git diff --cached --quiet || git commit -m "자동 수집: $(date +'%Y-%m-%d')"
-          git push
+          git diff --cached --quiet && echo "변경 없음 -> 푸시 생략" && exit 0
+          git commit -m "자동 수집: $(date +'%Y-%m-%d')"
+
+          # 푸시 중 원격에 다른 커밋이 올라오면(다른 워크플로우/웹 수정) rebase 후 재시도
+          for i in 1 2 3 4 5; do
+            if git push; then
+              echo "푸시 성공 (시도 $i)"
+              exit 0
+            fi
+            echo "푸시 거부됨 -> 원격 변경 반영 후 재시도 ($i/5)"
+            git pull --rebase --autostash origin main || {
+              echo "rebase 실패"; exit 1;
+            }
+            sleep $((i * 5))
+          done
+          echo "5회 재시도 후에도 푸시 실패"
+          exit 1
