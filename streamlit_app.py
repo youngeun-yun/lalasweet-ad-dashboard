@@ -971,7 +971,7 @@ kpi = calc_kpi(fdf)
 # 탭
 # =============================================================
 render_update_buttons()
-tab1, tab7, tab2, tab9, tab8, tab6 = st.tabs(["📊 전체 요약", "🖤 블트하 요약", "🍿 팝콘 요약", "🟩 GFA 요약", "⏰ 블트하 시간대별", "⏰ 팝콘 시간대별"])
+tab1, tab7, tab2, tab10, tab9, tab8, tab6 = st.tabs(["📊 전체 요약", "🖤 블트하 요약", "🍿 팝콘 요약", "🧇 웨하스 요약", "🟩 GFA 요약", "⏰ 블트하 시간대별", "⏰ 팝콘 시간대별"])
 # --- TAB 1: 전체 요약 ---
 with tab1:
     render_kpi(kpi)
@@ -1570,6 +1570,77 @@ with tab7:
         # 7. 소재별 성과 (항상 블트하 탭 최하단 고정 · 사이드바 필터 반영 · 헤더 클릭 정렬)
         st.markdown("**🎬 소재별 성과**")
         cpm_summary_table(fdf_bt, "소재명", "소재")
+
+# --- TAB 10: 웨하스 요약 (팝콘 탭과 동일 형식의 공통 표만) ---
+with tab10:
+    fdf_wf = fdf[
+        fdf["제품코드"].astype(str).str.contains("WF|WB", na=False, regex=True)
+        | fdf["캠페인명"].astype(str).str.contains("웨하스", na=False)
+    ].copy()
+    if fdf_wf.empty:
+        st.warning("웨하스(제품코드 WF/WB 또는 캠페인명 '웨하스') 데이터가 없어요. "
+                   "사이드바 필터를 확인해주세요.")
+    else:
+        render_kpi(calc_kpi(fdf_wf))
+        st.markdown("---")
+        # 1. 일별 광고비 테이블
+        st.markdown("**📊 일별 광고비 & CPA**")
+        daily_tree_table(fdf_wf)
+        st.markdown("---")
+        # 2. 이벤트별 성과
+        st.markdown("**🎪 이벤트별 성과**")
+        wf_event_tbl = build_summary_table(fdf_wf, "스킴명")
+        wf_event_tbl = wf_event_tbl.rename(columns={"스킴명": "이벤트명"})
+        _wev_total = wf_event_tbl[wf_event_tbl["이벤트명"] == "총합계"]
+        _wev_data = wf_event_tbl[wf_event_tbl["이벤트명"] != "총합계"].sort_values("광고비", ascending=False)
+        wf_event_tbl = pd.concat([_wev_data, _wev_total], ignore_index=True)
+        render_pinned_total_table(style_summary(wf_event_tbl, "이벤트명"))
+        st.markdown("---")
+        # 3. 영상 포맷별 성과 (광고유형 V, 대분류 포맷 → 소분류 연출 → 소재명)
+        st.markdown("**🎞 영상 포맷별 성과**")
+        fdf_wfv = fdf_wf[fdf_wf["영상/이미지 구분"].astype(str).str.strip().str.upper() == "V"].copy()
+        fdf_wfv = fdf_wfv[fdf_wfv["대분류 포맷"].astype(str).str.strip() != ""]
+        if fdf_wfv.empty:
+            st.info("영상(V) 소재 데이터가 없습니다.")
+        else:
+            _wfv_cols = ["영상 포맷", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CPM", "CVR", "CPA"]
+            _wfv_groups = []
+            for _wfv_fmt, _wfv_sub in fdf_wfv.groupby("대분류 포맷"):
+                if not str(_wfv_fmt).strip():
+                    continue
+                _wfv_kids = []
+                for _wfv_dt, _wfv_ssub in _wfv_sub.groupby("소분류 연출"):
+                    _wfv_label = str(_wfv_dt).strip() or "(미분류)"
+                    _wfv_ads = [
+                        (_an,
+                         hr_perf_row(_an, _wfv_ssub[_wfv_ssub["소재명"] == _an], key_col="영상 포맷"),
+                         _wfv_ssub[_wfv_ssub["소재명"] == _an]["광고비 (KRW)"].sum())
+                        for _an in _wfv_ssub["소재명"].unique()
+                    ]
+                    _wfv_ads.sort(key=lambda x: x[2], reverse=True)
+                    _wfv_kids.append((
+                        _wfv_label,
+                        hr_perf_row(_wfv_label, _wfv_ssub, key_col="영상 포맷"),
+                        [(_a, _r) for _a, _r, _ in _wfv_ads],
+                        _wfv_ssub["광고비 (KRW)"].sum(),
+                    ))
+                _wfv_kids.sort(key=lambda x: x[3], reverse=True)
+                _wfv_groups.append((
+                    str(_wfv_fmt),
+                    hr_perf_row(str(_wfv_fmt), _wfv_sub, key_col="영상 포맷"),
+                    [(_a, _r, _k) for _a, _r, _k, _ in _wfv_kids],
+                    _wfv_sub["광고비 (KRW)"].sum(),
+                ))
+            _wfv_groups.sort(key=lambda x: x[3], reverse=True)
+            render_tree_table3(
+                [(_g2[0], _g2[1], _g2[2]) for _g2 in _wfv_groups],
+                hr_perf_row("총합계", fdf_wfv, key_col="영상 포맷"),
+                _wfv_cols,
+            )
+        st.markdown("---")
+        # 4. 신규소재 집행일자별 성과 (집행시작일 260720~, 집행일 클릭 시 소재명 펼침)
+        st.markdown(f"**🗓 신규소재 집행일자별 성과 (집행시작일 {NEW_CREATIVE_START}~)**")
+        render_new_creative_table(fdf_wf)
 
 # --- TAB 9: GFA 요약 (네이버 성과형 DA) ---
 with tab9:
