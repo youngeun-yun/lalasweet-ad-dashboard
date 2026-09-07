@@ -90,6 +90,24 @@ PRODUCT_NAME_MAP = {
     "G두": "꼬숩두유",
     "S고": "꼬숩두유",
 }
+# 제품코드가 비어 있을 때(소재명이 파일명 규칙을 안 따라 파싱 실패) 캠페인명 키워드로 보정.
+# 위에서부터 순서대로 검사하므로 더 구체적인 키워드를 앞에 둔다.
+PRODUCT_NAME_BY_CAMPAIGN = [
+    ("퐁당", "초코퐁당"),
+    ("블트", "블트하"),
+    ("트러플", "블트하"),
+    ("하몽", "블트하"),
+    ("웨하스", "웨하스"),
+    ("팝콘", "팝콘"),
+    ("단백질", "단백질쉐이크"),
+    ("단쉐", "단백질쉐이크"),
+    ("쉐이크", "단백질쉐이크"),
+    ("퍼프", "퍼프"),
+    ("바나나콘", "퍼프"),
+    ("콘스낵", "퍼프"),
+    ("두유", "꼬숩두유"),
+    ("아몬드", "아몬드스윗"),
+]
 # --- 소재 유형 우선순위 ---
 CREATIVE_TYPES = [
     "맛페인포인트.5P소구",
@@ -514,6 +532,19 @@ def product_name(code) -> str:
     if not c:
         return "(미분류)"
     return PRODUCT_NAME_MAP.get(c[:2], "(미분류)")
+def product_name_row(code, campaign) -> str:
+    """제품코드로 먼저 판정하고, 비어 있으면 캠페인명 키워드로 보정.
+    소재명이 파일명 규칙을 안 따르면(예: 'AI_Editor_1778591845178') 제품코드가 공백이 되는데,
+    캠페인명에는 제품명이 들어 있는 경우가 많아 이걸로 대부분 살릴 수 있다.
+    """
+    n = product_name(code)
+    if n != "(미분류)":
+        return n
+    cam = unicodedata.normalize("NFC", str(campaign))
+    for kw, name in PRODUCT_NAME_BY_CAMPAIGN:
+        if kw in cam:
+            return name
+    return "(미분류)"
 def valid_opts(df: pd.DataFrame, col: str) -> list:
     grp = df.groupby(col)["노출"].sum()
     return sorted([str(v) for v, imp in grp.items()
@@ -1079,7 +1110,14 @@ with tab1:
     fdf_m["월"] = fdf_m["날짜"].dt.month
     # 제품코드도 NFC로 정규화 — 자모 분해된 값(NFD)이 별도 행으로 갈라지는 것 방지
     fdf_m["제품코드"] = fdf_m["제품코드"].map(lambda v: unicodedata.normalize("NFC", str(v)).strip())
-    fdf_m["_제품명"] = fdf_m["제품코드"].apply(product_name)
+    # 제품명: 제품코드 우선, 비어 있으면 캠페인명 키워드로 보정
+    fdf_m["_제품명"] = [product_name_row(c, cam)
+                     for c, cam in zip(fdf_m["제품코드"], fdf_m["캠페인명"])]
+    # 3단 라벨: 제품코드가 있으면 코드, 없으면 캠페인명(정체 파악용)
+    fdf_m["_코드라벨"] = [
+        c if str(c).strip() else f"(코드없음) {str(cam)[:40]}"
+        for c, cam in zip(fdf_m["제품코드"], fdf_m["캠페인명"])
+    ]
     st.markdown("**📅 월별 데이터 추이** (월 클릭 → 제품 → 제품코드)")
     _mo_cols = ["월", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
     _mo_groups = []
@@ -1089,11 +1127,10 @@ with tab1:
         _pr_kids = []
         for _prn, _prn_sub in _mo_sub.groupby("_제품명"):
             _code_rows = [
-                (str(_cd) if str(_cd).strip() else "(미분류)",
-                 perf_row(str(_cd) if str(_cd).strip() else "(미분류)",
-                          _prn_sub[_prn_sub["제품코드"] == _cd], key_col="월"),
-                 _prn_sub[_prn_sub["제품코드"] == _cd]["광고비 (KRW)"].sum())
-                for _cd in _prn_sub["제품코드"].unique()
+                (str(_cd),
+                 perf_row(str(_cd), _prn_sub[_prn_sub["_코드라벨"] == _cd], key_col="월"),
+                 _prn_sub[_prn_sub["_코드라벨"] == _cd]["광고비 (KRW)"].sum())
+                for _cd in _prn_sub["_코드라벨"].unique()
             ]
             _code_rows.sort(key=lambda x: x[2], reverse=True)      # 제품코드: 광고비 내림차순
             _pr_kids.append((
