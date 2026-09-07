@@ -501,11 +501,14 @@ def render_banner_table(d: pd.DataFrame, kind: str) -> None:
         _cols,
     )
 def product_name(code) -> str:
-    """제품코드 → 제품명 (앞 2글자로 매핑, 없으면 제품코드 그대로)"""
+    """제품코드 → 제품명 (앞 2글자로 매핑).
+    매핑에 없거나 제품코드가 비면 모두 '(미분류)'로 묶는다.
+    → 펼치면 하위에 실제 제품코드가 그대로 보이므로 어떤 코드가 누락됐는지 확인 가능.
+    """
     c = str(code).strip()
     if not c:
         return "(미분류)"
-    return PRODUCT_NAME_MAP.get(c[:2], c)
+    return PRODUCT_NAME_MAP.get(c[:2], "(미분류)")
 def valid_opts(df: pd.DataFrame, col: str) -> list:
     grp = df.groupby(col)["노출"].sum()
     return sorted([str(v) for v, imp in grp.items()
