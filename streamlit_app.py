@@ -971,7 +971,7 @@ kpi = calc_kpi(fdf)
 # 탭
 # =============================================================
 render_update_buttons()
-tab1, tab7, tab11, tab2, tab10, tab9, tab8, tab6 = st.tabs(["📊 전체 요약", "🖤 블트하 요약", "🍫 초코퐁당 요약", "🍿 팝콘 요약", "🧇 웨하스 요약", "🟩 GFA 요약", "⏰ 블트하 시간대별", "⏰ 팝콘 시간대별"])
+tab1, tab7, tab11, tab2, tab10, tab9, tab8, tab12, tab6 = st.tabs(["📊 전체 요약", "🖤 블트하 요약", "🍫 초코퐁당 요약", "🍿 팝콘 요약", "🧇 웨하스 요약", "🟩 GFA 요약", "⏰ 블트하 시간대별", "⏰ 초코퐁당 시간대별", "⏰ 팝콘 시간대별"])
 # --- TAB 1: 전체 요약 ---
 with tab1:
     render_kpi(kpi)
@@ -1418,6 +1418,10 @@ def render_hourly_tab(sheet_name: str, kp: str) -> None:
 # --- TAB 5: 단쉐 시간대별 (2026-07-24 숨김: st.tabs에서 제외, 데이터·코드 보존. 복원 시 이 줄을 'with tab5:'로 되돌리고 st.tabs에 재추가) ---
 if False:  # 단쉐 시간대별 탭 숨김
     render_hourly_tab("단쉐_시간대별_원본", "sk")
+
+# --- TAB 12: 초코퐁당 시간대별 ---
+with tab12:
+    render_hourly_tab("초코퐁당_시간대별_원본", "pn")
 
 # --- TAB 6: 팝콘 시간대별 ---
 with tab6:
