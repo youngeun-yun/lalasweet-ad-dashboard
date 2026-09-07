@@ -72,6 +72,23 @@ BT_GOAL_START = pd.Timestamp("2026-07-15")
 BT_GOAL_END   = pd.Timestamp("2026-07-31")
 # --- 신규소재 집행일자별 성과 기준일 (블트하·팝콘 공통) ---
 NEW_CREATIVE_START = "260720"
+# --- 제품코드 → 제품명 매핑 (제품코드 앞 2글자 기준) ---
+# 새 제품코드가 생겨도 접두 2글자가 같으면 자동으로 같은 제품에 묶인다.
+# 예: PC콘/PC혼/PC카 → 팝콘, WB바/WF초 → 웨하스
+# 매핑에 없는 코드는 제품코드를 그대로 표기(누락이 눈에 보이도록)
+PRODUCT_NAME_MAP = {
+    "PC": "팝콘",
+    "WB": "웨하스",
+    "WF": "웨하스",
+    "SK": "단백질쉐이크",
+    "PF": "퍼프",
+    "BT": "블트하",
+    "PN": "초코퐁당",
+    "MK": "아몬드스윗",
+    "제혼": "제과혼합",
+    "G두": "꼬숩두유",
+    "S고": "꼬숩두유",
+}
 # --- 소재 유형 우선순위 ---
 CREATIVE_TYPES = [
     "맛페인포인트.5P소구",
@@ -483,6 +500,12 @@ def render_banner_table(d: pd.DataFrame, kind: str) -> None:
         hr_perf_row("총합계", dd, key_col=_label),
         _cols,
     )
+def product_name(code) -> str:
+    """제품코드 → 제품명 (앞 2글자로 매핑, 없으면 제품코드 그대로)"""
+    c = str(code).strip()
+    if not c:
+        return "(미분류)"
+    return PRODUCT_NAME_MAP.get(c[:2], c)
 def valid_opts(df: pd.DataFrame, col: str) -> list:
     grp = df.groupby(col)["노출"].sum()
     return sorted([str(v) for v, imp in grp.items()
@@ -1043,11 +1066,39 @@ with tab1:
                            paper_bgcolor="white", plot_bgcolor="white")
         st.plotly_chart(fig3, use_container_width=True)
     st.markdown("---")
+    # 월별 데이터 추이 — 월 클릭 → 제품명 → 제품코드 3단 펼침
     fdf_m = fdf_year_only.copy()
     fdf_m["월"] = fdf_m["날짜"].dt.month
-    monthly_tbl = build_summary_table(fdf_m, "월", label_fn=lambda x: f"{int(x):02d}")
-    st.markdown("**📅 월별 데이터 추이**")
-    render_pinned_total_table(style_summary(monthly_tbl, "월"))
+    fdf_m["_제품명"] = fdf_m["제품코드"].apply(product_name)
+    st.markdown("**📅 월별 데이터 추이** (월 클릭 → 제품 → 제품코드)")
+    _mo_cols = ["월", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
+    _mo_groups = []
+    for _mo in sorted(fdf_m["월"].unique()):                      # 월은 시간순
+        _mo_sub = fdf_m[fdf_m["월"] == _mo]
+        _mo_label = f"{int(_mo):02d}"
+        _pr_kids = []
+        for _prn, _prn_sub in _mo_sub.groupby("_제품명"):
+            _code_rows = [
+                (str(_cd) if str(_cd).strip() else "(미분류)",
+                 perf_row(str(_cd) if str(_cd).strip() else "(미분류)",
+                          _prn_sub[_prn_sub["제품코드"] == _cd], key_col="월"),
+                 _prn_sub[_prn_sub["제품코드"] == _cd]["광고비 (KRW)"].sum())
+                for _cd in _prn_sub["제품코드"].unique()
+            ]
+            _code_rows.sort(key=lambda x: x[2], reverse=True)      # 제품코드: 광고비 내림차순
+            _pr_kids.append((
+                str(_prn),
+                perf_row(str(_prn), _prn_sub, key_col="월"),
+                [(_a, _r) for _a, _r, _ in _code_rows],
+                _prn_sub["광고비 (KRW)"].sum(),
+            ))
+        _pr_kids.sort(key=lambda x: x[3], reverse=True)            # 제품명: 광고비 내림차순
+        _mo_groups.append((
+            _mo_label,
+            perf_row(_mo_label, _mo_sub, key_col="월"),
+            [(_a, _r, _k) for _a, _r, _k, _ in _pr_kids],
+        ))
+    render_tree_table3(_mo_groups, perf_row("총합계", fdf_m, key_col="월"), _mo_cols)
     fdf_w = fdf.copy()
     fdf_w["week_start"] = fdf_w["날짜"].dt.to_period("W").apply(lambda p: p.start_time.date())
     recent_weeks = sorted(fdf_w["week_start"].unique())[-4:]
