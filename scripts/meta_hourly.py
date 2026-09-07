@@ -29,6 +29,7 @@ TARGETS = [
     ("SK", "단쉐_시간대별_원본"),
     ("PC", "팝콘_시간대별_원본"),
     ("BT", "블트하_시간대별_원본"),
+    ("PN", "초코퐁당_시간대별_원본"),
 ]
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
