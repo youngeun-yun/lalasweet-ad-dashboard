@@ -5,6 +5,7 @@ Streamlit + Plotly | 데이터 소스: Google Sheets (통합RD_원본)
 """
 import html as _html
 import re
+import unicodedata
 import time
 import uuid
 import requests
@@ -504,8 +505,12 @@ def product_name(code) -> str:
     """제품코드 → 제품명 (앞 2글자로 매핑).
     매핑에 없거나 제품코드가 비면 모두 '(미분류)'로 묶는다.
     → 펼치면 하위에 실제 제품코드가 그대로 보이므로 어떤 코드가 누락됐는지 확인 가능.
+
+    ※ NFC 정규화 필수: 시트에 한글 자모가 분해된 형태(NFD)로 섞여 들어오는 경우가 있다.
+      예) '제혼' 이 U+C81C U+D63C(2글자, NFC) / ㅈ+ㅔ+ㅎ+ㅗ+ㄴ(5글자, NFD) 두 가지로 존재.
+      정규화 없이 c[:2]를 쓰면 NFD 값은 'ㅈㅔ'가 되어 매핑에 실패한다.
     """
-    c = str(code).strip()
+    c = unicodedata.normalize("NFC", str(code)).strip()
     if not c:
         return "(미분류)"
     return PRODUCT_NAME_MAP.get(c[:2], "(미분류)")
@@ -1072,6 +1077,8 @@ with tab1:
     # 월별 데이터 추이 — 월 클릭 → 제품명 → 제품코드 3단 펼침
     fdf_m = fdf_year_only.copy()
     fdf_m["월"] = fdf_m["날짜"].dt.month
+    # 제품코드도 NFC로 정규화 — 자모 분해된 값(NFD)이 별도 행으로 갈라지는 것 방지
+    fdf_m["제품코드"] = fdf_m["제품코드"].map(lambda v: unicodedata.normalize("NFC", str(v)).strip())
     fdf_m["_제품명"] = fdf_m["제품코드"].apply(product_name)
     st.markdown("**📅 월별 데이터 추이** (월 클릭 → 제품 → 제품코드)")
     _mo_cols = ["월", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
