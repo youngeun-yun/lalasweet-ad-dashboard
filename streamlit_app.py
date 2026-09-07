@@ -971,7 +971,7 @@ kpi = calc_kpi(fdf)
 # 탭
 # =============================================================
 render_update_buttons()
-tab1, tab7, tab2, tab10, tab9, tab8, tab6 = st.tabs(["📊 전체 요약", "🖤 블트하 요약", "🍿 팝콘 요약", "🧇 웨하스 요약", "🟩 GFA 요약", "⏰ 블트하 시간대별", "⏰ 팝콘 시간대별"])
+tab1, tab7, tab11, tab2, tab10, tab9, tab8, tab6 = st.tabs(["📊 전체 요약", "🖤 블트하 요약", "🍫 초코퐁당 요약", "🍿 팝콘 요약", "🧇 웨하스 요약", "🟩 GFA 요약", "⏰ 블트하 시간대별", "⏰ 팝콘 시간대별"])
 # --- TAB 1: 전체 요약 ---
 with tab1:
     render_kpi(kpi)
@@ -1570,6 +1570,77 @@ with tab7:
         # 7. 소재별 성과 (항상 블트하 탭 최하단 고정 · 사이드바 필터 반영 · 헤더 클릭 정렬)
         st.markdown("**🎬 소재별 성과**")
         cpm_summary_table(fdf_bt, "소재명", "소재")
+
+# --- TAB 11: 초코퐁당 요약 (웨하스 탭과 동일 형식) ---
+with tab11:
+    fdf_pn = fdf[
+        fdf["제품코드"].astype(str).str.contains("PN", na=False)
+        | fdf["캠페인명"].astype(str).str.contains("퐁당", na=False)
+    ].copy()
+    if fdf_pn.empty:
+        st.warning("초코퐁당(제품코드 PN 또는 캠페인명 '퐁당') 데이터가 없어요. "
+                   "사이드바 필터를 확인해주세요. (집행 전이면 정상입니다)")
+    else:
+        render_kpi(calc_kpi(fdf_pn))
+        st.markdown("---")
+        # 1. 일별 광고비 테이블
+        st.markdown("**📊 일별 광고비 & CPA**")
+        daily_tree_table(fdf_pn)
+        st.markdown("---")
+        # 2. 이벤트별 성과
+        st.markdown("**🎪 이벤트별 성과**")
+        pn_event_tbl = build_summary_table(fdf_pn, "스킴명")
+        pn_event_tbl = pn_event_tbl.rename(columns={"스킴명": "이벤트명"})
+        _pnev_total = pn_event_tbl[pn_event_tbl["이벤트명"] == "총합계"]
+        _pnev_data = pn_event_tbl[pn_event_tbl["이벤트명"] != "총합계"].sort_values("광고비", ascending=False)
+        pn_event_tbl = pd.concat([_pnev_data, _pnev_total], ignore_index=True)
+        render_pinned_total_table(style_summary(pn_event_tbl, "이벤트명"))
+        st.markdown("---")
+        # 3. 영상 포맷별 성과 (광고유형 V, 대분류 포맷 → 소분류 연출 → 소재명)
+        st.markdown("**🎞 영상 포맷별 성과**")
+        fdf_pnv = fdf_pn[fdf_pn["영상/이미지 구분"].astype(str).str.strip().str.upper() == "V"].copy()
+        fdf_pnv = fdf_pnv[fdf_pnv["대분류 포맷"].astype(str).str.strip() != ""]
+        if fdf_pnv.empty:
+            st.info("영상(V) 소재 데이터가 없습니다.")
+        else:
+            _pnv_cols = ["영상 포맷", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CPM", "CVR", "CPA"]
+            _pnv_groups = []
+            for _pnv_fmt, _pnv_sub in fdf_pnv.groupby("대분류 포맷"):
+                if not str(_pnv_fmt).strip():
+                    continue
+                _pnv_kids = []
+                for _pnv_dt, _pnv_ssub in _pnv_sub.groupby("소분류 연출"):
+                    _pnv_label = str(_pnv_dt).strip() or "(미분류)"
+                    _pnv_ads = [
+                        (_an,
+                         hr_perf_row(_an, _pnv_ssub[_pnv_ssub["소재명"] == _an], key_col="영상 포맷"),
+                         _pnv_ssub[_pnv_ssub["소재명"] == _an]["광고비 (KRW)"].sum())
+                        for _an in _pnv_ssub["소재명"].unique()
+                    ]
+                    _pnv_ads.sort(key=lambda x: x[2], reverse=True)
+                    _pnv_kids.append((
+                        _pnv_label,
+                        hr_perf_row(_pnv_label, _pnv_ssub, key_col="영상 포맷"),
+                        [(_a, _r) for _a, _r, _ in _pnv_ads],
+                        _pnv_ssub["광고비 (KRW)"].sum(),
+                    ))
+                _pnv_kids.sort(key=lambda x: x[3], reverse=True)
+                _pnv_groups.append((
+                    str(_pnv_fmt),
+                    hr_perf_row(str(_pnv_fmt), _pnv_sub, key_col="영상 포맷"),
+                    [(_a, _r, _k) for _a, _r, _k, _ in _pnv_kids],
+                    _pnv_sub["광고비 (KRW)"].sum(),
+                ))
+            _pnv_groups.sort(key=lambda x: x[3], reverse=True)
+            render_tree_table3(
+                [(_g2[0], _g2[1], _g2[2]) for _g2 in _pnv_groups],
+                hr_perf_row("총합계", fdf_pnv, key_col="영상 포맷"),
+                _pnv_cols,
+            )
+        st.markdown("---")
+        # 4. 신규소재 집행일자별 성과 (집행시작일 260720~, 집행일 클릭 시 소재명 펼침)
+        st.markdown(f"**🗓 신규소재 집행일자별 성과 (집행시작일 {NEW_CREATIVE_START}~)**")
+        render_new_creative_table(fdf_pn)
 
 # --- TAB 10: 웨하스 요약 (팝콘 탭과 동일 형식의 공통 표만) ---
 with tab10:
