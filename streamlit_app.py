@@ -545,6 +545,34 @@ def product_name_row(code, campaign) -> str:
         if kw in cam:
             return name
     return "(미분류)"
+_PLANNER_NAME_RE = re.compile(r"^[가-힣]{2,4}[0-9]?$")
+_YYMMDD_RE = re.compile(r"^\d{6}$")
+def planner_name(ad_name, marketer="") -> str:
+    """소재 기획자 추출.
+
+    build_rd.py는 `마케터`를 고정 위치(parts[10])에서 뽑는데, 소재명 토큰 수가
+    14개가 아니면(구 네이밍·토큰 누락/추가) 위치가 밀려 '12', '9', '260623' 같은
+    엉뚱한 값이 들어간다(실측 약 1.9억 / 6%).
+    → 소재명 끝이 `..._기획자_집행일(YYMMDD)_본부_PD` 로 일정하므로
+      **뒤에서 6자리 날짜를 찾아 그 앞 토큰**을 기획자로 잡으면 토큰 수와 무관하게 정확하다.
+    실패 시 `마케터` 컬럼 → 이름 형태 토큰 순으로 보조 판정.
+    """
+    n = unicodedata.normalize("NFC", str(ad_name))
+    parts = n.split("_")
+    for i in range(len(parts) - 1, 0, -1):
+        if _YYMMDD_RE.match(parts[i].strip()):
+            cand = parts[i - 1].strip()
+            if _PLANNER_NAME_RE.match(cand):
+                return cand
+            break
+    fb = unicodedata.normalize("NFC", str(marketer)).strip()
+    if _PLANNER_NAME_RE.match(fb):
+        return fb
+    for t in reversed(parts):
+        t = t.strip()
+        if _PLANNER_NAME_RE.match(t):
+            return t
+    return "(미분류)"
 def valid_opts(df: pd.DataFrame, col: str) -> list:
     grp = df.groupby(col)["노출"].sum()
     return sorted([str(v) for v, imp in grp.items()
@@ -1113,12 +1141,12 @@ with tab1:
     # 제품명: 제품코드 우선, 비어 있으면 캠페인명 키워드로 보정
     fdf_m["_제품명"] = [product_name_row(c, cam)
                      for c, cam in zip(fdf_m["제품코드"], fdf_m["캠페인명"])]
-    # 3단 라벨: 제품코드가 있으면 코드, 없으면 캠페인명(정체 파악용)
-    fdf_m["_코드라벨"] = [
-        c if str(c).strip() else f"(코드없음) {str(cam)[:40]}"
-        for c, cam in zip(fdf_m["제품코드"], fdf_m["캠페인명"])
+    # 3단: 소재 기획자 (소재명에서 추출 — 마케터 컬럼의 위치 밀림 문제를 보정)
+    fdf_m["_기획자"] = [
+        planner_name(n, m) for n, m in
+        zip(fdf_m["소재명"], fdf_m["마케터"] if "마케터" in fdf_m.columns else [""] * len(fdf_m))
     ]
-    st.markdown("**📅 월별 데이터 추이** (월 클릭 → 제품 → 제품코드)")
+    st.markdown("**📅 월별 데이터 추이** (월 클릭 → 제품 → 기획자)")
     _mo_cols = ["월", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
     _mo_groups = []
     for _mo in sorted(fdf_m["월"].unique()):                      # 월은 시간순
@@ -1127,10 +1155,10 @@ with tab1:
         _pr_kids = []
         for _prn, _prn_sub in _mo_sub.groupby("_제품명"):
             _code_rows = [
-                (str(_cd),
-                 perf_row(str(_cd), _prn_sub[_prn_sub["_코드라벨"] == _cd], key_col="월"),
-                 _prn_sub[_prn_sub["_코드라벨"] == _cd]["광고비 (KRW)"].sum())
-                for _cd in _prn_sub["_코드라벨"].unique()
+                (str(_pl),
+                 perf_row(str(_pl), _prn_sub[_prn_sub["_기획자"] == _pl], key_col="월"),
+                 _prn_sub[_prn_sub["_기획자"] == _pl]["광고비 (KRW)"].sum())
+                for _pl in _prn_sub["_기획자"].unique()
             ]
             _code_rows.sort(key=lambda x: x[2], reverse=True)      # 제품코드: 광고비 내림차순
             _pr_kids.append((
