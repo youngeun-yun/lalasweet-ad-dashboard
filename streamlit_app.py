@@ -73,6 +73,11 @@ BT_GOAL_START = pd.Timestamp("2026-07-15")
 BT_GOAL_END   = pd.Timestamp("2026-07-31")
 # --- 신규소재 집행일자별 성과 기준일 (블트하·팝콘 공통) ---
 NEW_CREATIVE_START = "260720"
+# --- 인원별 탭 기간 (사내 평가 기준 — 일반적인 상/하반기와 다름) ---
+HALF_PERIODS = [
+    ("25년 하반기 광고비", pd.Timestamp("2025-10-01"), pd.Timestamp("2026-03-31")),
+    ("26년 상반기 광고비", pd.Timestamp("2026-04-01"), pd.Timestamp("2026-09-30")),
+]
 # --- 제품코드 → 제품명 매핑 (제품코드 앞 2글자 기준) ---
 # 새 제품코드가 생겨도 접두 2글자가 같으면 자동으로 같은 제품에 묶인다.
 # 예: PC콘/PC혼/PC카 → 팝콘, WB바/WF초 → 웨하스
@@ -1061,7 +1066,7 @@ kpi = calc_kpi(fdf)
 # 탭
 # =============================================================
 render_update_buttons()
-tab1, tab7, tab11, tab2, tab10, tab9, tab8, tab12, tab6 = st.tabs(["📊 전체 요약", "🖤 블트하 요약", "🍫 초코퐁당 요약", "🍿 팝콘 요약", "🧇 웨하스 요약", "🟩 GFA 요약", "⏰ 블트하 시간대별", "⏰ 초코퐁당 시간대별", "⏰ 팝콘 시간대별"])
+tab1, tab7, tab11, tab2, tab10, tab9, tab13, tab8, tab12, tab6 = st.tabs(["📊 전체 요약", "🖤 블트하 요약", "🍫 초코퐁당 요약", "🍿 팝콘 요약", "🧇 웨하스 요약", "🟩 GFA 요약", "👥 인원별", "⏰ 블트하 시간대별", "⏰ 초코퐁당 시간대별", "⏰ 팝콘 시간대별"])
 # --- TAB 1: 전체 요약 ---
 with tab1:
     render_kpi(kpi)
@@ -1924,6 +1929,49 @@ with tab9:
             hr_perf_row("총합계", fdf_gfa, key_col="타겟"),
             _gfa_cols_tg,
         )
+
+# --- TAB 13: 인원별 (사내 평가 기간별 마케터 광고비) ---
+with tab13:
+    st.caption("사이드바 필터와 무관하게 **전체 데이터** 기준입니다 · "
+               "마케터는 소재명에서 추출(집행일 앞 토큰) — 시트의 마케터 컬럼 오류를 보정한 값")
+    _hp = df.copy()
+    _hp_mk = _hp["마케터"] if "마케터" in _hp.columns else [""] * len(_hp)
+    _hp["_기획자"] = [planner_name(_n, _m) for _n, _m in zip(_hp["소재명"], _hp_mk)]
+    _hp["_월"] = _hp["날짜"].dt.strftime("%Y-%m")
+
+    def _spend_row(label, d):
+        """광고비만 담는 행 (인원별 탭 전용)"""
+        return {"마케터": label, "광고비": f"₩{int(d['광고비 (KRW)'].sum()):,}"}
+
+    def _headcount_table(d, title, start, end):
+        st.markdown(f"**{title}** ({start.strftime('%Y.%m')} ~ {end.strftime('%Y.%m')})")
+        if d.empty:
+            st.info("해당 기간에 데이터가 없습니다. (백필이 반영됐는지 확인해주세요)")
+            return
+        _hc_groups = []
+        for _pl, _pl_sub in d.groupby("_기획자"):
+            _months = [
+                (_mo, _spend_row(_mo, _pl_sub[_pl_sub["_월"] == _mo]))
+                for _mo in sorted(_pl_sub["_월"].unique())      # 월은 시간순
+            ]
+            _hc_groups.append((
+                str(_pl),
+                _spend_row(str(_pl), _pl_sub),
+                _months,
+                _pl_sub["광고비 (KRW)"].sum(),
+            ))
+        _hc_groups.sort(key=lambda x: x[3], reverse=True)        # 마케터는 광고비 내림차순
+        render_tree_table(
+            [(_g3[0], _g3[1], _g3[2]) for _g3 in _hc_groups],
+            _spend_row("총합계", d),
+            ["마케터", "광고비"],
+        )
+
+    for _i, (_title, _start, _end) in enumerate(HALF_PERIODS):
+        if _i:
+            st.markdown("---")
+        _period = _hp[(_hp["날짜"] >= _start) & (_hp["날짜"] <= _end)]
+        _headcount_table(_period, _title, _start, _end)
 
 # --- TAB 8: 블트하 시간대별 ---
 with tab8:
