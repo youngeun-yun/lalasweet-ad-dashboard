@@ -448,25 +448,46 @@ def cpm_summary_table(d: pd.DataFrame, group_col: str, first_col: str) -> None:
     rows.sort(key=lambda x: x[1], reverse=True)
     out = [r for r, _ in rows] + [hr_perf_row("총합계", d, key_col=first_col)]
     render_pinned_total_table(pd.DataFrame(out)[_cols])
+_PLANNER_NAME_RE = re.compile(r"^[가-힣]{2,4}[0-9]?$")   # 기획자 이름 형태
+_YYMMDD_RE = re.compile(r"^\d{6}$")                      # 집행시작일(YYMMDD)
+def start_date_from_name(ad_name, parsed="") -> str:
+    """집행시작일(YYMMDD) 추출.
+
+    build_rd.py는 집행시작일을 고정 위치(parts[11])에서 뽑는데, 소재명 토큰 수가
+    14개가 아니면 밀려서 빈 값이 된다.
+      예) '[26.10]F_I_SN치_..._.배너_식감강조_우유말먹_1.__김소희_261001_제과_박서연'
+          → 상세부분을 온점이 아닌 언더바로 끊어 16토큰 → 집행시작일이 공백
+    → 소재명 끝이 `..._기획자_집행일(YYMMDD)_본부_PD` 로 일정하므로
+      **소재명에서 6자리 숫자 토큰을 뒤에서 찾아** 쓰면 토큰 수와 무관하게 정확하다.
+    """
+    p = unicodedata.normalize("NFC", str(parsed)).strip()
+    if _YYMMDD_RE.match(p):
+        return p
+    parts = unicodedata.normalize("NFC", str(ad_name)).split("_")
+    for t in reversed(parts):
+        t = t.strip()
+        if _YYMMDD_RE.match(t):
+            return t
+    return ""
 def render_new_creative_table(d: pd.DataFrame) -> None:
     """신규소재 집행일자별 성과 (집행시작일 ≥ NEW_CREATIVE_START, CPM 포함).
     집행시작일별 그룹 → 집행일 클릭 시 소재명별 성과 펼침 (2단 트리).
-    전달받은 d의 사이드바 필터가 그대로 반영된다."""
+    전달받은 d의 사이드바 필터가 그대로 반영된다.
+    집행시작일은 파싱 컬럼이 비어도 소재명에서 다시 찾아 보정한다."""
     _cols = ["집행시작일", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CPM", "CVR", "CPA"]
     dd = d.copy()
-    if "집행시작일" in dd.columns:
-        dd = dd[
-            dd["집행시작일"].astype(str).str.match(r"^\d{6}$") &
-            (dd["집행시작일"].astype(str) >= NEW_CREATIVE_START)
-        ]
-    else:
-        dd = dd.iloc[0:0]
+    if dd.empty or "소재명" not in dd.columns:
+        st.info(f"집행시작일 {NEW_CREATIVE_START} 이후 소재 데이터가 없습니다.")
+        return
+    _parsed = dd["집행시작일"] if "집행시작일" in dd.columns else [""] * len(dd)
+    dd["_집행일"] = [start_date_from_name(_n, _p) for _n, _p in zip(dd["소재명"], _parsed)]
+    dd = dd[(dd["_집행일"] != "") & (dd["_집행일"] >= NEW_CREATIVE_START)]
     if dd.empty:
         st.info(f"집행시작일 {NEW_CREATIVE_START} 이후 소재 데이터가 없습니다.")
         return
     _groups = []
-    for _sd in sorted(dd["집행시작일"].astype(str).unique()):
-        _sub = dd[dd["집행시작일"].astype(str) == _sd]
+    for _sd in sorted(dd["_집행일"].unique()):
+        _sub = dd[dd["_집행일"] == _sd]
         _ads = [
             (_an,
              hr_perf_row(_an, _sub[_sub["소재명"] == _an], key_col="집행시작일"),
@@ -552,8 +573,6 @@ def product_name_row(code, campaign) -> str:
         if kw in cam:
             return name
     return "(미분류)"
-_PLANNER_NAME_RE = re.compile(r"^[가-힣]{2,4}[0-9]?$")
-_YYMMDD_RE = re.compile(r"^\d{6}$")
 def planner_name(ad_name, marketer="") -> str:
     """소재 기획자 추출.
 
