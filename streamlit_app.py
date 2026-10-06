@@ -90,6 +90,7 @@ PRODUCT_NAME_MAP = {
     "PF": "퍼프",
     "BT": "블트하",
     "PN": "초코퐁당",
+    "SN": "스노우콘",
     "MK": "아몬드스윗",
     "제혼": "제과혼합",
     "G두": "꼬숩두유",
@@ -99,6 +100,7 @@ PRODUCT_NAME_MAP = {
 # 위에서부터 순서대로 검사하므로 더 구체적인 키워드를 앞에 둔다.
 PRODUCT_NAME_BY_CAMPAIGN = [
     ("퐁당", "초코퐁당"),
+    ("스노우콘", "스노우콘"),   # '팝콘'·'콘스낵'보다 앞에 둬야 '콘' 때문에 오분류되지 않음
     ("블트", "블트하"),
     ("트러플", "블트하"),
     ("하몽", "블트하"),
@@ -1066,7 +1068,7 @@ kpi = calc_kpi(fdf)
 # 탭
 # =============================================================
 render_update_buttons()
-tab1, tab7, tab11, tab2, tab10, tab9, tab13, tab8, tab12, tab6 = st.tabs(["📊 전체 요약", "🖤 블트하 요약", "🍫 초코퐁당 요약", "🍿 팝콘 요약", "🧇 웨하스 요약", "🟩 GFA 요약", "👥 인원별", "⏰ 블트하 시간대별", "⏰ 초코퐁당 시간대별", "⏰ 팝콘 시간대별"])
+tab1, tab7, tab11, tab14, tab10, tab2, tab8, tab12, tab6 = st.tabs(["📊 전체 요약", "🖤 블트하 요약", "🍫 초코퐁당 요약", "❄️ 스노우콘 요약", "🧇 웨하스 요약", "🍿 팝콘 요약", "⏰ 블트하 시간대별", "⏰ 초코퐁당 시간대별", "⏰ 팝콘 시간대별"])
 # --- TAB 1: 전체 요약 ---
 with tab1:
     render_kpi(kpi)
@@ -1777,6 +1779,77 @@ with tab11:
         st.markdown(f"**🗓 신규소재 집행일자별 성과 (집행시작일 {NEW_CREATIVE_START}~)**")
         render_new_creative_table(fdf_pn)
 
+# --- TAB 14: 스노우콘 요약 (초코퐁당 탭과 동일 형식) ---
+with tab14:
+    fdf_sn = fdf[
+        fdf["제품코드"].astype(str).str.contains("SN", na=False)
+        | fdf["캠페인명"].astype(str).str.contains("스노우콘", na=False)
+    ].copy()
+    if fdf_sn.empty:
+        st.warning("스노우콘(제품코드 SN 또는 캠페인명 '스노우콘') 데이터가 없어요. "
+                   "사이드바 필터를 확인해주세요. (집행 전이면 정상입니다)")
+    else:
+        render_kpi(calc_kpi(fdf_sn))
+        st.markdown("---")
+        # 1. 일별 광고비 테이블
+        st.markdown("**📊 일별 광고비 & CPA**")
+        daily_tree_table(fdf_sn)
+        st.markdown("---")
+        # 2. 이벤트별 성과
+        st.markdown("**🎪 이벤트별 성과**")
+        sn_event_tbl = build_summary_table(fdf_sn, "스킴명")
+        sn_event_tbl = sn_event_tbl.rename(columns={"스킴명": "이벤트명"})
+        _snev_total = sn_event_tbl[sn_event_tbl["이벤트명"] == "총합계"]
+        _snev_data = sn_event_tbl[sn_event_tbl["이벤트명"] != "총합계"].sort_values("광고비", ascending=False)
+        sn_event_tbl = pd.concat([_snev_data, _snev_total], ignore_index=True)
+        render_pinned_total_table(style_summary(sn_event_tbl, "이벤트명"))
+        st.markdown("---")
+        # 3. 영상 포맷별 성과 (광고유형 V, 대분류 포맷 → 소분류 연출 → 소재명)
+        st.markdown("**🎞 영상 포맷별 성과**")
+        fdf_snv = fdf_sn[fdf_sn["영상/이미지 구분"].astype(str).str.strip().str.upper() == "V"].copy()
+        fdf_snv = fdf_snv[fdf_snv["대분류 포맷"].astype(str).str.strip() != ""]
+        if fdf_snv.empty:
+            st.info("영상(V) 소재 데이터가 없습니다.")
+        else:
+            _snv_cols = ["영상 포맷", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CPM", "CVR", "CPA"]
+            _snv_groups = []
+            for _snv_fmt, _snv_sub in fdf_snv.groupby("대분류 포맷"):
+                if not str(_snv_fmt).strip():
+                    continue
+                _snv_kids = []
+                for _snv_dt, _snv_ssub in _snv_sub.groupby("소분류 연출"):
+                    _snv_label = str(_snv_dt).strip() or "(미분류)"
+                    _snv_ads = [
+                        (_an,
+                         hr_perf_row(_an, _snv_ssub[_snv_ssub["소재명"] == _an], key_col="영상 포맷"),
+                         _snv_ssub[_snv_ssub["소재명"] == _an]["광고비 (KRW)"].sum())
+                        for _an in _snv_ssub["소재명"].unique()
+                    ]
+                    _snv_ads.sort(key=lambda x: x[2], reverse=True)
+                    _snv_kids.append((
+                        _snv_label,
+                        hr_perf_row(_snv_label, _snv_ssub, key_col="영상 포맷"),
+                        [(_a, _r) for _a, _r, _ in _snv_ads],
+                        _snv_ssub["광고비 (KRW)"].sum(),
+                    ))
+                _snv_kids.sort(key=lambda x: x[3], reverse=True)
+                _snv_groups.append((
+                    str(_snv_fmt),
+                    hr_perf_row(str(_snv_fmt), _snv_sub, key_col="영상 포맷"),
+                    [(_a, _r, _k) for _a, _r, _k, _ in _snv_kids],
+                    _snv_sub["광고비 (KRW)"].sum(),
+                ))
+            _snv_groups.sort(key=lambda x: x[3], reverse=True)
+            render_tree_table3(
+                [(_g2[0], _g2[1], _g2[2]) for _g2 in _snv_groups],
+                hr_perf_row("총합계", fdf_snv, key_col="영상 포맷"),
+                _snv_cols,
+            )
+        st.markdown("---")
+        # 4. 신규소재 집행일자별 성과 (집행시작일 260720~, 집행일 클릭 시 소재명 펼침)
+        st.markdown(f"**🗓 신규소재 집행일자별 성과 (집행시작일 {NEW_CREATIVE_START}~)**")
+        render_new_creative_table(fdf_sn)
+
 # --- TAB 10: 웨하스 요약 (팝콘 탭과 동일 형식의 공통 표만) ---
 with tab10:
     fdf_wf = fdf[
@@ -1848,8 +1921,10 @@ with tab10:
         st.markdown(f"**🗓 신규소재 집행일자별 성과 (집행시작일 {NEW_CREATIVE_START}~)**")
         render_new_creative_table(fdf_wf)
 
-# --- TAB 9: GFA 요약 (네이버 성과형 DA) ---
-with tab9:
+# --- TAB 9: GFA 요약 (2026-10-06 숨김: st.tabs에서 제외, 데이터·코드 보존.
+#     복원 시 이 줄을 'with tab9:'로 되돌리고 st.tabs에 재추가.
+#     GFA_원본 시트 수집(로컬 RPA·작업 스케줄러)은 숨김과 무관하게 계속 동작) ---
+if False:  # GFA 요약 탭 숨김
     fdf_gfa = fdf[fdf["매체"].astype(str) == "GFA"].copy()
     if fdf_gfa.empty:
         st.warning("GFA 데이터가 없어요. 구글시트 `GFA_원본` 탭에 리포트를 붙여넣고 "
@@ -1930,8 +2005,9 @@ with tab9:
             _gfa_cols_tg,
         )
 
-# --- TAB 13: 인원별 (사내 평가 기간별 마케터 광고비) ---
-with tab13:
+# --- TAB 13: 인원별 (2026-10-06 숨김: st.tabs에서 제외, 데이터·코드 보존.
+#     복원 시 이 줄을 'with tab13:'로 되돌리고 st.tabs에 재추가) ---
+if False:  # 인원별 탭 숨김
     st.caption("사이드바 필터와 무관하게 **전체 데이터** 기준입니다 · "
                "마케터는 소재명에서 추출(집행일 앞 토큰) — 시트의 마케터 컬럼 오류를 보정한 값")
     _hp = df.copy()
