@@ -501,6 +501,54 @@ def render_new_creative_table(d: pd.DataFrame) -> None:
             [(_a, _r) for _a, _r, _ in _ads],
         ))
     render_tree_table(_groups, hr_perf_row("총합계", dd, key_col="집행시작일"), _cols)
+def appeal_after_placement(ad_name: str) -> str:
+    """배너 소구점 추출 — 지면 토큰(온점으로 시작: '.배너', '.피드' 등) **바로 뒤 토큰**.
+
+    스노우콘 배너 소재는 토큰 수가 15~17개로 제각각이라 고정 위치로는 못 잡는다.
+      '[26.10]F_I_SN치_..._신규_.배너_신상강조_5.__김소희_261001_제과_박서연'        (15토큰)
+      '[26.10]F_I_SN치_..._신규_.배너_황치즈강조_찐한풍미_시즈닝_2.__김소희_...'      (17토큰)
+    → 지면 토큰을 기준점으로 삼으면 토큰 수와 무관하게 항상 그 다음이 소구점이다.
+    '.배너'에 한정하지 않아 '.피드' 등 새 지면이 생겨도 그대로 동작한다.
+    """
+    parts = unicodedata.normalize("NFC", str(ad_name)).split("_")
+    for i, t in enumerate(parts):
+        s = t.strip()
+        if s.startswith(".") and len(s) > 1:          # 지면 토큰
+            if i + 1 < len(parts):
+                nxt = parts[i + 1].strip()
+                if nxt:
+                    return nxt
+            break
+    return "(미분류)"
+def render_appeal_table(d: pd.DataFrame, label: str = "소구점") -> None:
+    """배너(I) 소재의 소구점별 성과 — 소구점 클릭 시 소재별 펼침 (2단 트리, CPM 포함)."""
+    _cols = [label, "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CPM", "CVR", "CPA"]
+    dd = d[d["영상/이미지 구분"].astype(str).str.strip().str.upper() == "I"].copy()
+    if dd.empty:
+        st.info("배너(I) 소재 데이터가 없습니다.")
+        return
+    dd["_소구점"] = dd["소재명"].apply(appeal_after_placement)
+    _groups = []
+    for _ap, _ap_sub in dd.groupby("_소구점"):
+        _ads = [
+            (_an,
+             hr_perf_row(_an, _ap_sub[_ap_sub["소재명"] == _an], key_col=label),
+             _ap_sub[_ap_sub["소재명"] == _an]["광고비 (KRW)"].sum())
+            for _an in _ap_sub["소재명"].unique()
+        ]
+        _ads.sort(key=lambda x: x[2], reverse=True)
+        _groups.append((
+            str(_ap),
+            hr_perf_row(str(_ap), _ap_sub, key_col=label),
+            [(_a, _r) for _a, _r, _ in _ads],
+            _ap_sub["광고비 (KRW)"].sum(),
+        ))
+    _groups.sort(key=lambda x: x[3], reverse=True)
+    render_tree_table(
+        [(_g4[0], _g4[1], _g4[2]) for _g4 in _groups],
+        hr_perf_row("총합계", dd, key_col=label),
+        _cols,
+    )
 def banner_segments(ad_name: str) -> list:
     """소재명 9번째 토큰(parts[8])을 온점 분해해 배너 세부 조각 반환.
     예: '[26.07]F_I_PC치_..._.피드_이니1.맛강조.스토리형.__권미정_...'
@@ -1865,7 +1913,11 @@ with tab14:
                 _snv_cols,
             )
         st.markdown("---")
-        # 4. 신규소재 집행일자별 성과 (집행시작일 260720~, 집행일 클릭 시 소재명 펼침)
+        # 4. 배너 소구점별 성과 (I 소재, 지면 토큰 '.배너' 다음 토큰 = 소구점)
+        st.markdown("**💬 배너 소구점별 성과** (소구점 클릭 → 소재별)")
+        render_appeal_table(fdf_sn)
+        st.markdown("---")
+        # 5. 신규소재 집행일자별 성과 (집행시작일 260720~, 집행일 클릭 시 소재명 펼침)
         st.markdown(f"**🗓 신규소재 집행일자별 성과 (집행시작일 {NEW_CREATIVE_START}~)**")
         render_new_creative_table(fdf_sn)
 
