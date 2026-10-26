@@ -504,6 +504,79 @@ def render_new_creative_table(d: pd.DataFrame) -> None:
             [(_a, _r) for _a, _r, _ in _ads],
         ))
     render_tree_table(_groups, hr_perf_row("총합계", dd, key_col="집행시작일"), _cols)
+VI_LABEL = {"V": "V (영상)", "I": "I (이미지)", "P": "P (파트너십)"}
+def render_adtype_table(d: pd.DataFrame, key_col: str = "광고 유형") -> None:
+    """광고 유형(V/I/P)별 성과 → 클릭 시 대분류 포맷까지 (2단 트리, CPM 포함).
+    전체 비교용이라 대분류 포맷이 빈 소재도 '(미분류)'로 포함해 합계가 전체와 맞는다.
+    """
+    _cols = [key_col, "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CPM", "CVR", "CPA"]
+    dd = d.copy()
+    dd["_VI"] = dd["영상/이미지 구분"].astype(str).str.strip().str.upper()
+    dd["_FMT"] = dd["대분류 포맷"].astype(str).str.strip().replace("", "(미분류)")
+    _groups = []
+    for _vi, _vi_sub in dd.groupby("_VI"):
+        _label = VI_LABEL.get(_vi, _vi if _vi else "(미분류)")
+        _kids = [
+            (_f, hr_perf_row(_f, _vi_sub[_vi_sub["_FMT"] == _f], key_col=key_col),
+             _vi_sub[_vi_sub["_FMT"] == _f]["광고비 (KRW)"].sum())
+            for _f in _vi_sub["_FMT"].unique()
+        ]
+        _kids.sort(key=lambda x: x[2], reverse=True)
+        _groups.append((
+            _label,
+            hr_perf_row(_label, _vi_sub, key_col=key_col),
+            [(_a, _r) for _a, _r, _ in _kids],
+            _vi_sub["광고비 (KRW)"].sum(),
+        ))
+    _groups.sort(key=lambda x: x[3], reverse=True)
+    render_tree_table(
+        [(_g5[0], _g5[1], _g5[2]) for _g5 in _groups],
+        hr_perf_row("총합계", dd, key_col=key_col),
+        _cols,
+    )
+def render_format_table(d: pd.DataFrame, vi: str, key_col: str) -> None:
+    """특정 광고 유형(V/I/P)의 대분류 포맷 → 소분류 연출 → 소재명 3단 트리 (CPM 포함).
+    대분류 포맷이 빈 소재는 제외(기존 영상 포맷별 표와 동일한 동작).
+    """
+    _cols = [key_col, "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CPM", "CVR", "CPA"]
+    dd = d[d["영상/이미지 구분"].astype(str).str.strip().str.upper() == vi].copy()
+    dd = dd[dd["대분류 포맷"].astype(str).str.strip() != ""]
+    if dd.empty:
+        st.info(f"{VI_LABEL.get(vi, vi)} 소재 데이터가 없습니다.")
+        return
+    _groups = []
+    for _fmt, _fmt_sub in dd.groupby("대분류 포맷"):
+        if not str(_fmt).strip():
+            continue
+        _kids = []
+        for _dt, _dt_sub in _fmt_sub.groupby("소분류 연출"):
+            _dt_label = str(_dt).strip() or "(미분류)"
+            _ads = [
+                (_an,
+                 hr_perf_row(_an, _dt_sub[_dt_sub["소재명"] == _an], key_col=key_col),
+                 _dt_sub[_dt_sub["소재명"] == _an]["광고비 (KRW)"].sum())
+                for _an in _dt_sub["소재명"].unique()
+            ]
+            _ads.sort(key=lambda x: x[2], reverse=True)
+            _kids.append((
+                _dt_label,
+                hr_perf_row(_dt_label, _dt_sub, key_col=key_col),
+                [(_a, _r) for _a, _r, _ in _ads],
+                _dt_sub["광고비 (KRW)"].sum(),
+            ))
+        _kids.sort(key=lambda x: x[3], reverse=True)
+        _groups.append((
+            str(_fmt),
+            hr_perf_row(str(_fmt), _fmt_sub, key_col=key_col),
+            [(_a, _r, _k) for _a, _r, _k, _ in _kids],
+            _fmt_sub["광고비 (KRW)"].sum(),
+        ))
+    _groups.sort(key=lambda x: x[3], reverse=True)
+    render_tree_table3(
+        [(_g6[0], _g6[1], _g6[2]) for _g6 in _groups],
+        hr_perf_row("총합계", dd, key_col=key_col),
+        _cols,
+    )
 def appeal_after_placement(ad_name: str) -> str:
     """배너 소구점 추출 — 지면 토큰(온점으로 시작: '.배너', '.피드' 등) **바로 뒤 토큰**.
 
@@ -1468,47 +1541,20 @@ with tab4:
 
         st.markdown("---")
 
-        # 5. 영상 포맷별 성과 (광고유형 V, 대분류 포맷 → 소분류 연출 → 소재명, CPM 포함)
-        st.markdown("**🎞 영상 포맷별 성과**")
-        fdf_vf = fdf_sk[fdf_sk["영상/이미지 구분"].astype(str).str.strip().str.upper() == "V"].copy()
-        fdf_vf = fdf_vf[fdf_vf["대분류 포맷"].astype(str).str.strip() != ""]
-        if fdf_vf.empty:
-            st.info("영상(V) 소재 데이터가 없습니다.")
-        else:
-            _vf_cols = ["영상 포맷", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CPM", "CVR", "CPA"]
-            _vf_groups = []
-            for _vf_fmt, _vf_sub in fdf_vf.groupby("대분류 포맷"):
-                if not str(_vf_fmt).strip():
-                    continue
-                _vf_kids = []
-                for _vf_dt, _vf_ssub in _vf_sub.groupby("소분류 연출"):
-                    _vf_label = str(_vf_dt).strip() or "(미분류)"
-                    _vf_ads = [
-                        (_an,
-                         hr_perf_row(_an, _vf_ssub[_vf_ssub["소재명"] == _an], key_col="영상 포맷"),
-                         _vf_ssub[_vf_ssub["소재명"] == _an]["광고비 (KRW)"].sum())
-                        for _an in _vf_ssub["소재명"].unique()
-                    ]
-                    _vf_ads.sort(key=lambda x: x[2], reverse=True)
-                    _vf_kids.append((
-                        _vf_label,
-                        hr_perf_row(_vf_label, _vf_ssub, key_col="영상 포맷"),
-                        [(_a, _r) for _a, _r, _ in _vf_ads],
-                        _vf_ssub["광고비 (KRW)"].sum(),
-                    ))
-                _vf_kids.sort(key=lambda x: x[3], reverse=True)
-                _vf_groups.append((
-                    str(_vf_fmt),
-                    hr_perf_row(str(_vf_fmt), _vf_sub, key_col="영상 포맷"),
-                    [(_a, _r, _k) for _a, _r, _k, _ in _vf_kids],
-                    _vf_sub["광고비 (KRW)"].sum(),
-                ))
-            _vf_groups.sort(key=lambda x: x[3], reverse=True)
-            render_tree_table3(
-                [(_g[0], _g[1], _g[2]) for _g in _vf_groups],
-                hr_perf_row("총합계", fdf_vf, key_col="영상 포맷"),
-                _vf_cols,
-            )
+        # 5. 포맷별 성과 — 3개 표로 분리
+        #   5-1. 광고 유형별(V/I/P) → 대분류 포맷 (전체 비교용, 빈 포맷도 (미분류)로 포함)
+        #   5-2. 영상 포맷별 (V만, 소재단까지)
+        #   5-3. 배너 포맷별 (I만, 소재단까지)
+        st.markdown("**🎭 광고 유형별 성과** (유형 클릭 → 대분류 포맷)")
+        render_adtype_table(fdf_sk)
+        st.markdown("---")
+
+        st.markdown("**🎞 영상 포맷별 성과** (대분류 → 소분류 → 소재)")
+        render_format_table(fdf_sk, "V", "영상 포맷")
+        st.markdown("---")
+
+        st.markdown("**🖼 배너 포맷별 성과** (대분류 → 소분류 → 소재)")
+        render_format_table(fdf_sk, "I", "배너 포맷")
 
         st.markdown("---")
 
