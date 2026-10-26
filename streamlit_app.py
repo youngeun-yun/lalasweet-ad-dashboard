@@ -66,7 +66,10 @@ SK_SCHEME2_START = pd.Timestamp("2026-06-27")
 SK_SCHEME2_END   = pd.Timestamp("2026-06-30")
 SK_SCHEME3_START = pd.Timestamp("2026-07-01")
 SK_SCHEME3_END   = pd.Timestamp("2026-07-05")
-SK_SCHEME4_START = pd.Timestamp("2026-07-06")  # 4차 스킴: 종료일 미정 (이후 전체)
+SK_SCHEME4_START = pd.Timestamp("2026-07-06")
+SK_SCHEME4_END   = pd.Timestamp("2026-10-22")  # 4차 스킴 종료
+# 이 날짜부터는 스킴(기간) 대신 **이벤트명(스킴명) 기준**으로 행을 자동 생성
+SK_EVENT_BASED_FROM = pd.Timestamp("2026-10-23")
 # --- 블트하 노출 가중목 ---
 BT_GOAL_IMP   = 22_000_000
 BT_GOAL_START = pd.Timestamp("2026-07-15")
@@ -1422,20 +1425,31 @@ with tab4:
         sk_s1 = df_sk_all[(df_sk_all["날짜"] >= SK_SCHEME1_START) & (df_sk_all["날짜"] <= SK_SCHEME1_END)]
         sk_s2 = df_sk_all[(df_sk_all["날짜"] >= SK_SCHEME2_START) & (df_sk_all["날짜"] <= SK_SCHEME2_END)]
         sk_s3 = df_sk_all[(df_sk_all["날짜"] >= SK_SCHEME3_START) & (df_sk_all["날짜"] <= SK_SCHEME3_END)]
-        sk_s4 = df_sk_all[df_sk_all["날짜"] >= SK_SCHEME4_START]
-        sk_total = pd.concat([sk_s1, sk_s2, sk_s3, sk_s4])
+        sk_s4 = df_sk_all[(df_sk_all["날짜"] >= SK_SCHEME4_START) & (df_sk_all["날짜"] <= SK_SCHEME4_END)]
+        # SK_EVENT_BASED_FROM 이후는 기간(스킴) 대신 이벤트명으로 분리
+        sk_ev = df_sk_all[df_sk_all["날짜"] >= SK_EVENT_BASED_FROM]
+        sk_total = pd.concat([sk_s1, sk_s2, sk_s3, sk_s4, sk_ev])
         sk1_label = f"1차 스킴({SK_SCHEME1_START.strftime('%m/%d')}~{SK_SCHEME1_END.strftime('%m/%d')})"
         sk2_label = f"2차 스킴({SK_SCHEME2_START.strftime('%m/%d')}~{SK_SCHEME2_END.strftime('%m/%d')})"
         sk3_label = f"3차 스킴({SK_SCHEME3_START.strftime('%m/%d')}~{SK_SCHEME3_END.strftime('%m/%d')})"
-        sk4_label = f"4차 스킴({SK_SCHEME4_START.strftime('%m/%d')}~)"
-        sk_period_df = pd.DataFrame([
+        sk4_label = f"4차 스킴({SK_SCHEME4_START.strftime('%m/%d')}~{SK_SCHEME4_END.strftime('%m/%d')})"
+        _sk_rows = [
             perf_row(sk1_label, sk_s1),
             perf_row(sk2_label, sk_s2),
             perf_row(sk3_label, sk_s3),
             perf_row(sk4_label, sk_s4),
-            perf_row("총합계", sk_total),
-        ])
-        render_pinned_total_table(sk_period_df)
+        ]
+        # 이벤트명별 행 (광고비 내림차순) — 새 프로모션이 생기면 자동으로 행이 늘어남
+        _sk_ev_rows = []
+        for _ev, _ev_sub in sk_ev.groupby("스킴명"):
+            _ev_label = str(_ev).strip() or "(미분류)"
+            _sk_ev_rows.append((perf_row(_ev_label, _ev_sub), _ev_sub["광고비 (KRW)"].sum()))
+        _sk_ev_rows.sort(key=lambda x: x[1], reverse=True)
+        _sk_rows += [_r for _r, _ in _sk_ev_rows]
+        _sk_rows.append(perf_row("총합계", sk_total))
+        render_pinned_total_table(pd.DataFrame(_sk_rows))
+        st.caption(f"{SK_EVENT_BASED_FROM.strftime('%Y-%m-%d')}부터는 스킴(기간) 대신 "
+                   f"**이벤트명 기준**으로 행이 자동 생성됩니다.")
         st.markdown("---")
 
         # 3. 제품코드별 성과 (블트하와 동일: CPM 포함)
