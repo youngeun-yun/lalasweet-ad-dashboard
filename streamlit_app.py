@@ -1135,7 +1135,7 @@ kpi = calc_kpi(fdf)
 # 탭
 # =============================================================
 render_update_buttons()
-tab1, tab7, tab11, tab14, tab10, tab2, tab8, tab12, tab6 = st.tabs(["📊 전체 요약", "🖤 블트하 요약", "🍫 초코퐁당 요약", "❄️ 스노우콘 요약", "🧇 웨하스 요약", "🍿 팝콘 요약", "⏰ 블트하 시간대별", "⏰ 초코퐁당 시간대별", "⏰ 팝콘 시간대별"])
+tab1, tab7, tab11, tab4, tab8, tab12, tab5 = st.tabs(["📊 전체 요약", "🖤 블트하 요약", "🍫 초코퐁당 요약", "🥐 단쉐 요약", "⏰ 블트하 시간대별", "⏰ 초코퐁당 시간대별", "⏰ 단쉐 시간대별"])
 # --- TAB 1: 전체 요약 ---
 with tab1:
     render_kpi(kpi)
@@ -1256,8 +1256,9 @@ with tab1:
     weekly_tbl = weekly_tbl.rename(columns={"week_start": "주차"})
     st.markdown("**📆 주차별 성과 (최근 4주)**")
     render_pinned_total_table(style_summary(weekly_tbl, "주차"))
-# --- TAB 2: 팝콘 요약 ---
-with tab2:
+# --- TAB 2: 팝콘 요약 (2026-10-26 숨김: st.tabs에서 제외, 데이터·코드 보존.
+#     복원 시 이 줄을 'with tab2:'로 되돌리고 st.tabs에 재추가) ---
+if False:  # 팝콘 요약 탭 숨김
     fdf_pc = fdf[
         fdf["제품코드"].astype(str).str.contains("PC", na=False)
         | fdf["캠페인명"].astype(str).str.contains("팝콘", na=False)
@@ -1387,24 +1388,37 @@ with tab2:
         st.markdown(f"**🗓 신규소재 집행일자별 성과 (집행시작일 {NEW_CREATIVE_START}~)**")
         render_new_creative_table(fdf_pc)
 
-# --- TAB 4: 단쉐 요약 (2026-07-24 숨김: st.tabs에서 제외, 데이터·코드 보존. 복원 시 이 줄을 'with tab4:'로 되돌리고 st.tabs에 재추가) ---
-if False:  # 단쉐 요약 탭 숨김
-    fdf_sk = fdf[fdf["캠페인명"].astype(str).str.contains("단백질|단쉐", na=False)].copy()
+# --- TAB 4: 단쉐 요약 (2026-10-26 복원 + 블트하 형식으로 재구성) ---
+with tab4:
+    # 필터: 제품코드 SK 포함 OR 캠페인명 단백질/단쉐
+    #  → 신규 제품코드 SK고 등이 캠페인명에 '단백질쉐이크'가 없어도 누락되지 않도록 제품코드 조건 추가
+    fdf_sk = fdf[
+        fdf["제품코드"].astype(str).str.contains("SK", na=False)
+        | fdf["캠페인명"].astype(str).str.contains("단백질|단쉐", na=False)
+    ].copy()
     if fdf_sk.empty:
-        st.warning("단쉐(캠페인명에 단백질/단쉐 포함) 데이터가 없어요. 사이드바 필터를 확인해주세요.")
+        st.warning("단쉐(제품코드 SK 또는 캠페인명 단백질/단쉐) 데이터가 없어요. 사이드바 필터를 확인해주세요.")
     else:
         render_kpi(calc_kpi(fdf_sk))
         st.markdown("---")
 
-        # 1. 일별 광고비 & CPA
+        # 1. 일별 광고비 & CPA (블트하와 동일: CPM 포함)
         st.markdown("**📊 일별 광고비 & CPA**")
-        daily_tree_table(fdf_sk)
+        daily_tree_table(fdf_sk, with_cpm=True)
+        st.markdown("---")
+
+        # 1-2. 매체별 성과 (블트하와 동일)
+        st.markdown("**📺 매체별 성과**")
+        cpm_summary_table(fdf_sk, "매체", "매체")
         st.markdown("---")
 
         # 2. 스킴별 성과 (사이드바 필터와 무관하게 전체 기간 기준)
         st.markdown("**📋 스킴별 성과**")
         st.caption("사이드바 필터와 무관하게 전체 기간 데이터 기준입니다.")
-        df_sk_all = df[df["캠페인명"].astype(str).str.contains("단백질|단쉐", na=False)].copy()
+        df_sk_all = df[
+            df["제품코드"].astype(str).str.contains("SK", na=False)
+            | df["캠페인명"].astype(str).str.contains("단백질|단쉐", na=False)
+        ].copy()
         sk_s1 = df_sk_all[(df_sk_all["날짜"] >= SK_SCHEME1_START) & (df_sk_all["날짜"] <= SK_SCHEME1_END)]
         sk_s2 = df_sk_all[(df_sk_all["날짜"] >= SK_SCHEME2_START) & (df_sk_all["날짜"] <= SK_SCHEME2_END)]
         sk_s3 = df_sk_all[(df_sk_all["날짜"] >= SK_SCHEME3_START) & (df_sk_all["날짜"] <= SK_SCHEME3_END)]
@@ -1424,16 +1438,12 @@ if False:  # 단쉐 요약 탭 숨김
         render_pinned_total_table(sk_period_df)
         st.markdown("---")
 
-        # 3. 제품코드별 성과
+        # 3. 제품코드별 성과 (블트하와 동일: CPM 포함)
         st.markdown("**📦 제품코드별 성과**")
-        prodcode_tbl = build_summary_table(fdf_sk, "제품코드")
-        _pc_total = prodcode_tbl[prodcode_tbl["제품코드"] == "총합계"]
-        _pc_data  = prodcode_tbl[prodcode_tbl["제품코드"] != "총합계"].sort_values("광고비", ascending=False)
-        prodcode_tbl = pd.concat([_pc_data, _pc_total], ignore_index=True)
-        render_pinned_total_table(style_summary(prodcode_tbl, "제품코드"))
+        cpm_summary_table(fdf_sk, "제품코드", "제품코드")
         st.markdown("---")
 
-        # 3. 프로모션별 성과 (이벤트명 기준)
+        # 4. 프로모션별 성과 (이벤트명 기준)
         st.markdown("**🎪 프로모션별 성과**")
         promo_tbl = build_summary_table(fdf_sk, "스킴명")
         promo_tbl = promo_tbl.rename(columns={"스킴명": "이벤트명"})
@@ -1444,14 +1454,14 @@ if False:  # 단쉐 요약 탭 숨김
 
         st.markdown("---")
 
-        # 4. 영상 포맷별 성과 (광고유형 V, 대분류 포맷 → 소분류 연출 → 소재명)
+        # 5. 영상 포맷별 성과 (광고유형 V, 대분류 포맷 → 소분류 연출 → 소재명, CPM 포함)
         st.markdown("**🎞 영상 포맷별 성과**")
         fdf_vf = fdf_sk[fdf_sk["영상/이미지 구분"].astype(str).str.strip().str.upper() == "V"].copy()
         fdf_vf = fdf_vf[fdf_vf["대분류 포맷"].astype(str).str.strip() != ""]
         if fdf_vf.empty:
             st.info("영상(V) 소재 데이터가 없습니다.")
         else:
-            _vf_cols = ["영상 포맷", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
+            _vf_cols = ["영상 포맷", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CPM", "CVR", "CPA"]
             _vf_groups = []
             for _vf_fmt, _vf_sub in fdf_vf.groupby("대분류 포맷"):
                 if not str(_vf_fmt).strip():
@@ -1461,66 +1471,41 @@ if False:  # 단쉐 요약 탭 숨김
                     _vf_label = str(_vf_dt).strip() or "(미분류)"
                     _vf_ads = [
                         (_an,
-                         perf_row(_an, _vf_ssub[_vf_ssub["소재명"] == _an], key_col="영상 포맷"),
+                         hr_perf_row(_an, _vf_ssub[_vf_ssub["소재명"] == _an], key_col="영상 포맷"),
                          _vf_ssub[_vf_ssub["소재명"] == _an]["광고비 (KRW)"].sum())
                         for _an in _vf_ssub["소재명"].unique()
                     ]
                     _vf_ads.sort(key=lambda x: x[2], reverse=True)
                     _vf_kids.append((
                         _vf_label,
-                        perf_row(_vf_label, _vf_ssub, key_col="영상 포맷"),
+                        hr_perf_row(_vf_label, _vf_ssub, key_col="영상 포맷"),
                         [(_a, _r) for _a, _r, _ in _vf_ads],
                         _vf_ssub["광고비 (KRW)"].sum(),
                     ))
                 _vf_kids.sort(key=lambda x: x[3], reverse=True)
                 _vf_groups.append((
                     str(_vf_fmt),
-                    perf_row(str(_vf_fmt), _vf_sub, key_col="영상 포맷"),
+                    hr_perf_row(str(_vf_fmt), _vf_sub, key_col="영상 포맷"),
                     [(_a, _r, _k) for _a, _r, _k, _ in _vf_kids],
                     _vf_sub["광고비 (KRW)"].sum(),
                 ))
             _vf_groups.sort(key=lambda x: x[3], reverse=True)
             render_tree_table3(
                 [(_g[0], _g[1], _g[2]) for _g in _vf_groups],
-                perf_row("총합계", fdf_vf, key_col="영상 포맷"),
+                hr_perf_row("총합계", fdf_vf, key_col="영상 포맷"),
                 _vf_cols,
             )
 
         st.markdown("---")
 
-        # 5. 신규 소재 성과 (집행시작일 260706 이후, 시작일 → 소재명 펼침)
-        st.markdown("**🗓 신규 소재 성과 (집행시작일 260706~)**")
-        NEW_START_DATE = "260706"
-        fdf_ns = fdf_sk.copy()
-        if "집행시작일" in fdf_ns.columns:
-            fdf_ns = fdf_ns[
-                fdf_ns["집행시작일"].astype(str).str.match(r"^\d{6}$") &
-                (fdf_ns["집행시작일"].astype(str) >= NEW_START_DATE)
-            ]
-        else:
-            fdf_ns = fdf_ns.iloc[0:0]
-        if fdf_ns.empty:
-            st.info(f"집행시작일 {NEW_START_DATE} 이후 소재 데이터가 없습니다.")
-        else:
-            _ns_cols = ["집행시작일", "광고비", "노출", "링크 클릭", "구매", "CTR", "CPC", "CVR", "CPA"]
-            _ns_groups = []
-            for _sd in sorted(fdf_ns["집행시작일"].astype(str).unique()):
-                _sd_sub = fdf_ns[fdf_ns["집행시작일"].astype(str) == _sd]
-                _ns_ads = [
-                    (_an,
-                     perf_row(_an, _sd_sub[_sd_sub["소재명"] == _an], key_col="집행시작일"),
-                     _sd_sub[_sd_sub["소재명"] == _an]["광고비 (KRW)"].sum())
-                    for _an in _sd_sub["소재명"].unique()
-                ]
-                _ns_ads.sort(key=lambda x: x[2], reverse=True)
-                _ns_groups.append((
-                    _sd,
-                    perf_row(_sd, _sd_sub, key_col="집행시작일"),
-                    [(_a, _r) for _a, _r, _ in _ns_ads],
-                ))
-            render_tree_table(_ns_groups,
-                              perf_row("총합계", fdf_ns, key_col="집행시작일"),
-                              _ns_cols)
+        # 6. 신규소재 집행일자별 성과 (블트하와 동일: 공용 함수 + CPM 포함)
+        st.markdown(f"**🗓 신규소재 집행일자별 성과 (집행시작일 {NEW_CREATIVE_START}~)**")
+        render_new_creative_table(fdf_sk)
+        st.markdown("---")
+
+        # 7. 소재별 성과 (블트하와 동일: 항상 최하단 고정 · 헤더 클릭 정렬)
+        st.markdown("**🎬 소재별 성과**")
+        cpm_summary_table(fdf_sk, "소재명", "소재")
 
 # =============================================================
 # 시간대별 탭 공통 렌더링
@@ -1615,16 +1600,17 @@ def render_hourly_tab(sheet_name: str, kp: str) -> None:
         _tr_rows.append(hr_perf_row("총합계", _de, key_col="시간"))
         render_pinned_total_table(pd.DataFrame(_tr_rows)[_tr_cols], compact=True)
 
-# --- TAB 5: 단쉐 시간대별 (2026-07-24 숨김: st.tabs에서 제외, 데이터·코드 보존. 복원 시 이 줄을 'with tab5:'로 되돌리고 st.tabs에 재추가) ---
-if False:  # 단쉐 시간대별 탭 숨김
+# --- TAB 5: 단쉐 시간대별 (2026-10-26 복원) ---
+with tab5:
     render_hourly_tab("단쉐_시간대별_원본", "sk")
 
 # --- TAB 12: 초코퐁당 시간대별 ---
 with tab12:
     render_hourly_tab("초코퐁당_시간대별_원본", "pn")
 
-# --- TAB 6: 팝콘 시간대별 ---
-with tab6:
+# --- TAB 6: 팝콘 시간대별 (2026-10-26 숨김: st.tabs에서 제외, 데이터·코드 보존.
+#     복원 시 이 줄을 'with tab6:'로 되돌리고 st.tabs에 재추가) ---
+if False:  # 팝콘 시간대별 탭 숨김
     render_hourly_tab("팝콘_시간대별_원본", "pc")
 
 # --- TAB 7: 블트하 요약 ---
@@ -1846,8 +1832,9 @@ with tab11:
         st.markdown(f"**🗓 신규소재 집행일자별 성과 (집행시작일 {NEW_CREATIVE_START}~)**")
         render_new_creative_table(fdf_pn)
 
-# --- TAB 14: 스노우콘 요약 (초코퐁당 탭과 동일 형식) ---
-with tab14:
+# --- TAB 14: 스노우콘 요약 (2026-10-26 숨김: st.tabs에서 제외, 데이터·코드 보존.
+#     복원 시 이 줄을 'with tab14:'로 되돌리고 st.tabs에 재추가) ---
+if False:  # 스노우콘 요약 탭 숨김
     fdf_sn = fdf[
         fdf["제품코드"].astype(str).str.contains("SN", na=False)
         | fdf["캠페인명"].astype(str).str.contains("스노우콘", na=False)
@@ -1921,8 +1908,9 @@ with tab14:
         st.markdown(f"**🗓 신규소재 집행일자별 성과 (집행시작일 {NEW_CREATIVE_START}~)**")
         render_new_creative_table(fdf_sn)
 
-# --- TAB 10: 웨하스 요약 (팝콘 탭과 동일 형식의 공통 표만) ---
-with tab10:
+# --- TAB 10: 웨하스 요약 (2026-10-26 숨김: st.tabs에서 제외, 데이터·코드 보존.
+#     복원 시 이 줄을 'with tab10:'로 되돌리고 st.tabs에 재추가) ---
+if False:  # 웨하스 요약 탭 숨김
     fdf_wf = fdf[
         fdf["제품코드"].astype(str).str.contains("WF|WB", na=False, regex=True)
         | fdf["캠페인명"].astype(str).str.contains("웨하스", na=False)
