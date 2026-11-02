@@ -72,6 +72,8 @@ jobs:
         env:
           BACKFILL_SINCE: "${{ steps.target.outputs.date }}"
           BACKFILL_UNTIL: "${{ steps.target.outputs.date }}"
+          SPREADSHEET_ID: "${{ secrets.SPREADSHEET_ID }}"
+          GCP_SERVICE_ACCOUNT_JSON: "${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}"
         run: python scripts/build_rd.py
 
       - name: Google Sheets 동기화

@@ -1,24 +1,60 @@
 # -*- coding: utf-8 -*-
 """
-메타 + 틱톡 raw CSV → 통합 RD 마스터 CSV
-- data/meta_raw_*.csv + data/tiktok_raw_*.csv 읽기
+메타 + 틱톡 raw CSV → 통합 RD 마스터
+
+⚠️ 2026-11-02 변경: 마스터 저장소를 레포 CSV → **구글시트(통합RD_원본)** 로 이전
+  - 레포에 data/ 를 커밋하지 않게 되면서 마스터 CSV가 사라짐
+  - 기존 코드는 CSV가 없으면 "빈 마스터"로 간주해 그날 수집분만 저장 → 시트 전체가 덮어써져 과거 데이터 유실
+  - 이제 **시트에서 기존 마스터를 읽어** 날짜별 교체 후 다시 시트에 쓴다
+  - 시트 읽기에 실패하면 **즉시 중단**(빈 마스터로 진행 금지 — 데이터 보호)
+
+- data/meta_raw_*.csv + data/tiktok_raw_*.csv 읽기 (수집 산출물, 커밋 안 함)
 - 소재명 파싱: 파일명 생성기 열 기준 (17컬럼)
 - 날짜별 교체 방식: 새로 수집된 날짜는 마스터에서 해당 날짜 행을 제거 후 최신본으로 교체
-  (실시간 수집한 당일 잠정치가 다음날 정기 수집 때 정확한 수치로 자동 갱신됨)
-- 백필 모드(BACKFILL_SINCE/UNTIL 환경변수 존재 시):
-    기존 마스터에서 해당 날짜 범위 행만 제거 후 새 데이터로 교체
-    (다른 날짜 데이터는 보존)
+- 백필 모드(BACKFILL_SINCE/UNTIL): 해당 날짜 범위 행만 제거 후 새 데이터로 교체
 """
-import os, glob, re
+import os, sys, glob, re, json
 import pandas as pd
+import gspread
+from google.oauth2.service_account import Credentials
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
-MASTER_PATH = os.path.join(DATA_DIR, "통합RD_마스터.csv")
+MASTER_PATH = os.path.join(DATA_DIR, "통합RD_마스터.csv")   # 로컬 산출물(백업용, 커밋 안 함)
+
+SPREADSHEET_ID = os.environ.get("SPREADSHEET_ID", "").strip()
+GCP_SA_JSON    = os.environ.get("GCP_SERVICE_ACCOUNT_JSON", "").strip()
+MASTER_SHEET   = "통합RD_원본"
 
 # 백필 모드 감지 (meta_api.py / tiktok_api.py 와 동일한 방식)
 BACKFILL_SINCE = os.environ.get("BACKFILL_SINCE", "").strip()
 BACKFILL_UNTIL = os.environ.get("BACKFILL_UNTIL", "").strip()
 IS_BACKFILL = bool(BACKFILL_SINCE and BACKFILL_UNTIL)
+
+
+def _sheet():
+    if not SPREADSHEET_ID or not GCP_SA_JSON:
+        sys.exit("!!! SPREADSHEET_ID / GCP_SERVICE_ACCOUNT_JSON 환경변수가 없습니다. 중단합니다.")
+    creds = Credentials.from_service_account_info(
+        json.loads(GCP_SA_JSON),
+        scopes=["https://www.googleapis.com/auth/spreadsheets"],
+    )
+    return gspread.authorize(creds).open_by_key(SPREADSHEET_ID)
+
+
+def load_master_from_sheet():
+    """시트에서 기존 마스터를 읽는다. 실패하면 즉시 중단(빈 마스터로 진행 금지)."""
+    try:
+        ws = _sheet().worksheet(MASTER_SHEET)
+        vals = ws.get_all_values()
+    except Exception as e:
+        sys.exit(f"!!! 마스터 시트 읽기 실패({e}) — 데이터 보호를 위해 중단합니다.")
+    if not vals or len(vals) < 2:
+        print(f"시트 '{MASTER_SHEET}' 가 비어 있음 -> 빈 마스터로 시작")
+        return pd.DataFrame(columns=RD_COLUMNS)
+    m = pd.DataFrame(vals[1:], columns=vals[0])
+    print(f"시트에서 기존 마스터 로드: {len(m)}행")
+    return m
+
 
 # 통합 RD 최종 컬럼 순서
 RD_COLUMNS = [
@@ -159,11 +195,8 @@ new_df = new_df.drop_duplicates(subset=["날짜", "매체", "광고그룹명", "
 if len(new_df) < before:
     print(f"raw CSV 내 중복 제거: {before - len(new_df)}행 제거")
 
-# 기존 마스터 로드
-if os.path.exists(MASTER_PATH):
-    master = pd.read_csv(MASTER_PATH, encoding="utf-8-sig", dtype=str)
-else:
-    master = pd.DataFrame(columns=RD_COLUMNS)
+# 기존 마스터 로드 — 구글시트가 원본 (레포 CSV 아님)
+master = load_master_from_sheet()
 
 # 백필 모드: 해당 날짜 범위 행 제거 (새 데이터에 없는 날짜도 범위 내면 비워짐)
 if IS_BACKFILL:
@@ -187,5 +220,19 @@ if not master.empty:
 
 result = pd.concat([master, new_df], ignore_index=True)
 result = result.sort_values("날짜", kind="stable").reset_index(drop=True)
+# 안전장치: 기존보다 행이 급감하면 중단 (사고 방지)
+_before = len(master) + len(new_df)
+if len(master) > 1000 and len(result) < len(master) * 0.5:
+    sys.exit(f"!!! 결과 행수({len(result)})가 기존 마스터({len(master)})의 절반 미만 — 비정상으로 판단해 중단합니다.")
+
+# 로컬 CSV로도 저장 (산출물/백업, 커밋되지 않음)
+os.makedirs(DATA_DIR, exist_ok=True)
 result.to_csv(MASTER_PATH, index=False, encoding="utf-8-sig")
-print(f"통합 RD 완료: +{len(new_df)}행 반영 -> 총 {len(result)}행 ({MASTER_PATH})")
+
+# 구글시트에 기록 (원본 저장소)
+ws = _sheet().worksheet(MASTER_SHEET)
+rows = [result.columns.tolist()] + result.astype(str).values.tolist()
+ws.resize(rows=len(rows) + 100, cols=len(result.columns))
+ws.clear()
+ws.update(rows, value_input_option="USER_ENTERED")
+print(f"통합 RD 완료: +{len(new_df)}행 반영 -> 총 {len(result)}행 (시트 '{MASTER_SHEET}')")
