@@ -1,0 +1,46 @@
+name: 라라스윗 단쉐 시간대별 수집
+
+on:
+  schedule:
+    - cron: '5 * * * *'   # 1시간에 1번 (매시 5분 — 정각은 전세계 예약이 몰려 지연이 심함)
+  workflow_dispatch:
+    inputs:
+      since:
+        description: '백필 시작일 (YYYY-MM-DD, 비우면 오늘)'
+        required: false
+        default: ''
+      until:
+        description: '백필 종료일 (YYYY-MM-DD, 비우면 오늘)'
+        required: false
+        default: ''
+
+concurrency:
+  group: lalasweet-hourly
+  cancel-in-progress: false
+
+jobs:
+  hourly:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Python 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 패키지 설치
+        run: pip install requests gspread google-auth
+
+      - name: 단쉐 시간대별 수집
+        env:
+          META_ACCESS_TOKEN: "${{ secrets.META_ACCESS_TOKEN }}"
+          META_AD_ACCOUNT_ID: "${{ secrets.META_AD_ACCOUNT_ID }}"
+          SPREADSHEET_ID: "${{ secrets.SPREADSHEET_ID }}"
+          GCP_SERVICE_ACCOUNT_JSON: "${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}"
+          SLACK_BOT_TOKEN: "${{ secrets.SLACK_BOT_TOKEN }}"
+          SLACK_USER_ID: "${{ secrets.SLACK_USER_ID }}"
+          HOURLY_SINCE: "${{ github.event.inputs.since }}"
+          HOURLY_UNTIL: "${{ github.event.inputs.until }}"
+        run: python scripts/meta_hourly.py

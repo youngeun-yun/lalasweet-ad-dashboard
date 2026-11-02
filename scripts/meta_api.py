@@ -1,0 +1,336 @@
+# -*- coding: utf-8 -*-
+"""
+Meta 광고 데이터 수집 (GitHub Actions 전용)
+- 매일 실행 (주말 포함, 주말 체크 없음)
+- 자격증명: 환경 변수 (GitHub Secrets)
+- 캠페인 제외: 파인트/스틱바/얼리썸머/패밀리세일/빙과
+- 소재명 제품코드 제외: BA망/CO바/P혼/ZB귤/ZB파
+- 소재명 정리: ' - 사본' 패턴 + 자산 파일명(_해시.mp4...) 자동 생성 문자열 제거
+  (유연한 광고/ASC 하위 광고 → 정상 소재명으로 정리 후 동일 키 합산)
+- 출력: data/meta_raw_{since}_{until}.csv
+- 상태 파일: data/meta_last_success.txt
+"""
+import os, sys, time, json, datetime, csv, re
+import requests
+
+ACCESS_TOKEN    = os.environ["META_ACCESS_TOKEN"]
+AD_ACCOUNT_ID   = os.environ["META_AD_ACCOUNT_ID"]
+SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN", "")
+SLACK_USER_ID   = os.environ.get("SLACK_USER_ID", "")
+
+API_VERSION = "v21.0"
+BASE        = f"https://graph.facebook.com/{API_VERSION}"
+DATA_DIR    = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+os.makedirs(DATA_DIR, exist_ok=True)
+
+LOG_PATH   = os.path.join(DATA_DIR, "meta_run.log")
+STATE_PATH = os.path.join(DATA_DIR, "meta_last_success.txt")
+
+def log(msg):
+    stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    line  = f"[{stamp}] {msg}"
+    print(line)
+    with open(LOG_PATH, "a", encoding="utf-8") as f:
+        f.write(line + "\n")
+
+def send_slack(text):
+    if not SLACK_BOT_TOKEN:
+        return
+    try:
+        r = requests.post(
+            "https://slack.com/api/chat.postMessage",
+            headers={"Authorization": f"Bearer {SLACK_BOT_TOKEN}"},
+            json={"channel": SLACK_USER_ID, "text": text},
+            timeout=30,
+        ).json()
+        if not r.get("ok"):
+            log(f"슬랙 전송 실패: {r}")
+    except Exception as e:
+        log(f"슬랙 전송 예외: {e}")
+
+def die(msg):
+    stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log(f"!!! 실패: {msg}")
+    send_slack(
+        f":x: *메타 데이터 수집 실패*\n"
+        f"• 시각: {stamp}\n"
+        f"• 사유: {msg}"
+    )
+    sys.exit(1)
+
+RETRY_DELAYS = [10, 30, 60, 120, 300, 300, 300]
+
+def api_call(method, url, **kw):
+    last = None
+    for attempt, delay in enumerate([0] + RETRY_DELAYS):
+        if delay:
+            log(f"   재시도 대기 {delay}s... (시도 {attempt}/{len(RETRY_DELAYS)})")
+            time.sleep(delay)
+        try:
+            resp = requests.request(method, url, timeout=180, **kw)
+            data = resp.json()
+        except Exception as e:
+            last = f"네트워크/파싱 오류: {e}"
+            log(f"   {last} -> 재시도")
+            continue
+        if "error" not in data:
+            return data
+        err  = data["error"]
+        last = err
+        code = err.get("code")
+        transient = bool(err.get("is_transient")) or code in (1, 2, 4, 17, 341, 613, 80000, 80003, 80004)
+        log(f"   API 오류(code {code}): {err.get('message')} -> {'재시도' if transient else '영구 오류, 중단'}")
+        if not transient:
+            die(f"영구 API 오류: {err}")
+    die(f"재시도 모두 소진: {last}")
+
+# 유연한 광고/ASC가 자산 파일명 기반으로 자동 생성한 하위 광고명 정리
+# 예: "정상소재명_ZYAjc9Gv.mp4_정상소재명..." → "정상소재명"
+_ASSET_SUFFIX_RE = re.compile(r"_[A-Za-z0-9]{4,16}\.(?:mp4|mov|gif|jpe?g|png).*$", re.IGNORECASE)
+
+def clean_ad_name(name: str) -> str:
+    """' - 사본' 패턴 및 자산 파일명 이후 자동 생성 문자열 제거"""
+    if not name:
+        return name
+    name = re.sub(r'\s*-\s*사본(\s+\d+)?$', '', name).strip()
+    name = _ASSET_SUFFIX_RE.sub("", name).strip()
+    return name
+
+# 백필 모드: 환경변수 BACKFILL_SINCE / BACKFILL_UNTIL 우선
+_backfill_since = os.environ.get("BACKFILL_SINCE", "").strip()
+_backfill_until = os.environ.get("BACKFILL_UNTIL", "").strip()
+IS_BACKFILL = bool(_backfill_since and _backfill_until)
+
+today = datetime.date.today()
+
+if IS_BACKFILL:
+    since = datetime.date.fromisoformat(_backfill_since)
+    until = datetime.date.fromisoformat(_backfill_until)
+    log(f"[백필 모드] 수집 범위: {since} ~ {until}")
+else:
+    until = today - datetime.timedelta(days=1)
+
+    last_success = None
+    if os.path.exists(STATE_PATH):
+        try:
+            with open(STATE_PATH, encoding="utf-8") as f:
+                last_success = datetime.date.fromisoformat(f.read().strip())
+        except Exception:
+            pass
+
+    since = (last_success + datetime.timedelta(days=1)) if last_success else until
+
+    if since > until:
+        log(f"받을 새 데이터 없음 (이미 {last_success}까지 수집 완료) -> 종료")
+        sys.exit(0)
+
+gap_days = (until - since).days + 1
+if gap_days > 60:
+    log(f"경고: 다운로드 범위가 {gap_days}일. 장기 미실행/연속 실패 가능성.")
+log(f"수집 범위: {since} ~ {until} ({gap_days}일)")
+
+fields = (
+    "campaign_name,adset_id,adset_name,ad_name,impressions,spend,"
+    "inline_link_clicks,video_thruplay_watched_actions,actions"
+)
+
+filtering = [
+    {"field": "impressions",   "operator": "GREATER_THAN", "value": 0},
+    # 캠페인명 기준 제외
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "파인트"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "스틱바"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "얼리썸머"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "패밀리세일"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "빙과"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "듬뿍바출시이벤트"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "딸기축제이벤트"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "망요바출시"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "모나카반값특가"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "미니생초코출시"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "쫀득바출시"},
+    {"field": "campaign.name", "operator": "NOT_CONTAIN",  "value": "초코페스티벌"},
+    # 소재명 제품코드 기준 제외
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "BA망"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "CO바"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "P혼"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "ZB귤"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "ZB파"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "스틱바"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "제로바"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "BA딸"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "BA옥"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "BA혼"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "JD망"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "MB바"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "M우"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "M팥"},
+    {"field": "ad.name", "operator": "NOT_CONTAIN",  "value": "혼합"},
+]
+
+params = {
+    "level":       "ad",
+    "fields":      fields,
+    "time_range":  json.dumps({"since": str(since), "until": str(until)}),
+    "time_increment": 1,
+    "filtering":   json.dumps(filtering),
+    "use_unified_attribution_setting": "true",
+    "access_token": ACCESS_TOKEN,
+}
+
+run = api_call("POST", f"{BASE}/{AD_ACCOUNT_ID}/insights", data=params)
+report_id = run.get("report_run_id")
+if not report_id:
+    die(f"report_run_id 없음: {run}")
+log(f"리포트 작업 생성: {report_id}")
+
+while True:
+    s  = api_call("GET", f"{BASE}/{report_id}", params={"access_token": ACCESS_TOKEN})
+    st = s.get("async_status")
+    log(f"  {s.get('async_percent_completion')}% / {st}")
+    if st == "Job Completed":
+        break
+    if st in ("Job Failed", "Job Skipped"):
+        die(f"리포트 작업 실패: {s}")
+    time.sleep(5)
+
+rows = []
+url  = f"{BASE}/{report_id}/insights"
+qp   = {"limit": 500, "access_token": ACCESS_TOKEN}
+page = 0
+while url:
+    resp  = api_call("GET", url, params=qp)
+    batch = resp.get("data", [])
+    rows.extend(batch)
+    page += 1
+    paging = resp.get("paging", {})
+    url = paging.get("next")
+    qp  = {}
+    log(f"  페이지 {page}: +{len(batch)}행 (누적 {len(rows)}행)")
+
+adset_ids = sorted({r.get("adset_id") for r in rows if r.get("adset_id")})
+opt_map   = {}
+for i in range(0, len(adset_ids), 50):
+    chunk = adset_ids[i:i+50]
+    data  = api_call(
+        "GET", f"{BASE}/",
+        params={"ids": ",".join(chunk), "fields": "optimization_goal", "access_token": ACCESS_TOKEN},
+    )
+    for aid, obj in data.items():
+        if isinstance(obj, dict):
+            opt_map[aid] = obj.get("optimization_goal", "")
+log(f"광고세트 목표 조회: {len(opt_map)}/{len(adset_ids)}개")
+
+def action_val(actions, atype):
+    for a in actions or []:
+        if a.get("action_type") == atype:
+            return a.get("value")
+    return 0
+
+PURCHASE_TYPES = [
+    "offsite_conversion.fb_pixel_purchase", "omni_purchase",
+    "purchase", "onsite_web_purchase",
+]
+def purchase_val(actions):
+    d = {a.get("action_type"): a.get("value") for a in actions or []}
+    for t in PURCHASE_TYPES:
+        if t in d:
+            return d[t]
+    return 0
+
+GOAL = {
+    "THRUPLAY":            ("video_thruplay",    "ThruPlay"),
+    "LINK_CLICKS":         ("link_click",        "링크 클릭"),
+    "VIDEO_VIEWS":         ("video_view",        "동영상 3초 이상 재생"),
+    "OFFSITE_CONVERSIONS": ("purchase",          "웹사이트 구매"),
+    "LANDING_PAGE_VIEWS":  ("landing_page_view", "랜딩 페이지 조회"),
+    "REACH":               (None,                "도달"),
+    "IMPRESSIONS":         (None,                "노출"),
+    "POST_ENGAGEMENT":     ("post_engagement",   "게시물 참여"),
+}
+
+out = []
+sbon_count = 0
+for r in rows:
+    goal = opt_map.get(r.get("adset_id"), "")
+    res_type_key, res_type_kr = GOAL.get(goal, (None, goal))
+    thruplay = action_val(r.get("video_thruplay_watched_actions"), "video_view")
+
+    if res_type_key == "video_thruplay":
+        result = thruplay
+    elif res_type_key == "purchase":
+        result = purchase_val(r.get("actions"))
+    elif res_type_key:
+        result = action_val(r.get("actions"), res_type_key)
+    else:
+        pv = purchase_val(r.get("actions"))
+        result = pv if (pv and float(pv) != 0) else ""
+        if pv and float(pv) != 0:
+            res_type_kr = "웹사이트 구매"
+
+    try:
+        if result in (None, "") or float(result) == 0:
+            res_type_kr, result = "", 0
+    except (TypeError, ValueError):
+        res_type_kr, result = "", 0
+
+    raw_name = r.get("ad_name", "") or ""
+    ad_name  = clean_ad_name(raw_name)
+    if ad_name != raw_name:
+        sbon_count += 1
+        log(f"  소재명 정리: '{raw_name}' -> '{ad_name}'")
+
+    out.append({
+        "date":          r.get("date_start"),
+        "campaign_name": r.get("campaign_name"),
+        "adset_name":    r.get("adset_name"),
+        "ad_name":       ad_name,
+        "impressions":   r.get("impressions", 0),
+        "clicks":        r.get("inline_link_clicks", 0),
+        "spend":         r.get("spend", 0),
+        "conversions":   result,
+    })
+
+if sbon_count > 0:
+    log(f"소재명 정리 완료 (사본/자산 파일명): {sbon_count}건")
+
+# C혼 소재 제외 (PC혼은 팝콘 코드이므로 유지)
+out = [r for r in out if not (
+    "C혼" in (r.get("ad_name") or "") and
+    "PC혼" not in (r.get("ad_name") or "")
+)]
+
+# 소재명 정리로 동일 키(날짜·캠페인·세트·소재)가 된 행 합산
+# (유연한 광고/ASC의 자산 조합 하위 행 병합 — 그냥 두면 중복 제거 단계에서 광고비 유실)
+_agg = {}
+for r0 in out:
+    _key = (r0["date"], r0["campaign_name"], r0["adset_name"], r0["ad_name"])
+    _v = _agg.setdefault(_key, {"impressions": 0, "clicks": 0, "spend": 0.0, "conversions": 0})
+    _v["impressions"] += int(float(r0.get("impressions") or 0))
+    _v["clicks"]      += int(float(r0.get("clicks") or 0))
+    _v["spend"]       += float(r0.get("spend") or 0)
+    try:
+        _v["conversions"] += int(float(r0.get("conversions") or 0))
+    except (TypeError, ValueError):
+        pass
+if len(out) > len(_agg):
+    log(f"자산 하위 광고 병합: {len(out) - len(_agg)}행 합산")
+out = [{"date": k[0], "campaign_name": k[1], "adset_name": k[2], "ad_name": k[3],
+        "impressions": v["impressions"], "clicks": v["clicks"],
+        "spend": round(v["spend"], 2), "conversions": v["conversions"]}
+       for k, v in _agg.items()]
+
+if len(out) == 0:
+    die("수집된 행이 0개 -> 파일 생성 안 함")
+
+out_path = os.path.join(DATA_DIR, f"meta_raw_{since}_{until}.csv")
+with open(out_path, "w", encoding="utf-8-sig", newline="") as f:
+    writer = csv.DictWriter(f, fieldnames=out[0].keys())
+    writer.writeheader()
+    writer.writerows(out)
+
+if not IS_BACKFILL:
+    with open(STATE_PATH, "w", encoding="utf-8") as f:
+        f.write(str(until))
+    log(f"마지막 성공 날짜 갱신: {until}")
+
+log(f"완료: {len(out)}행 -> {out_path}")

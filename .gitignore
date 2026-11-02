@@ -1,0 +1,7 @@
+# 데이터는 레포에 커밋하지 않는다 — 원본은 구글시트(통합RD_원본)
+data/*
+!data/.gitkeep
+
+__pycache__/
+*.pyc
+.streamlit/secrets.toml

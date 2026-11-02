@@ -1,0 +1,249 @@
+# -*- coding: utf-8 -*-
+"""
+TikTok 광고 데이터 수집 (GitHub Actions 전용)
+- 매일 실행 (주말 포함)
+- 자격증명: 환경 변수 (GitHub Secrets)
+- 캠페인 제외: 캠페인명에 '인지' 포함 시 제외
+- 지출(spend) = 0인 행 제외
+- 소재명 정리: 자산 파일명(_해시.mp4...) 자동 생성 문자열 제거 후 동일 키 합산
+- 출력: data/tiktok_raw_{since}_{until}.csv
+- 상태 파일: data/tiktok_last_success.txt
+"""
+import os, re, sys, time, json, datetime, csv
+import requests
+
+ACCESS_TOKEN    = os.environ["TIKTOK_ACCESS_TOKEN"]
+ADVERTISER_ID   = os.environ["TIKTOK_ADVERTISER_ID"]
+SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN", "")
+SLACK_USER_ID   = os.environ.get("SLACK_USER_ID", "")
+
+BASE     = "https://business-api.tiktok.com/open_api/v1.3"
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+os.makedirs(DATA_DIR, exist_ok=True)
+
+LOG_PATH   = os.path.join(DATA_DIR, "tiktok_run.log")
+STATE_PATH = os.path.join(DATA_DIR, "tiktok_last_success.txt")
+
+# ── 로그 ──────────────────────────────────────────────────────
+def log(msg):
+    stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    line  = f"[{stamp}] {msg}"
+    print(line)
+    with open(LOG_PATH, "a", encoding="utf-8") as f:
+        f.write(line + "\n")
+
+def send_slack(text):
+    if not SLACK_BOT_TOKEN:
+        return
+    try:
+        r = requests.post(
+            "https://slack.com/api/chat.postMessage",
+            headers={"Authorization": f"Bearer {SLACK_BOT_TOKEN}"},
+            json={"channel": SLACK_USER_ID, "text": text},
+            timeout=30,
+        ).json()
+        if not r.get("ok"):
+            log(f"슬랙 전송 실패: {r}")
+    except Exception as e:
+        log(f"슬랙 전송 예외: {e}")
+
+def die(msg):
+    stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log(f"!!! 실패: {msg}")
+    send_slack(
+        f":x: *틱톡 데이터 수집 실패*\n"
+        f"• 시각: {stamp}\n"
+        f"• 사유: {msg}"
+    )
+    sys.exit(1)
+
+# ── TikTok API GET (재시도) ────────────────────────────────────
+def tt_get(endpoint, params):
+    url = f"{BASE}{endpoint}"
+    for attempt in range(8):
+        try:
+            resp = requests.get(
+                url,
+                headers={"Access-Token": ACCESS_TOKEN},
+                params=params,
+                timeout=60,
+            )
+            data = resp.json()
+        except Exception as e:
+            log(f"   네트워크 오류: {e} -> 재시도")
+            time.sleep(min(10 * (2 ** attempt), 300))
+            continue
+        code = data.get("code", 0)
+        if code == 0:
+            return data
+        # 토큰 만료/권한 오류 → 즉시 중단
+        if code in (40100, 40101, 40102, 40105):
+            die(
+                f"TikTok 인증 오류 (토큰 재발급 필요)\n"
+                f"code={code}: {data.get('message')}\n"
+                f"토큰 재발급: https://ads.tiktok.com/marketing_api/apps/"
+            )
+        log(f"   TikTok API 오류 code={code}: {data.get('message')} -> 재시도")
+        time.sleep(min(10 * (2 ** attempt), 300))
+    die("TikTok API 재시도 모두 소진")
+
+# ── 소재명 정리 ────────────────────────────────────────────────
+# 자산 파일명 기반 자동 생성 이름 정리
+# 예: "정상소재명_ZYAjc9Gv.mp4_정상소재명..." → "정상소재명"
+_ASSET_SUFFIX_RE = re.compile(r"_[A-Za-z0-9]{4,16}\.(?:mp4|mov|gif|jpe?g|png).*$", re.IGNORECASE)
+
+def clean_ad_name(name):
+    if not name:
+        return name
+    name = re.sub(r"\s*-\s*사본(\s+\d+)?$", "", str(name)).strip()
+    name = _ASSET_SUFFIX_RE.sub("", name).strip()
+    # TikTok이 소재 편집/내보내기 시 진짜 파일명 앞에 붙이는 자동 라벨 제거
+    # 예: "AI Generated Video-5_[26.07]F_V_BT깡_..." → "[26.07]F_V_BT깡_..."
+    #     "Lala Sweet Protein Shake-Music_Refresh-1-8_LOqedx_3_[26.07]F_..." → "[26.07]F_..."
+    # '[YY.MM]' 제작월 대괄호부터가 실제 파일명이므로 그 앞을 잘라낸다.
+    # (접두사가 다른 편집 변형본들은 정리 후 동일 소재명이 되어 아래 '동일 키 합산'에서 합쳐짐)
+    m = re.search(r"\[\d{2}\.\d{2}\]", name)
+    if m and m.start() > 0:
+        name = name[m.start():].strip()
+    return name
+
+# ── 날짜 범위 ──────────────────────────────────────────────────
+today = datetime.date.today()
+
+# 백필 모드: 환경변수 BACKFILL_SINCE / BACKFILL_UNTIL 우선
+_backfill_since = os.environ.get("BACKFILL_SINCE", "").strip()
+_backfill_until = os.environ.get("BACKFILL_UNTIL", "").strip()
+IS_BACKFILL = bool(_backfill_since and _backfill_until)
+
+if IS_BACKFILL:
+    since = datetime.date.fromisoformat(_backfill_since)
+    until = datetime.date.fromisoformat(_backfill_until)
+    log(f"[백필 모드] 수집 범위: {since} ~ {until}")
+else:
+    until = today - datetime.timedelta(days=1)
+
+    last_success = None
+    if os.path.exists(STATE_PATH):
+        try:
+            with open(STATE_PATH, encoding="utf-8") as f:
+                last_success = datetime.date.fromisoformat(f.read().strip())
+        except Exception:
+            pass
+
+    since = (last_success + datetime.timedelta(days=1)) if last_success else until
+
+    if since > until:
+        log(f"받을 새 데이터 없음 (이미 {last_success}까지 수집 완료) -> 종료")
+        sys.exit(0)
+
+gap_days = (until - since).days + 1
+if gap_days > 60:
+    log(f"경고: 수집 범위 {gap_days}일. 장기 누락 가능성.")
+log(f"수집 범위: {since} ~ {until} ({gap_days}일)")
+
+# ── 날짜별 수집 ────────────────────────────────────────────────
+# TikTok API 최대 조회 범위: 30일. 안전하게 날짜 단위로 순회.
+all_rows = []
+current  = since
+
+while current <= until:
+    date_str   = str(current)
+    daily_rows = []
+    page       = 1
+
+    while True:
+        params = {
+            "advertiser_id": ADVERTISER_ID,
+            "report_type":   "BASIC",
+            "dimensions":    json.dumps(["ad_id", "stat_time_day"]),
+            "metrics":       json.dumps([
+                "campaign_name", "adgroup_name", "ad_name",
+                "spend", "impressions", "clicks", "conversion",
+            ]),
+            "data_level": "AUCTION_AD",
+            "start_date": date_str,
+            "end_date":   date_str,
+            "page":       page,
+            "page_size":  100,
+        }
+        result = tt_get("/report/integrated/get/", params)
+        data   = result.get("data", {})
+        batch  = data.get("list", [])
+        daily_rows.extend(batch)
+        total  = data.get("page_info", {}).get("total_number", 0)
+        if not batch or len(daily_rows) >= total:
+            break
+        page += 1
+
+    # 캠페인명 제외 키워드 필터
+    _EXCLUDE_KW = [
+        "인지", "파인트", "스틱바", "얼리썸머", "패밀리세일", "빙과",
+        "제로바", "듬뿍바", "멜론바", "모나카", "미니생초코",
+        "복요파", "블요바", "젤라또", "쫀득바", "요거트바", "초코페스티벌",
+        "듬뿍바출시이벤트", "딸기축제이벤트", "망요바출시",
+        "모나카반값특가", "미니생초코출시", "쫀득바출시",
+    ]
+    _EXCLUDE_CODES = [
+        "BA망", "CO바", "P혼", "ZB귤", "ZB파", "스틱바", "제로바",
+        "BA딸", "BA옥", "BA혼", "JD망", "MB바", "M우", "M팥", "혼합",
+    ]
+    filtered = [
+        r for r in daily_rows
+        if not any(kw in r.get("metrics", {}).get("campaign_name", "") for kw in _EXCLUDE_KW)
+                and not any(code in r.get("metrics", {}).get("ad_name", "") for code in _EXCLUDE_CODES)
+                and not (
+                    "C혼" in r.get("metrics", {}).get("ad_name", "")
+                    and "PC혼" not in r.get("metrics", {}).get("ad_name", "")
+                )
+    ]
+    log(f"  {date_str}: 전체 {len(daily_rows)}행 -> 제외 후 {len(filtered)}행")
+    all_rows.extend(filtered)
+    current += datetime.timedelta(days=1)
+
+# ── spend = 0 제외 + 소재명 정리 후 동일 키 합산 ───────────────
+_agg = {}
+_raw_n = 0
+for r in all_rows:
+    m     = r.get("metrics", {})
+    d     = r.get("dimensions", {})
+    spend = float(m.get("spend", 0) or 0)
+    if spend == 0:
+        continue
+    _raw_n += 1
+    _key = (d.get("stat_time_day", "")[:10],
+            m.get("campaign_name", ""),
+            m.get("adgroup_name", ""),
+            clean_ad_name(m.get("ad_name", "")))
+    _v = _agg.setdefault(_key, {"impressions": 0, "clicks": 0, "spend": 0.0, "conversions": 0})
+    _v["impressions"] += int(float(m.get("impressions", 0) or 0))
+    _v["clicks"]      += int(float(m.get("clicks", 0) or 0))
+    _v["spend"]       += spend
+    _v["conversions"] += int(float(m.get("conversion", 0) or 0))
+
+out = [{"date": k[0], "campaign_name": k[1], "adset_name": k[2], "ad_name": k[3],
+        "impressions": v["impressions"], "clicks": v["clicks"],
+        "spend": round(v["spend"], 2), "conversions": v["conversions"]}
+       for k, v in _agg.items()]
+
+if _raw_n > len(out):
+    log(f"자산 하위 광고 병합: {_raw_n - len(out)}행 합산")
+log(f"spend > 0 행: {len(out)}개")
+
+out_path = os.path.join(DATA_DIR, f"tiktok_raw_{since}_{until}.csv")
+with open(out_path, "w", encoding="utf-8-sig", newline="") as f:
+    if out:
+        writer = csv.DictWriter(f, fieldnames=out[0].keys())
+        writer.writeheader()
+        writer.writerows(out)
+    else:
+        # 지출이 없는 날에도 파일 생성 (빈 헤더)
+        f.write("date,campaign_name,adset_name,ad_name,impressions,clicks,spend,conversions\n")
+
+if not IS_BACKFILL:
+    with open(STATE_PATH, "w", encoding="utf-8") as f:
+        f.write(str(until))
+    log(f"마지막 성공 날짜 갱신: {until}")
+else:
+    log("[백필 모드] state 파일 갱신 생략")
+
+log(f"완료: {len(out)}행 -> {out_path}")
