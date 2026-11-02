@@ -76,12 +76,10 @@ jobs:
           GCP_SERVICE_ACCOUNT_JSON: "${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}"
         run: python scripts/build_rd.py
 
-      - name: Google Sheets 동기화
-        env:
-          SPREADSHEET_ID: "${{ secrets.SPREADSHEET_ID }}"
-          GCP_SERVICE_ACCOUNT_JSON: "${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}"
-        run: python scripts/sync_to_sheets.py
-
+      # Google Sheets 동기화 단계 제거 (2026-11-02)
+      #   build_rd.py 가 이미 시트(통합RD_원본)에 직접 기록하므로 중복.
+      #   10만 행을 두 번 쓰면서 3분 소요 + 구글 API 500 에러로 실패하는 원인이었음.
+      #   scripts/sync_to_sheets.py 는 하위호환용으로 파일만 보존.
       - name: 카페24 팝콘 데이터 수집
         continue-on-error: true
         env:
