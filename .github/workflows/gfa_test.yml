@@ -1,0 +1,37 @@
+name: GFA 수집 테스트 (네이버 세션 검증)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  gfa-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Playwright
+        run: |
+          python -m pip install --upgrade pip
+          pip install playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Run GFA cloud test
+        env:
+          NAVER_STATE_JSON: ${{ secrets.NAVER_STATE_JSON }}
+          AD_ACCOUNT_ID: '12357'
+        run: python gfa_cloud_test.py
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gfa-test-screenshots
+          path: screenshots/
+          if-no-files-found: ignore
